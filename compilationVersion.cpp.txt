@@ -1,0 +1,20 @@
+cl /LD /EHsc /std:c++17 version.cpp mod_common.cpp tech_state.cpp scenario.cpp tech_runtime.cpp tech_brain.cpp hooks_research.cpp ap_ressources.cpp ap_data.cpp scooting.cpp hooks_loc.cpp resources.cpp D:\Visual\Frost\DLL\minhook\src\*.c D:\Visual\Frost\DLL\minhook\src\hde\*.c /I D:\Visual\Frost\DLL\minhook\include user32.lib
+
+Récupérer texture
+
+Add-Type -AssemblyName System.Drawing
+
+$d = [IO.File]::ReadAllBytes("$env:TEMP\texture.dds")   # blob decompresse
+$w = [BitConverter]::ToUInt32($d, 0)
+$h = [BitConverter]::ToUInt32($d, 4)
+"dimensions : $w x $h"
+
+$bmp = [Drawing.Bitmap]::new($w, $h, [Drawing.Imaging.PixelFormat]::Format32bppArgb)
+$rect = [Drawing.Rectangle]::new(0, 0, $w, $h)
+$data = $bmp.LockBits($rect, [Drawing.Imaging.ImageLockMode]::WriteOnly,
+                      [Drawing.Imaging.PixelFormat]::Format32bppArgb)
+[Runtime.InteropServices.Marshal]::Copy($d, 144, $data.Scan0, $w * $h * 4)
+$bmp.UnlockBits($data)
+$bmp.Save("$env:TEMP\texture.png", [Drawing.Imaging.ImageFormat]::Png)
+$bmp.Dispose()
+"ecrit : $env:TEMP\texture.png"
