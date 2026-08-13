@@ -61,12 +61,19 @@ bool ApPorteurInit()
     if (!g_apPorteurActif) return false;
     if (g_pret) return true;
 
-    uintptr_t src = DefinitionSource();
-    if (!src) { printf("[APRES] definition source introuvable\n"); return false; }
-
-    if (!SafeRead((void*)src, g_def, AP_DEF_TAILLE)) {
-        printf("[APRES] copie impossible\n"); return false;
+    if (!EconomieValide()) {
+        static DWORD dernier = 0;
+        if (GetTickCount() - dernier > 10000) {
+            dernier = GetTickCount();
+            printf("[APRES] economie pas encore prete\n");
+        }
+        return false;
     }
+
+    uintptr_t src = DefinitionSource();
+    if (!src) return false;
+
+    if (!SafeRead((void*)src, g_def, AP_DEF_TAILLE)) return false;
 
     uintptr_t pnom = (uintptr_t)AP_NOM;
     memcpy(g_def + 0x00, &pnom, 8);
@@ -80,11 +87,10 @@ bool ApPorteurInit()
     memcpy(g_def + 0x98 + 8, cr, 8);
 
     g_pret = true;
-    printf("[APRES] definition fabriquee a 0x%llX (%zu octets, clonee de 0x%llX)\n",
-        (unsigned long long)(uintptr_t)g_def, AP_DEF_TAILLE, (unsigned long long)src);
+    printf("[APRES] definition fabriquee a 0x%llX\n",
+        (unsigned long long)(uintptr_t)g_def);
     return true;
 }
-
 uintptr_t ApPorteurDef()
 {
     return g_pret ? (uintptr_t)g_def : 0;
@@ -104,30 +110,37 @@ const char* ApPorteurNomInterne() { return AP_NOM; }
 bool ApPorteurEnregistrer()
 {
     if (!g_apPorteurActif) return false;
-    static bool fait = false;
-    if (fait) return true;
 
     uintptr_t def = ApPorteurDef();
-    if (!def) { printf("[CONT] definition non fabriquee\n"); return false; }
+    if (!def) return false;
     if (!EnsureResSelf()) return false;
 
     uintptr_t arr = 0; uint32_t cnt = 0, cap = 0;
     if (!SafeRead((void*)(g_selfRessource + 0x2240), &arr, 8)) return false;
     if (!SafeRead((void*)(g_selfRessource + 0x2248), &cnt, 4)) return false;
     if (!SafeRead((void*)(g_selfRessource + 0x224C), &cap, 4)) return false;
-    if (arr <= 0x10000 || cnt == 0 || cnt > 64) { printf("[CONT] conteneur illisible\n"); return false; }
 
-    // Deja enregistree ? (rechargement sans quitter le jeu)
+    // Conteneur plausible : les valeurs transitoires d'un chargement sont
+    // ecartees ici. On exige les 11 ressources vanilla au minimum.
+    if (arr <= 0x10000) return false;
+    if (cnt < 11 || cnt > 32) return false;
+    if (cap < cnt || cap > 32) return false;
+
+    // Toutes les entrees doivent pointer vers une definition nommee lisible :
+    // c'est le signe que le conteneur est reellement construit.
     for (uint32_t i = 0; i < cnt; ++i) {
         uintptr_t d = 0;
-        SafeRead((void*)(arr + (uintptr_t)i * 0x70), &d, 8);
-        if (d == def) { printf("[CONT] deja enregistree en position %u\n", i); fait = true; return true; }
+        if (!SafeRead((void*)(arr + (uintptr_t)i * 0x70), &d, 8)) return false;
+        if (d == def) return true;              // deja enregistree, rien a faire
+        if (d <= 0x10000) return false;
+        uintptr_t np = 0; char n[8] = { 0 };
+        if (!SafeRead((void*)d, &np, 8) || np <= 0x10000) return false;
+        if (!SafeRead((void*)np, n, 7)) return false;
+        if (n[0] < 0x20 || n[0] > 0x7E) return false;
     }
 
     if (cnt >= cap) { printf("[CONT] plus de place (%u/%u)\n", cnt, cap); return false; }
 
-    // On clone l'entree 0 pour heriter de tous les champs inconnus,
-    // puis on remplace la definition et on remet le stock a zero.
     uint8_t modele[0x70];
     if (!SafeRead((void*)arr, modele, sizeof(modele))) return false;
 
@@ -136,13 +149,33 @@ bool ApPorteurEnregistrer()
     if (!SafeWrite((void*)e, &def, 8)) return false;
 
     uint64_t zero = 0;
-    SafeWrite((void*)(e + 0x08), &zero, 8);      // stock
-    SafeWrite((void*)(e + 0x30), &zero, 8);      // cumul / historique
+    SafeWrite((void*)(e + 0x08), &zero, 8);
+    SafeWrite((void*)(e + 0x30), &zero, 8);
 
     uint32_t neuf = cnt + 1;
     if (!SafeWrite((void*)(g_selfRessource + 0x2248), &neuf, 4)) return false;
 
-    fait = true;
     printf("[CONT] definition enregistree en position %u (%u/%u)\n", cnt, neuf, cap);
+    return true;
+}
+
+static bool EconomieValide()
+{
+    if (!EnsureResSelf()) return false;
+
+    uintptr_t arr = 0; uint32_t cnt = 0, cap = 0;
+    if (!SafeRead((void*)(g_selfRessource + 0x2240), &arr, 8)) return false;
+    if (!SafeRead((void*)(g_selfRessource + 0x2248), &cnt, 4)) return false;
+    if (!SafeRead((void*)(g_selfRessource + 0x224C), &cap, 4)) return false;
+    if (arr <= 0x10000 || cnt < 8 || cnt > 64 || cap < cnt || cap > 64) return false;
+
+    // Les trois premieres entrees doivent porter un nom lisible.
+    for (int i = 0; i < 3; ++i) {
+        uintptr_t d = 0, np = 0; char n[32] = { 0 };
+        if (!SafeRead((void*)(arr + (uintptr_t)i * 0x70), &d, 8) || d <= 0x10000) return false;
+        if (!SafeRead((void*)d, &np, 8) || np <= 0x10000) return false;
+        if (!SafeRead((void*)np, n, sizeof(n) - 1)) return false;
+        if (n[0] < 0x20 || n[0] > 0x7E || !n[1]) return false;
+    }
     return true;
 }

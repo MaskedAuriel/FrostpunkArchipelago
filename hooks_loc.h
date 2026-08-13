@@ -22,3 +22,5 @@ void ResetSeenKeys();
 void BaselineKeys(int ms);
 static bool SeenAdd(const char* k);
 extern volatile bool g_apTexteActif;
+void DumpClesDilemme(const char* k, uintptr_t ret);
+wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot);

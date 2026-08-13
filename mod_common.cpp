@@ -1194,9 +1194,9 @@ static LONG NTAPI hkNtReadFile(HANDLE h, HANDLE ev, void* apc, void* apcCtx,
                 unsigned long long a = g_subs[i].off;
                 unsigned long long b = a + g_subs[i].len;
                 if (pos >= a - 65536 && pos < b + 65536) {
-                    printf("[SUB?] lecture pos=0x%llX len=%u  blob=[0x%llX,0x%llX)  %s\n",
+                    /*printf("[SUB?] lecture pos=0x%llX len=%u  blob=[0x%llX,0x%llX)  %s\n",
                         pos, len, a, b,
-                        (pos >= a && pos < b) ? "DANS LA PLAGE" : "hors plage");
+                        (pos >= a && pos < b) ? "DANS LA PLAGE" : "hors plage");*/
                 }
             }
             t_dansHook = false;

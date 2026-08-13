@@ -78,7 +78,7 @@ DWORD WINAPI PayloadThread(LPVOID)
 	AllocConsole();
 	FILE* f = nullptr;
 	freopen_s(&f, "CONOUT$", "w", stdout);
-
+	setvbuf(stdout, NULL, _IONBF, 0);
 	g_consolePrete = true;
 
 	uintptr_t modBase = reinterpret_cast<uintptr_t>(GetModuleHandleW(NULL));
@@ -146,6 +146,11 @@ DWORD WINAPI PayloadThread(LPVOID)
 			EnsureTechSelf();
 			EnsureResSelf();
 			CaptureRunState();
+
+			CaptureRunState();
+
+			// Seulement quand une partie est en place : jamais pendant un chargement.		
+				
 			ScootingTick();
 
 			/*static bool dejaSignale = false;

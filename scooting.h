@@ -42,5 +42,6 @@ uint32_t CargaisonTotale(uintptr_t comp);
 void ScootingProbeConteneur();
 void ResoudreSelectionSystem();
 void MettreAJourListePortee();
+void ScootingEtatApresInit();
 
 extern volatile bool g_apDonneesActif;

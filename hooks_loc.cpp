@@ -57,6 +57,7 @@ static bool KeyEq(const char* a, const char* b)
     for (int i = 0; ; ++i) { if (a[i] != b[i]) return false; if (a[i] == 0) return true; }
 }
 
+
 // Renvoie true si la cle a ete remplacee (et le pointeur redirige).
 static bool ApplyOverride(const char* k, uintptr_t ret)
 {
@@ -146,15 +147,16 @@ static uint8_t  g_apLoc[0x100];
 static bool     g_apLocPret = false;
 static wchar_t  g_apTexte[4096];
 
+uintptr_t g_modeleChars = 0;      // chaine de reference, pour l'en-tete
+
 static void ApLocCapturerModele(uintptr_t ret)
 {
     if (g_apLocPret || ret <= 0x10000) return;
     uintptr_t chars = 0;
-    if (!SafeRead((void*)ret, &chars, 8) || chars <= 0x10000) return;  // traduction vide
+    if (!SafeRead((void*)ret, &chars, 8) || chars <= 0x10000) return;
     if (!SafeRead((void*)ret, g_apLoc, sizeof(g_apLoc))) return;
+    g_modeleChars = chars;
     g_apLocPret = true;
-    printf("[APTXT] modele d'objet de traduction capture depuis 0x%llX\n",
-        (unsigned long long)ret);
 }
 
 // Prepare notre objet avec le texte voulu, et renvoie son adresse (0 si pas pret).
@@ -268,53 +270,42 @@ static bool TexteExpedition(const char* k, uintptr_t ret)
     if (!StrEqLoc(k, "Expeditions/EffectBaseResources")) return false;
     if (g_locationAffichee < 0) return false;
 
-    static wchar_t buf[64];
-    static bool pret = false;
-    if (!pret) {
-        const char* s = "Check Archipelago";
-        int i = 0;
-        for (; s[i] && i < 63; ++i) buf[i] = (wchar_t)(unsigned char)s[i];
-        buf[i] = 0;
-        pret = true;
-    }
-    uintptr_t p = (uintptr_t)buf;
+    const ApCheck* ac = ApCheckById(g_locationAffichee);
+    if (!ac) return false;
+
+    // Sans le marqueur {baseResources}, le formateur n'a plus d'emplacement
+    // ou inserer l'enumeration : le logo et la quantite disparaissent.
+    wchar_t tmp[256];
+    int n = 0;
+    for (int i = 0; ac->description[i] && n < 255; ++i)
+        tmp[n++] = (wchar_t)(unsigned char)ac->description[i];
+    tmp[n] = 0;
+
+    uintptr_t chars = 0;
+    if (!SafeRead((void*)ret, &chars, 8) || chars <= 0x10000) return false;
+
+    wchar_t* nouvelle = ApChaine(tmp, chars,0);
+    if (!nouvelle) return false;
+
+    uintptr_t p = (uintptr_t)nouvelle;
     return SafeWrite((void*)ret, &p, 8);
 }
-// Nom affiche de la ressource porteuse fabriquee par le mod.
-// Nom affiche de la ressource porteuse : le destinataire du check.
-// La cle peut arriver avec ou sans le prefixe @ selon le chemin d'appel.
-static bool TexteResourcePorteur(const char* k, uintptr_t ret)
-{
-    const char* p = (k[0] == '@') ? k + 1 : k;
-    if (!StrEqLoc(p, "Resources/Names/AP_Item")) return false;
 
-    static int n = 0;
-    if (n < 20) {
-        n++;
-        uintptr_t chars = 0;
-        bool lu = SafeRead((void*)ret, &chars, 8);
-        printf("[APTXT] #%d ret=0x%llX lu=%d chars=0x%llX",
-            n, (unsigned long long)ret, (int)lu, (unsigned long long)chars);
-        if (chars > 0x10000) {
-            wchar_t w[64] = {};
-            if (SafeRead((void*)chars, w, sizeof(w) - 2)) {
-                char a[64] = {};
-                int j = 0;
-                for (; w[j] && j < 63; ++j) a[j] = (w[j] < 128) ? (char)w[j] : '?';
-                a[j] = 0;
-                printf("  texte=\"%s\"", a);
-            }
-        }
-        printf("\n");
-    }
 
-    return false;          // on laisse passer, aucune modification
-}
+// --- BISSECTION : remettre a true un bloc a la fois ---
+static const bool BLOC_LOGKEY = true;
+static const bool BLOC_MODELE = true;
+static const bool BLOC_APITEM = true;
+static const bool BLOC_OVERRIDE = true;
+static const bool BLOC_SITE = true;
+static const bool BLOC_TECHNO = true;
+volatile bool g_dumpDilemmes = true;
 
 static uintptr_t hkTranslate(uintptr_t loc, const char* key,
     uintptr_t p3, uintptr_t p4)
 {
-    LogKey(key);
+    if (BLOC_LOGKEY) LogKey(key);
+
     uintptr_t ret = oTranslate(loc, key, p3, p4);
     if (!key) return ret;
 
@@ -323,16 +314,22 @@ static uintptr_t hkTranslate(uintptr_t loc, const char* key,
 
     const char* kp = (k[0] == '@') ? k + 1 : k;
 
-    // --- Notre item : on renvoie NOTRE objet, jamais celui du jeu ----------
-    if (g_apTexteActif && StrEqLoc(kp, "Resources/Names/AP_Item")) {
+    if (BLOC_APITEM && StrEqLoc(kp, "Resources/Names/AP_Item")) {
+        if (!g_apLocPret || !g_modeleChars) return ret;
+
         static wchar_t liste[512];
+        int nItems = ScootingListePortee(liste, 512);
+
         const wchar_t* t = nullptr;
 
-        // Contexte "panneau de site" : la cle du gabarit vient de passer.
-        bool contexteSite = (GetTickCount() - g_instantSite) < 50;
+        // Une expedition selectionnee porte des items -> c'est son inventaire.
+        if (nItems > 0) t = liste;
 
-        if (!contexteSite && ScootingListePortee(liste, 512) > 0)
-            t = liste;                       // inventaire d'un scout selectionne
+        // Sinon, un site est affiche -> on montre ce que contient la location.
+        if (!t && g_locationAffichee >= 0) {
+            const wchar_t* d = ApDescriptionW(g_locationAffichee);
+            if (d && d[0]) t = d;
+        }
 
         if (!t) {
             static wchar_t fixe[64];
@@ -347,34 +344,40 @@ static uintptr_t hkTranslate(uintptr_t loc, const char* key,
             t = fixe;
         }
 
-        uintptr_t mien = ApLocAvecTexte(t);
-        if (mien) return mien;
-        return ret;
+        wchar_t* chaine = ApChaine(t, g_modeleChars, 1);
+        if (!chaine) return ret;
+
+        uintptr_t p = (uintptr_t)chaine;
+        memcpy(g_apLoc, &p, 8);
+        return (uintptr_t)g_apLoc;
     }
 
-    ApLocCapturerModele(ret);
+    if (BLOC_MODELE) ApLocCapturerModele(ret);
+    if (g_dumpDilemmes) DumpClesDilemme(k, ret);
     if (ret <= 0x10000) return ret;
 
-    if (ApplyOverride(k, ret)) return ret;
-    if (TexteExpedition(k, ret)) return ret;
+    if (BLOC_OVERRIDE && ApplyOverride(k, ret)) return ret;
+    if (BLOC_SITE && TexteExpedition(k, ret)) return ret;
 
-    uint64_t th = 0; int slot = -1;
-    if (LookupLocKey(k, &th, &slot)) {
-        uintptr_t origChars = 0;
-        if (!SafeRead((void*)ret, &origChars, 8) || origChars <= 0x10000) return ret;
+    if (BLOC_TECHNO) {
+        uint64_t th = 0; int slot = -1;
+        if (LookupLocKey(k, &th, &slot)) {
+            uintptr_t origChars = 0;
+            if (!SafeRead((void*)ret, &origChars, 8) || origChars <= 0x10000) return ret;
 
-        if (slot == 0) {
-            TechRuntime* r = RT_Get(th);
-            if (r && r->researched) {
-                wchar_t* nn = GetResearchedName(k, origChars);
-                if (nn) { uintptr_t p = (uintptr_t)nn; SafeWrite((void*)ret, &p, 8); }
+            if (slot == 0) {
+                TechRuntime* r = RT_Get(th);
+                if (r && r->researched) {
+                    wchar_t* nn = GetResearchedName(k, origChars);
+                    if (nn) { uintptr_t p = (uintptr_t)nn; SafeWrite((void*)ret, &p, 8); }
+                }
             }
+            else if (g_showApInfo) {
+                wchar_t* nb = ApDescBuffer(k, th);
+                if (nb) { uintptr_t p = (uintptr_t)nb; SafeWrite((void*)ret, &p, 8); }
+            }
+            return ret;
         }
-        else if (g_showApInfo) {
-            wchar_t* nb = ApDescBuffer(k, th);
-            if (nb) { uintptr_t p = (uintptr_t)nb; SafeWrite((void*)ret, &p, 8); }
-        }
-        return ret;
     }
 
     return ret;
@@ -500,6 +503,7 @@ void OpenKeyLogWindow(int ms)
     g_logAll = true;
     printf("\n=== CAPTURE %d ms (%d cles deja connues) ===\n", ms, g_seenCount);
 }
+
 static void LogKey(const char* key)
 {
     if (!g_logAll) return;
@@ -515,6 +519,59 @@ static void LogKey(const char* key)
     if (!SafeRead((void*)key, k, sizeof(k) - 1)) return;
 
     if (SeenAdd(k) && !g_silent) printf("[K] %s\n", k);
+}
+
+void DumpClesDilemme(const char* k, uintptr_t ret)
+{
+    // On ne s'interesse qu'aux dilemmes
+    const char* pref = "Generated/DilemmasConfig/";
+    for (int i = 0; pref[i]; ++i) if (k[i] != pref[i]) return;
+
+    static char vues[64][256];
+    static int  nVues = 0;
+
+    for (int i = 0; i < nVues; ++i) {
+        bool eq = true;
+        for (int j = 0; ; ++j) {
+            if (vues[i][j] != k[j]) { eq = false; break; }
+            if (k[j] == 0) break;
+        }
+        if (eq) return;
+    }
+    if (nVues >= 64) return;
+    int j = 0; for (; k[j] && j < 255; ++j) vues[nVues][j] = k[j];
+    vues[nVues][j] = 0; nVues++;
+
+    DumpWide(k, ret);
+}
+
+
+static const int AP_SLOTS = 4;
+
+static wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot)
+{
+    static uint8_t blocs[AP_SLOTS][0x14 + 512 * 2];
+    static bool    prets[AP_SLOTS] = {};
+
+    if (slot < 0 || slot >= AP_SLOTS) return nullptr;
+    uint8_t* bloc = blocs[slot];
+
+    if (!prets[slot]) {
+        if (modele <= 0x10000) return nullptr;
+        if (!SafeRead((void*)(modele - 0x14), bloc, 0x14)) return nullptr;
+        prets[slot] = true;
+    }
+
+    uintptr_t debut = (uintptr_t)bloc;
+    memcpy(bloc + 0x08, &debut, 8);
+    uint32_t refs = 0x40000000;
+    memcpy(bloc + 0x10, &refs, 4);
+
+    wchar_t* dst = (wchar_t*)(bloc + 0x14);
+    int i = 0;
+    for (; texte[i] && i < 511; ++i) dst[i] = texte[i];
+    dst[i] = 0;
+    return dst;
 }
 
 

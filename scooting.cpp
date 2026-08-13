@@ -120,10 +120,25 @@ static bool NomDeSite(const char* chemin, char* out, int maxlen)
 
 static bool CachesValides()
 {
+    uintptr_t def = ApPorteurDef();
+    if (!def) return false;
+
+    if (!EnsureResSelf()) return false;
+    uintptr_t arr = 0; uint32_t cnt = 0;
+    if (!SafeRead((void*)(g_selfRessource + 0x2240), &arr, 8)) return false;
+    if (!SafeRead((void*)(g_selfRessource + 0x2248), &cnt, 4)) return false;
+    if (arr <= 0x10000 || cnt == 0 || cnt > 64) return false;
+
+    bool enregistree = false;
+    for (uint32_t i = 0; i < cnt; ++i) {
+        uintptr_t d = 0;
+        if (!SafeRead((void*)(arr + (uintptr_t)i * 0x70), &d, 8)) continue;
+        if (d == def) { enregistree = true; break; }
+    }
+    if (!enregistree) return false;
+
     if (!g_sending || !ClasseExacte(g_sending, "FrostpunkExpeditionSendingComponent"))
         return false;
-
-    // Un site temoin suffit : ils sont tous recrees ensemble.
     if (g_nSites > 0 && !EstSiteComponent(g_sites[0].comp))
         return false;
 
@@ -478,10 +493,15 @@ void ScootingInit()
         RescanExpeditions();
         ScootingReparerCargaisons();     // vide les pointeurs invalides
         ScootingChargerEnAttente();      // restaure et reinjecte
+        ScootingEtatApresInit();
     }
 }
+
 void ScootingTick()
 {
+    // Enregistrement le plus tot possible : sans lui, le jeu ne peut pas
+    // resoudre notre GUID en deserialisant la cargaison d'un scout.   
+
     // --- changement de partie ---
     static uint64_t dernierGame[2] = { 0, 0 };
     if (g_run.valid &&
@@ -492,10 +512,10 @@ void ScootingTick()
         printf("[SCOUT] nouvelle partie detectee\n");
     }
 
-    // --- rechargement de la meme sauvegarde : le GameId ne change pas ---
+    // --- rechargement : l'economie est recreee, nos caches sont perimes ---
     if (g_pret && !CachesValides()) {
         g_pret = false; g_blocVille = 0; g_nExps = 0;
-        printf("[SCOUT] cache perime (objets recrees) -- reinitialisation\n");
+        printf("[SCOUT] caches perimes (partie rechargee) -- reinitialisation\n");
     }
 
     // --- initialisation differee ---
@@ -1661,6 +1681,13 @@ void MettreAJourListePortee()
         g_nListePortee++;
     }
     g_listePortee[pos] = 0;
+
+    static int dernierN = -1, dernierCible = -2;
+    if (g_nListePortee != dernierN || cible != dernierCible) {
+        dernierN = g_nListePortee; dernierCible = cible;
+        printf("[LISTE] expedition selectionnee=%d  items=%d  nExps=%d\n",
+            cible, g_nListePortee, g_nExps);
+    }
 }
 
 // Remplace le contenu des sites configures par notre item, UNIQUEMENT quand
@@ -1698,4 +1725,36 @@ void ScootingSubstituerContenuSites()
     }
     printf("[SITE] %d remplace(s), %d sans tableau (affichage indisponible)\n",
            ecrases, sansTableau);
+}
+
+void ScootingEtatApresInit()
+{
+    printf("\n[ETAT] apres init : %d expedition(s)\n", g_nExps);
+    for (int i = 0; i < g_nExps; ++i) {
+        if (!g_exps[i].valide) continue;
+        uintptr_t c = g_exps[i].comp;
+
+        uintptr_t arr = 0; uint32_t cnt = 0, cap = 0;
+        SafeRead((void*)(c + 0x168), &arr, 8);
+        SafeRead((void*)(c + 0x168 + 8), &cnt, 4);
+        SafeRead((void*)(c + 0x168 + 12), &cap, 4);
+
+        printf("  exp %d  enAttente=%d  CarriedResources arr=0x%llX cnt=%u cap=%u\n",
+            g_exps[i].id, g_exps[i].nEnAttente,
+            (unsigned long long)arr, cnt, cap);
+
+        if (arr > 0x10000 && cnt > 0 && cnt <= 16) {
+            for (uint32_t k = 0; k < cnt; ++k) {
+                uintptr_t def = 0; int64_t q = 0;
+                SafeRead((void*)(arr + (uintptr_t)k * 0x10), &def, 8);
+                SafeRead((void*)(arr + (uintptr_t)k * 0x10 + 8), &q, 8);
+                char rn[64] = { 0 }; uintptr_t np = 0;
+                if (def > 0x10000 && SafeRead((void*)def, &np, 8) && np > 0x10000)
+                    SafeRead((void*)np, rn, sizeof(rn) - 1);
+                printf("     [%u] def=0x%llX %-20s x%lld  %s\n",
+                    k, (unsigned long long)def, rn[0] ? rn : "?", (long long)q,
+                    (def == ApPorteurDef()) ? "<-- le notre" : "");
+            }
+        }
+    }
 }

@@ -11,3 +11,4 @@ const char* ApPorteurNomInterne();
 bool ApPorteurEnregistrer();
 
 extern volatile bool g_apPorteurActif;
+bool EconomieValide();
