@@ -47,7 +47,7 @@ struct GabaritCache { uintptr_t tpl; char nom[128]; };
 static GabaritCache g_gabarits[64];
 static int          g_nGabarits = 0;
 
-
+static bool g_persistChargee = false;
 static uint64_t g_modeleTresor[4];
 static bool     g_modeleTresorPret = false;
 // ============================================================================
@@ -67,6 +67,9 @@ static const int SITE_PAYLOAD_COUNT =
 
 static wchar_t g_listePortee[512];
 static int     g_nListePortee = 0;
+
+static uint64_t  g_tamponsInj[16][2 * 4];
+static uintptr_t g_proprioInj[16] = {};
 
 // Systeme de selection, resolu une fois a l'init.
 static uintptr_t g_selSys = 0;
@@ -254,14 +257,24 @@ static bool NomDuGabarit(uintptr_t tpl, char* out, int maxlen)
 
 static void ViderCargaison(uintptr_t comp)
 {
-    const int offs[3] = { 0x180, 0x168, 0x198 };   // technos, ressources, artefacts
+    const int offs[3] = { 0x180, 0x168, 0x198 };
     for (int i = 0; i < 3; ++i) {
         uintptr_t arr = 0; uint32_t cnt = 0;
         if (!SafeRead((void*)(comp + offs[i]), &arr, 8)) continue;
         if (!SafeRead((void*)(comp + offs[i] + 8), &cnt, 4)) continue;
-        if (arr <= 0x10000 || cnt == 0 || cnt > 64) continue;
         uint32_t zero = 0;
-        SafeWrite((void*)(comp + offs[i] + 8), &zero, 4);
+        if (arr > 0x10000 && cnt > 0 && cnt <= 64)
+            SafeWrite((void*)(comp + offs[i] + 8), &zero, 4);
+
+        // Si le tableau vient de nous, on le retire completement : le jeu
+        // ne doit jamais detenir notre pointeur quand il libere l'expedition.
+        if (offs[i] == 0x168 &&
+            arr >= (uintptr_t)&g_tamponsInj[0][0] &&
+            arr <  (uintptr_t)&g_tamponsInj[16][0]) {
+            uintptr_t nul = 0;
+            SafeWrite((void*)(comp + 0x168),      &nul,  8);
+            SafeWrite((void*)(comp + 0x168 + 12), &zero, 4);
+        }
     }
 }
 
@@ -403,33 +416,45 @@ static uintptr_t DefRessourceParNom(const char* nom)
 // Element de CarriedResources : {pointeur def (8 o), quantite (8 o)}.
 bool InjecterPorteur(uintptr_t comp, uintptr_t def, int64_t quantite)
 {
-    if (def <= 0x10000) { printf("[INJ] definition nulle\n"); return false; }
+    if (def <= 0x10000) return false;
 
     uintptr_t arr = 0; uint32_t cnt = 0, cap = 0;
-    if (!SafeRead((void*)(comp + 0x168), &arr, 8)) { printf("[INJ] pointeur illisible\n"); return false; }
-    if (!SafeRead((void*)(comp + 0x168 + 8), &cnt, 4)) { printf("[INJ] compte illisible\n");   return false; }
-    if (!SafeRead((void*)(comp + 0x168 + 12), &cap, 4)) { printf("[INJ] capacite illisible\n"); return false; }
+    if (!SafeRead((void*)(comp + 0x168), &arr, 8)) return false;
+    if (!SafeRead((void*)(comp + 0x168 + 8), &cnt, 4)) return false;
+    if (!SafeRead((void*)(comp + 0x168 + 12), &cap, 4)) return false;
 
-    printf("[INJ] CarriedResources : arr=0x%llX  cnt=%u  cap=%u\n",(unsigned long long)arr, cnt, cap);
+    // Tableau absent : on fournit le notre. Un par expedition, jamais libere.
+    // Il est retire des que la cargaison est videe, pour que le jeu ne le
+    // detienne jamais au moment ou il pourrait le liberer.
+    
+    if (arr <= 0x10000 || cap < 1) {
+        int slot = -1;
+        for (int i = 0; i < 16; ++i) {
+            if (g_proprioInj[i] == comp) { slot = i; break; }
+            if (g_proprioInj[i] == 0 && slot < 0) slot = i;
+        }
+        if (slot < 0) return false;
+        g_proprioInj[slot] = comp;
+        for (int z = 0; z < 8; ++z) g_tamponsInj[slot][z] = 0;
 
-    if (arr <= 0x10000) { printf("[INJ] tableau non alloue -- rien a ecrire\n"); return false; }
-    if (cap < 1) { printf("[INJ] capacite nulle\n");                      return false; }
+        arr = (uintptr_t)g_tamponsInj[slot];
+        uint32_t quatre = 4;
+        if (!SafeWrite((void*)(comp + 0x168), &arr, 8)) return false;
+        if (!SafeWrite((void*)(comp + 0x168 + 12), &quatre, 4)) return false;
+        printf("[INJ] tampon fourni a 0x%llX\n", (unsigned long long)arr);
+    }
 
-    if (!SafeWrite((void*)(arr + 0), &def, 8)) { printf("[INJ] ecriture def KO\n");  return false; }
-    if (!SafeWrite((void*)(arr + 8), &quantite, 8)) { printf("[INJ] ecriture qte KO\n");  return false; }
+    if (!SafeWrite((void*)(arr + 0), &def, 8))      return false;
+    if (!SafeWrite((void*)(arr + 8), &quantite, 8)) return false;
 
     uint32_t un = 1;
-    if (!SafeWrite((void*)(comp + 0x168 + 8), &un, 4)) { printf("[INJ] ecriture compte KO\n"); return false; }
+    if (!SafeWrite((void*)(comp + 0x168 + 8), &un, 4)) return false;
 
-    // technos et artefacts vides
     uint32_t zero = 0;
     SafeWrite((void*)(comp + 0x180 + 8), &zero, 4);
     SafeWrite((void*)(comp + 0x198 + 8), &zero, 4);
-
-    printf("[INJ] porteur injecte (quantite %lld)\n", (long long)quantite);
     return true;
 }
-
 static bool ExpValide(uintptr_t comp)
 {
     if (comp <= 0x10000) return false;
@@ -502,86 +527,157 @@ static void RescanExpeditions()
 // ============================================================================
 void ScootingInit()
 {
-    g_nSites = 0; g_sending = 0; g_pret = false; g_blocVille = 0;
+   
+   
+    g_nSites = 0; g_sending = 0; g_pret = false; g_blocVille = 0; g_selSys = 0;
 
-    // La definition porteuse est clonee depuis une definition existante :
-    // sans conteneur de ressources resolu, rien n'est possible.
     if (!ApPorteurInit()) {
         printf("[SCOUT] porteur non fabrique -- init reportee\n");
         return;
     }
-    //ApPorteurEnregistrer();
+    static uintptr_t bufSites[256], bufSend[256], bufCity[256],
+        bufSel[256], bufExp[256], bufScn[256], bufDif[256];
 
-    RecenserSites();
-    ResoudreSelectionSystem();
-    g_blocVille = TrouverBlocVille();
+    static const char* noms[7] = {
+        "FrostpunkExpeditionSiteComponent",
+        "FrostpunkExpeditionSendingComponent",
+        "FrostpunkCityComponent",
+        "FrostpunkSelectionSystem",
+        "FrostpunkExpeditionComponent",
+        "FrostpunkScenarioSystem",
+        "FrostpunkDifficultySystem",
+    };
+    uintptr_t* sorties[7] = { bufSites, bufSend, bufCity, bufSel, bufExp, bufScn, bufDif };
+    int compteurs[7] = {};
 
-    static uintptr_t objs[256];
-    int m = CollectObjectsByClass("FrostpunkExpeditionSendingComponent", objs, 256);
-    for (int i = 0; i < m; ++i) {
-        if (!ClasseExacte(objs[i], "FrostpunkExpeditionSendingComponent")) continue;
+    CHRONO(CollectObjectsByClasses(noms, 7, sorties, compteurs, 256));
+    printf("[SCAN] sites=%d send=%d city=%d sel=%d exp=%d scn=%d dif=%d\n",
+        compteurs[0], compteurs[1], compteurs[2],
+        compteurs[3], compteurs[4], compteurs[5], compteurs[6]);
+    // --- systemes scenario et difficulte, avec validation ---
+    uintptr_t scnSys = 0, difSys = 0;
+    for (int i = 0; i < compteurs[5] && !scnSys; ++i) {
+        uintptr_t s = 0;
+        if (SafeRead((void*)(bufScn[i] + 0x68), &s, 8)) scnSys = bufScn[i];
+    }
+    for (int i = 0; i < compteurs[6] && !difSys; ++i) {
+        uintptr_t a = 0; uint32_t c = 0;
+        if (SafeRead((void*)(bufDif[i] + 0x30), &a, 8) &&
+            SafeRead((void*)(bufDif[i] + 0x38), &c, 4) &&
+            a > 0x10000 && c > 0 && c <= 64) difSys = bufDif[i];
+    }
+    ScenarioSetCaches(scnSys, difSys);
+
+    // --- sites ---
+    for (int i = 0; i < compteurs[0] && g_nSites < 64; ++i) {
+        uintptr_t ent = 0, bloc = 0;
+        if (!SafeRead((void*)(bufSites[i] + 0x18), &ent, 8) || ent <= 0x10000) continue;
+        if (!SafeRead((void*)(ent + 0x08), &bloc, 8) || bloc <= 0x10000) continue;
+
+        SiteCache& s = g_sites[g_nSites];
+        s.comp = bufSites[i]; s.bloc = bloc; s.nom[0] = 0;
+        s.dernierEtat = -1;
+        SafeRead((void*)(bufSites[i] + 0x34), &s.dernierEtat, 4);
+        uintptr_t tpl = 0;
+        SafeRead((void*)(bufSites[i] + 0x20), &tpl, 8);
+        NomDuGabarit(tpl, s.nom, sizeof(s.nom));
+        g_nSites++;
+    }
+
+    // --- composant d'envoi ---
+    for (int i = 0; i < compteurs[1]; ++i) {
         uintptr_t arr = 0; uint32_t cnt = 0;
-        if (!SafeRead((void*)(objs[i] + 0x60), &arr, 8)) continue;
-        if (!SafeRead((void*)(objs[i] + 0x68), &cnt, 4)) continue;
-        if (arr > 0x10000 && cnt <= 32) { g_sending = objs[i]; break; }
+        if (!SafeRead((void*)(bufSend[i] + 0x60), &arr, 8)) continue;
+        if (!SafeRead((void*)(bufSend[i] + 0x68), &cnt, 4)) continue;
+        if (arr > 0x10000 && cnt <= 32) { g_sending = bufSend[i]; break; }
+    }
+
+    // --- ville ---
+    for (int i = 0; i < compteurs[2]; ++i) {
+        uintptr_t ent = 0, bloc = 0;
+        if (!SafeRead((void*)(bufCity[i] + 0x18), &ent, 8) || ent <= 0x10000) continue;
+        if (!SafeRead((void*)(ent + 0x08), &bloc, 8) || bloc <= 0x10000) continue;
+        g_blocVille = bloc;
+        break;
+    }
+
+    // --- systeme de selection ---
+    for (int i = 0; i < compteurs[3]; ++i) {
+        uintptr_t arr = 0; uint32_t cnt = 0;
+        if (!SafeRead((void*)(bufSel[i] + 0x2250), &arr, 8)) continue;
+        if (!SafeRead((void*)(bufSel[i] + 0x2258), &cnt, 4)) continue;
+        if (cnt <= 64) { g_selSys = bufSel[i]; break; }
+    }
+
+    // --- expeditions ---
+    g_nExps = 0;
+    for (int i = 0; i < compteurs[4] && g_nExps < 16; ++i) {
+        if (!ExpValide(bufExp[i])) continue;
+        ExpCache& e = g_exps[g_nExps];
+        e.comp = bufExp[i];
+        e.id = -1;
+        SafeRead((void*)(bufExp[i] + 0x30), &e.id, 4);
+        e.dernierLieu = 0; e.dernierTarget = 0; e.dernierSite = 0;
+        e.derniereCargo = 0; e.nEnAttente = 0; e.valide = true;
+        g_nExps++;
     }
 
     g_pret = (g_nSites > 0 && g_sending != 0);
-    printf("[SCOUT] init : %d site(s), ville=0x%llX, sending=0x%llX -> %s\n",
-        g_nSites, (unsigned long long)g_blocVille,
-        (unsigned long long)g_sending, g_pret ? "pret" : "incomplet");
+    printf("[SCOUT] init : %d site(s), ville=0x%llX, %d expedition(s) -> %s\n",
+        g_nSites, (unsigned long long)g_blocVille, g_nExps,
+        g_pret ? "pret" : "incomplet");
 
-    ScootingAppliquerTresors();
-    ScootingSubstituerContenuSites();
+  
+   
+   
+    CHRONO(ScootingAppliquerTresors());
+    CHRONO(ScootingSubstituerContenuSites());
+
     if (g_pret) {
-        RescanExpeditions();
-        ScootingReparerCargaisons();     // vide les pointeurs invalides
-        ScootingChargerEnAttente();      // restaure et reinjecte
-        ScootingEtatApresInit();
+        
+        CHRONO(ScootingReparerCargaisons());
+        CHRONO(ScootingChargerEnAttente());
+        g_persistChargee = false;      // sera fait dans le tick
     }
 }
 
 void ScootingTick()
 {
-    // Enregistrement le plus tot possible : sans lui, le jeu ne peut pas
-    // resoudre notre GUID en deserialisant la cargaison d'un scout.   
-    // --- changement de partie ---
-    static uint64_t dernierGame[2] = { 0, 0 };
-    if (g_run.valid &&
-        (g_run.gameId[0] != dernierGame[0] || g_run.gameId[1] != dernierGame[1])) {
-        dernierGame[0] = g_run.gameId[0];
-        dernierGame[1] = g_run.gameId[1];
-        g_pret = false; g_blocVille = 0; g_nExps = 0;
-        printf("[SCOUT] nouvelle partie detectee\n");
-    }
-
+    // --- changement de partie : l'economie est recreee a chaque chargement ---
     if (PartieRechargee()) {
         g_pret = false;
         g_blocVille = 0;
         g_nExps = 0;
         g_nSites = 0;
-        g_nGabarits = 0;              // les gabarits sont recharges avec le scenario
-        g_modeleTresorPret = false;
+        g_persistChargee = false;
     }
-        
-    // --- initialisation differee ---
+
+    // --- initialisation : declenchee par la presence de l'economie, PAS par
+    //     g_run.valid, qui depend lui-meme des caches poses ici ---
     if (!g_pret) {
-        if (!g_run.valid) return;
+        if (!EnJeu()) return;
+
         static DWORD stableDepuis = 0;
-        if (stableDepuis == 0) {
-            stableDepuis = GetTickCount();
-            printf("[SCOUT] attente de stabilisation\n");
-            return;
-        }
-        if (GetTickCount() - stableDepuis < 5000) return;
+        if (stableDepuis == 0) { stableDepuis = GetTickCount(); return; }
+        if (GetTickCount() - stableDepuis < 1500) return;
         stableDepuis = 0;
-        printf("[SCOUT] init...\n");
+
         ScootingInit();
-        printf("[SCOUT] init terminee (pret=%d)\n", (int)g_pret);
         if (!g_pret) { stableDepuis = GetTickCount(); return; }
     }
 
-    // --- expeditions declarees ---
+    // Au-dela, on a besoin du scenario courant : il arrive au tick suivant,
+    // une fois CaptureRunState alimente par les caches poses a l'init.
+    if (!g_run.valid) return;
+
+    // La persistance est indexee sur le GameId : elle ne peut etre lue
+    // qu'une fois g_run renseigne, donc apres l'init et non pendant.
+    if (!g_persistChargee) {
+        g_persistChargee = true;
+        CHRONO(ScootingReparerCargaisons());
+        CHRONO(ScootingChargerEnAttente());
+    }
+
     uint32_t declarees = 0;
     if (!SafeRead((void*)(g_sending + 0x68), &declarees, 4)) return;
     if (declarees > 16) return;
@@ -597,18 +693,11 @@ void ScootingTick()
         ScootingChargerEnAttente();
     }
 
-    // --- detection par changement d'etat des sites -------------------------
-    // Doit venir APRES la validation des expeditions (SurveillerSites les
-    // parcourt) et AVANT la boucle, pour que la cargaison injectee y soit
-    // deja prise en compte.
     SurveillerSites();
 
     for (int i = 0; i < g_nExps; ++i) {
         if (!g_exps[i].valide) continue;
         uintptr_t c = g_exps[i].comp;
-
-        if (g_traceScout)
-            printf("[SCOUT] exp %d @0x%llX\n", g_exps[i].id, (unsigned long long)c);
 
         uintptr_t loc = 0, tgt = 0;
         if (!SafeRead((void*)(c + 0x120), &loc, 8)) continue;
@@ -616,11 +705,18 @@ void ScootingTick()
 
         uint32_t cargo = CargaisonTotale(c);
 
+        if (g_exps[i].nEnAttente > 0 && cargo == 0) {
+            uintptr_t def = ApPorteurDef();
+            if (def && InjecterPorteur(c, def, g_exps[i].nEnAttente)) {
+                cargo = (uint32_t)g_exps[i].nEnAttente;
+                printf("[SCOUT] exp %d : item restaure (%d en attente)\n",
+                    g_exps[i].id, g_exps[i].nEnAttente);
+            }
+        }
+
         const char* nl = NomDuBloc(loc);
         const char* nt = NomDuBloc(tgt);
 
-        // Le lieu de reference pour un chargement : le lieu courant s'il existe,
-        // sinon le dernier visite — la cargaison arrive parfois apres le depart.
         if (loc && loc != g_blocVille) g_exps[i].dernierSite = loc;
         uintptr_t site = loc ? loc : g_exps[i].dernierSite;
         const char* ns = (site == loc) ? nl : NomDuBloc(site);
@@ -633,24 +729,13 @@ void ScootingTick()
             printf("[SCOUT] exp %d arrive a %s (porte %u)\n",
                 g_exps[i].id, nl ? nl : "?", cargo);
 
-        // --- chargement sur un site configure (sites qui donnent vraiment
-        //     quelque chose ; les autres sont traites par SurveillerSites) ---
         bool chargementTraite = false;
         if (cargo > g_exps[i].derniereCargo && site) {
             const SitePayload* p = PayloadDuSite(ns);
-            printf("[SCOUT] chargement +%u sur %s -> %s\n",
-                cargo - g_exps[i].derniereCargo, ns ? ns : "?",
-                p ? "site configure" : "site non configure");
-
             if (p) {
                 chargementTraite = true;
-
                 bool empile = false;
-                if (DejaEnAttente(g_exps[i], p)) {
-                    printf("[SCOUT] exp %d : location %d deja en attente\n",
-                        g_exps[i].id, p->locationId);
-                }
-                else if (g_exps[i].nEnAttente < MAX_EN_ATTENTE) {
+                if (!DejaEnAttente(g_exps[i], p) && g_exps[i].nEnAttente < MAX_EN_ATTENTE) {
                     g_exps[i].enAttente[g_exps[i].nEnAttente++] = p;
                     empile = true;
                     const ApCheck* ac = ApCheckById(p->locationId);
@@ -659,26 +744,16 @@ void ScootingTick()
                         ac ? ac->description : "contenu inconnu du serveur",
                         g_exps[i].nEnAttente);
                 }
-                else {
-                    printf("[SCOUT] exp %d : file pleine, location perdue\n", g_exps[i].id);
-                }
 
                 uintptr_t def = ApPorteurDef();
                 int q = g_exps[i].nEnAttente > 0 ? g_exps[i].nEnAttente : 1;
-                if (def && InjecterPorteur(c, def, q)) {
-                    cargo = (uint32_t)q;
-                }
-                else {
-                    ViderCargaison(c);
-                    cargo = 0;
-                    printf("[SCOUT] porteur indisponible, cargaison videe\n");
-                }
+                if (def && InjecterPorteur(c, def, q)) cargo = (uint32_t)q;
+                else { ViderCargaison(c); cargo = 0; }
 
                 if (empile) ScootingSauverEnAttente();
             }
         }
 
-        // --- retour en ville : envoi des checks ---
         bool enVille = (loc && g_blocVille && loc == g_blocVille);
         if (enVille && g_exps[i].nEnAttente > 0) {
             for (int k = 0; k < g_exps[i].nEnAttente; ++k) {
@@ -686,12 +761,7 @@ void ScootingTick()
                 const ApCheck* ac = ApCheckById(p->locationId);
                 printf("[AP CHECK] location %d -> %s\n", p->locationId,
                     ac ? ac->description : "(inconnue)");
-                // TODO reseau : AP_SendCheck(p->locationId);
-
-                if (ac && ac->arbreTest >= 0) {
-                    printf("[SCOUT] livraison locale : progressive arbre %d\n", ac->arbreTest);
-                    OnProgressiveReceived(ac->arbreTest);
-                }
+                if (ac && ac->arbreTest >= 0) OnProgressiveReceived(ac->arbreTest);
             }
             g_exps[i].nEnAttente = 0;
             g_exps[i].dernierSite = 0;
@@ -699,7 +769,7 @@ void ScootingTick()
             cargo = 0;
             ScootingSauverEnAttente();
         }
-        
+
         if (!chargementTraite && cargo != g_exps[i].derniereCargo)
             printf("[SCOUT] exp %d cargaison %u -> %u  (lieu %s)\n",
                 g_exps[i].id, g_exps[i].derniereCargo, cargo,
@@ -709,6 +779,7 @@ void ScootingTick()
         g_exps[i].dernierTarget = tgt;
         g_exps[i].derniereCargo = cargo;
     }
+
     MettreAJourListePortee();
 }
 
@@ -1190,72 +1261,32 @@ int ScootingLocationPourCleSite(const char* cle)
 // configure. A rejouer a chaque session : c'est une ecriture en memoire vive.
 void ScootingAppliquerTresors()
 {
-    if (!g_apDonneesActif) return;
-    if (!ApPorteurDef()) { printf("[TRES] porteur non fabrique\n"); return; }
+    if (!ApPorteurDef()) return;
 
     uint64_t gr[2] = {};
     SafeRead((void*)(ApPorteurDef() + 0x08), &gr[0], 8);
     SafeRead((void*)(ApPorteurDef() + 0x10), &gr[1], 8);
 
-    // GUID de la categorie de quantite "Tiny", relevee sur un site vanilla.
-    static const uint64_t TINY0 = 0xBBD644503EBBE4F3ULL;
-    static const uint64_t TINY1 = 0xE89FF91A05FD4629ULL;
+    int faits = 0;
+    // On travaille sur le cache : plus aucun balayage ici.
+    for (int i = 0; i < g_nSites; ++i) {
+        if (!PayloadDuSite(g_sites[i].nom)) continue;
 
-    // Un element de tresor = 32 octets : {GUID ressource, GUID quantite}.
-    // Un tampon par site configure, jamais libere : le jeu pourrait ecrire
-    // dedans en consommant le butin, donc pas de partage.
-    static uint64_t tampons[16][4];
-    static int nTampons = 0;
+        uintptr_t tpl = 0;
+        if (!SafeRead((void*)(g_sites[i].comp + 0x20), &tpl, 8) || tpl <= 0x10000) continue;
 
-    static uintptr_t objs[256];
-    int n = CollectObjectsByClass("FrostpunkExpeditionSiteComponent", objs, 256);
-    int faits = 0, fournis = 0;
-
-    for (int i = 0; i < n; ++i) {
-        if (!EstSiteComponent(objs[i])) continue;
-
-        uintptr_t tpl = 0; char nom[128] = { 0 };
-        if (!SafeRead((void*)(objs[i] + 0x20), &tpl, 8) || tpl <= 0x10000) continue;
-        NomDuGabarit(tpl, nom, sizeof(nom));
-        if (!PayloadDuSite(nom)) continue;
-
-        uintptr_t arr = 0; uint32_t cnt = 0, cap = 0;
+        uintptr_t arr = 0; uint32_t cnt = 0;
         SafeRead((void*)(tpl + 0x1C0), &arr, 8);
         SafeRead((void*)(tpl + 0x1C0 + 8), &cnt, 4);
-        SafeRead((void*)(tpl + 0x1C0 + 12), &cap, 4);
+        if (arr <= 0x10000 || cnt == 0 || cnt > 32) continue;
 
-        if (arr > 0x10000 && cnt > 0 && cnt <= 32) {
-            // Tresor existant : on ecrase le premier element et on reduit a 1.
-            SafeWrite((void*)arr, &gr[0], 8);
-            SafeWrite((void*)(arr + 8), &gr[1], 8);
-            uint32_t un = 1;
-            SafeWrite((void*)(tpl + 0x1C0 + 8), &un, 4);
-            printf("[TRES] %s : tresor remplace\n", nom);
-            faits++;
-            continue;
-        }
-
-        // Tresor absent : on fournit le notre.
-        if (nTampons >= 16) { printf("[TRES] %s : plus de tampon\n", nom); continue; }
-        uint64_t* t = tampons[nTampons];
-        t[0] = gr[0]; t[1] = gr[1];      // GUID de notre item
-        t[2] = TINY0; t[3] = TINY1;      // quantite "Tiny"
-        nTampons++;
-
-        uintptr_t p = (uintptr_t)t;
+        SafeWrite((void*)arr, &gr[0], 8);
+        SafeWrite((void*)(arr + 8), &gr[1], 8);
         uint32_t un = 1;
-        if (SafeWrite((void*)(tpl + 0x1C0), &p, 8) &&
-            SafeWrite((void*)(tpl + 0x1C0 + 8), &un, 4) &&
-            SafeWrite((void*)(tpl + 0x1C0 + 12), &un, 4)) {
-            printf("[TRES] %s : tresor FOURNI a 0x%llX\n", nom, (unsigned long long)p);
-            fournis++;
-        }
-        else {
-            printf("[TRES] %s : ecriture du tresor refusee\n", nom);
-            nTampons--;
-        }
+        SafeWrite((void*)(tpl + 0x1C0 + 8), &un, 4);
+        faits++;
     }
-    printf("[TRES] %d remplace(s), %d fourni(s)\n", faits, fournis);
+    if (faits) printf("[TRES] %d tresor(s) remplace(s)\n", faits);
 }
 void ScootingVerifierTresors()
 {
@@ -1741,57 +1772,11 @@ void ScootingSubstituerContenuSites()
            ecrases, sansTableau);
 }
 
-void ScootingEtatApresInit()
+
+bool EnJeu()
 {
-    printf("\n[ETAT] apres init : %d expedition(s)\n", g_nExps);
-    for (int i = 0; i < g_nExps; ++i) {
-        if (!g_exps[i].valide) continue;
-        uintptr_t c = g_exps[i].comp;
-
-        uintptr_t arr = 0; uint32_t cnt = 0, cap = 0;
-        SafeRead((void*)(c + 0x168), &arr, 8);
-        SafeRead((void*)(c + 0x168 + 8), &cnt, 4);
-        SafeRead((void*)(c + 0x168 + 12), &cap, 4);
-
-        printf("  exp %d  enAttente=%d  CarriedResources arr=0x%llX cnt=%u cap=%u\n",
-            g_exps[i].id, g_exps[i].nEnAttente,
-            (unsigned long long)arr, cnt, cap);
-
-        if (arr > 0x10000 && cnt > 0 && cnt <= 16) {
-            for (uint32_t k = 0; k < cnt; ++k) {
-                uintptr_t def = 0; int64_t q = 0;
-                SafeRead((void*)(arr + (uintptr_t)k * 0x10), &def, 8);
-                SafeRead((void*)(arr + (uintptr_t)k * 0x10 + 8), &q, 8);
-                char rn[64] = { 0 }; uintptr_t np = 0;
-                if (def > 0x10000 && SafeRead((void*)def, &np, 8) && np > 0x10000)
-                    SafeRead((void*)np, rn, sizeof(rn) - 1);
-                printf("     [%u] def=0x%llX %-20s x%lld  %s\n",
-                    k, (unsigned long long)def, rn[0] ? rn : "?", (long long)q,
-                    (def == ApPorteurDef()) ? "<-- le notre" : "");
-            }
-        }
-    }
+    uintptr_t eco = 0;
+    uintptr_t modBase = (uintptr_t)GetModuleHandleW(NULL);
+    if (!SafeRead((void*)(modBase + 0x40916D0), &eco, 8)) return false;
+    return eco > 0x10000;
 }
-
-static HANDLE TasDuJeu(uintptr_t pointeurConnu)
-{
-    static HANDLE cache = nullptr;
-    if (cache) return cache;
-    if (pointeurConnu <= 0x10000) return nullptr;
-
-    HANDLE tas[64];
-    DWORD n = GetProcessHeaps(64, tas);
-    printf("[TAS] %lu tas dans le processus\n", n);
-
-    for (DWORD i = 0; i < n; ++i) {
-        if (HeapValidate(tas[i], 0, (void*)pointeurConnu)) {
-            cache = tas[i];
-            printf("[TAS] pointeur 0x%llX appartient au tas %p\n",
-                (unsigned long long)pointeurConnu, tas[i]);
-            return cache;
-        }
-    }
-    printf("[TAS] tas introuvable pour 0x%llX\n", (unsigned long long)pointeurConnu);
-    return nullptr;
-}
-

@@ -29,6 +29,7 @@ static int NiveauRetenu(uintptr_t defObj, uintptr_t* niveauxRetenus, int nRetenu
 bool FindSettingName(const uint64_t* guid, char* out, int maxlen);
 void LireDifficultesRuntime();
 uintptr_t FindScenarioSystem();
+void ScenarioSetCaches(uintptr_t scenarioSys, uintptr_t difficultySys);
 
 struct RunState {
     bool     valid;             // une partie est en cours et lisible

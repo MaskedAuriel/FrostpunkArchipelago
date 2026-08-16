@@ -44,6 +44,7 @@ void ScootingFournirContenuSites();
 void ScootingEtatApresInit();
 void PatcherGabarits();
 void CacherGabarits();
-
+bool EnJeu();
+int ExpeditionSurvolee();
 extern volatile bool g_apDonneesActif;
 extern bool g_defEnregistree;

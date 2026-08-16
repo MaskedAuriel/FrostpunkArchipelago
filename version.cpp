@@ -112,12 +112,12 @@ DWORD WINAPI PayloadThread(LPVOID)
 
 		if (GetAsyncKeyState(VK_F5) & 1) {
 			printf("[F5] appui detecte\n");
-			BaselineKeys(15000);
+			DumpRecordProperties(FindClassRecord("FrostpunkSelectionComponent"));
 			printf("[F5] End\n");
 			
 		}
 		if (GetAsyncKeyState(VK_F6) & 1) {
-			OpenKeyLogWindow(15000);
+			FindPropertyByName("Hover");
 			printf("[F6] End\n");
 		}
 		
@@ -140,15 +140,12 @@ DWORD WINAPI PayloadThread(LPVOID)
 
 		static DWORD prochain = 0;
 		if (GetTickCount() > prochain) {
-			prochain = GetTickCount() + 1000;
 			
-			EnsureTechSelf();
-			EnsureResSelf();
-			CaptureRunState();
-
-			// Seulement quand une partie est en place : jamais pendant un chargement.		
-				
-			ScootingTick();
+			prochain = GetTickCount() + 1000;
+			CHRONO(EnsureTechSelf());
+			CHRONO(EnsureResSelf());
+			CHRONO(CaptureRunState());
+			CHRONO(ScootingTick());
 
 			/*static bool dejaSignale = false;
 			bool vic = ScenarioJustWon();
@@ -165,6 +162,7 @@ DWORD WINAPI PayloadThread(LPVOID)
 	}
 	return 0;
 }
+
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID)
 {

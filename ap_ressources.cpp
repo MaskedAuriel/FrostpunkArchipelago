@@ -110,91 +110,24 @@ bool ApPorteurEstNotreGuid(uintptr_t guidPtr)
 const char* ApPorteurNomInterne() { return AP_NOM; }
 
 
-//Rajoutait une douxième définition de ressource dans le tableau, déclenchant des crash lors du chargement de saivegarde.
-/*bool ApPorteurEnregistrer()
-{
-    if (!g_apPorteurActif) return false;
-
-    uintptr_t def = ApPorteurDef();
-    if (!def) return false;
-    if (!EnsureResSelf()) return false;
-
-    uintptr_t arr = 0; uint32_t cnt = 0, cap = 0;
-    if (!SafeRead((void*)(g_selfRessource + 0x2240), &arr, 8)) return false;
-    if (!SafeRead((void*)(g_selfRessource + 0x2248), &cnt, 4)) return false;
-    if (!SafeRead((void*)(g_selfRessource + 0x224C), &cap, 4)) return false;
-
-    // Conteneur plausible : les valeurs transitoires d'un chargement sont
-    // ecartees ici. On exige les 11 ressources vanilla au minimum.
-    if (arr <= 0x10000) return false;
-    if (cnt < 11 || cnt > 32) return false;
-    if (cap < cnt || cap > 32) return false;
-
-    // Toutes les entrees doivent pointer vers une definition nommee lisible :
-    // c'est le signe que le conteneur est reellement construit.
-    for (uint32_t i = 0; i < cnt; ++i) {
-        uintptr_t d = 0;
-        if (!SafeRead((void*)(arr + (uintptr_t)i * 0x70), &d, 8)) return false;
-        if (d == def) return true;              // deja enregistree, rien a faire
-        if (d <= 0x10000) return false;
-        uintptr_t np = 0; char n[8] = { 0 };
-        if (!SafeRead((void*)d, &np, 8) || np <= 0x10000) return false;
-        if (!SafeRead((void*)np, n, 7)) return false;
-        if (n[0] < 0x20 || n[0] > 0x7E) return false;
-    }
-
-    if (cnt >= cap) { printf("[CONT] plus de place (%u/%u)\n", cnt, cap); return false; }
-
-    uint8_t modele[0x70];
-    if (!SafeRead((void*)arr, modele, sizeof(modele))) return false;
-
-    uintptr_t e = arr + (uintptr_t)cnt * 0x70;
-    if (!SafeWrite((void*)e, modele, sizeof(modele))) return false;
-    if (!SafeWrite((void*)e, &def, 8)) return false;
-
-    uint64_t zero = 0;
-    SafeWrite((void*)(e + 0x08), &zero, 8);
-    SafeWrite((void*)(e + 0x30), &zero, 8);
-
-    uint32_t neuf = cnt + 1;
-    if (!SafeWrite((void*)(g_selfRessource + 0x2248), &neuf, 4)) return false;
-
-    printf("[CONT] definition enregistree en position %u (%u/%u)\n", cnt, neuf, cap);
-    g_defEnregistree = true;
-    return true;
-}*/
-
 static bool EconomieValide()
 {
-    if (!g_run.valid) return false;
     if (!EnsureResSelf()) return false;
 
     uintptr_t arr = 0; uint32_t cnt = 0, cap = 0;
     if (!SafeRead((void*)(g_selfRessource + 0x2240), &arr, 8)) return false;
     if (!SafeRead((void*)(g_selfRessource + 0x2248), &cnt, 4)) return false;
     if (!SafeRead((void*)(g_selfRessource + 0x224C), &cap, 4)) return false;
-    if (arr <= 0x10000 || cap == 0 || cap > 64) return false;
+    if (arr <= 0x10000 || cnt == 0 || cnt > 64 || cap > 64) return false;
 
-    // Toutes les entrees declarees doivent porter un nom lisible.
-    uint32_t valides = 0;
-    for (uint32_t i = 0; i < cnt && i < 64; ++i) {
+    // Toutes les entrees doivent porter un nom lisible.
+    for (uint32_t i = 0; i < cnt; ++i) {
         uintptr_t def = 0;
         if (!SafeRead((void*)(arr + (uintptr_t)i * 0x70), &def, 8) || def <= 0x10000) return false;
         uintptr_t np = 0; char n[64] = { 0 };
         if (!SafeRead((void*)def, &np, 8) || np <= 0x10000) return false;
         if (!SafeRead((void*)np, n, sizeof(n) - 1)) return false;
         if (n[0] < 0x20 || n[0] > 0x7E) return false;
-        valides++;
     }
-    if (valides == 0) return false;
-
-    // Le compte doit rester identique sur deux tours consecutifs.
-    static uint32_t dernierCnt = 0;
-    static DWORD    stableDepuis = 0;
-    if (cnt != dernierCnt) {
-        dernierCnt = cnt;
-        stableDepuis = GetTickCount();
-        return false;
-    }
-    return (GetTickCount() - stableDepuis) > 2000;
+    return true;
 }

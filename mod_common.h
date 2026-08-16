@@ -55,6 +55,8 @@ bool AjouterSubstitution(unsigned long long off, const wchar_t* fichier);
 void SetIconCell(const char* ressource, int col, int row);
 void ChargerSubstitutions();
 bool PartieRechargee();
+void CollectObjectsByClasses(const char** noms, int nNoms, uintptr_t** sorties, int* compteurs, int maxParClasse);
+void DumpGlobauxEconomie();
 
 extern volatile bool g_traceIO;
 extern volatile bool g_consolePrete;
@@ -125,3 +127,13 @@ namespace SetupOffsets {
     constexpr int VAR_ENTRIES = 0x08;    // dans une variante : tableau d'entrees
     constexpr int VAR_COUNT = 0x10;
 }
+
+#define CHRONO_SEUIL_MS 5
+#define CHRONO(expr)                                                      \
+    do {                                                                  \
+        DWORD _t0 = GetTickCount();                                       \
+        expr;                                                             \
+        DWORD _dt = GetTickCount() - _t0;                                 \
+        if (_dt >= CHRONO_SEUIL_MS)                                       \
+            printf("[CHRONO] %-34s %5lu ms\n", #expr, _dt);               \
+    } while (0)

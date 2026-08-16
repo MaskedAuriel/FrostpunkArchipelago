@@ -746,41 +746,28 @@ static int NiveauRetenu(uintptr_t defObj, uintptr_t* retenus, int nr)
 
 void CaptureRunState()
 {
+    // Plus aucun balayage ici : les instances viennent du scan unique.
+    if (!g_scnSysCache) { g_run.valid = false; return; }
 
-    // Cache revalide : si l'instance n'est plus bonne, on rescanne.
-     if (g_scnSysCache) {
-        uintptr_t scn = 0;
-        if (!SafeRead((void*)(g_scnSysCache + 0x68), &scn, 8) || scn <= 0x10000)
-            g_scnSysCache = 0;
+    uintptr_t scn = 0;
+    if (!SafeRead((void*)(g_scnSysCache + 0x68), &scn, 8)) {
+        g_scnSysCache = 0;          // lecture impossible : l'instance est morte
+        g_run.valid = false;
+        return;
     }
+    if (scn <= 0x10000) return;
 
-    if (!g_scnSysCache) {
-        // Un scan complet est coûteux et risqué pendant un chargement :
-        // on n'en tente qu'un toutes les 5 secondes tant qu'on ne trouve rien.
-        static DWORD prochainScan = 0;
-        if (GetTickCount() < prochainScan) { g_run.valid = false; return; }
-        prochainScan = GetTickCount() + 5000;
-
-        g_scnSysCache = FindScenarioSystem();
-        if (!g_scnSysCache) { g_run.valid = false; return; }
-    }
-
-    uintptr_t scnSys = g_scnSysCache;
-
-    // --- scenario courant ---
-    uintptr_t scn = 0; char nom[64] = { 0 };
-    if (SafeRead((void*)(scnSys + 0x68), &scn, 8) && scn > 0x10000) {
-        uintptr_t p = 0;
-        if (SafeRead((void*)(scn + 0x00), &p, 8) && p > 0x10000)
-            SafeRead((void*)p, nom, sizeof(nom) - 1);
-    }
-    if (nom[0] == 0) return;      // demonte : on garde la derniere capture
+    char nom[64] = { 0 };
+    uintptr_t p = 0;
+    if (SafeRead((void*)(scn + 0x00), &p, 8) && p > 0x10000)
+        SafeRead((void*)p, nom, sizeof(nom) - 1);
+    if (nom[0] == 0) return;
 
     RunState r = {};
     int i = 0; for (; nom[i] && i < 63; ++i) r.scenario[i] = nom[i];
     r.scenario[i] = 0;
-    SafeRead((void*)(scnSys + 0x110), &r.gameId[0], 8);
-    SafeRead((void*)(scnSys + 0x118), &r.gameId[1], 8);
+    SafeRead((void*)(g_scnSysCache + 0x110), &r.gameId[0], 8);
+    SafeRead((void*)(g_scnSysCache + 0x118), &r.gameId[1], 8);
 
     // --- difficultes : 13 elements de 0x10 = {definition, niveau choisi} ---
 
@@ -995,4 +982,12 @@ uintptr_t FindScenarioSystem()
         return objs[i];
     }
     return 0;
+}
+
+void ScenarioSetCaches(uintptr_t scenarioSys, uintptr_t difficultySys)
+{
+    g_scnSysCache = scenarioSys;
+    g_difSysCache = difficultySys;
+    printf("[SCEN] caches poses : scenario=0x%llX difficulte=0x%llX\n",
+        (unsigned long long)scenarioSys, (unsigned long long)difficultySys);
 }

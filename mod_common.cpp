@@ -2,6 +2,7 @@
 #include "mod_common.h"
 #include "scenario.h"
 #include "MinHook.h"
+#include <psapi.h>
 
 uintptr_t g_selfRessource = 0;
 uintptr_t g_selfTech      = 0;
@@ -1315,4 +1316,113 @@ bool PartieRechargee()
         premiere ? "partie chargee" : "PARTIE RECHARGEE",
         (unsigned long long)eco);
     return true;
+}
+
+static uintptr_t TailleModule(uintptr_t base)
+{
+    IMAGE_DOS_HEADER dos = {};
+    if (!SafeRead((void*)base, &dos, sizeof(dos))) return 0;
+    if (dos.e_magic != IMAGE_DOS_SIGNATURE) return 0;
+
+    IMAGE_NT_HEADERS64 nt = {};
+    if (!SafeRead((void*)(base + dos.e_lfanew), &nt, sizeof(nt))) return 0;
+    if (nt.Signature != IMAGE_NT_SIGNATURE) return 0;
+
+    return nt.OptionalHeader.SizeOfImage;
+}
+
+void CollectObjectsByClasses(const char** noms, int nNoms,
+    uintptr_t** sorties, int* compteurs, int maxParClasse)
+{
+    for (int i = 0; i < nNoms; ++i) compteurs[i] = 0;
+
+    uintptr_t modBase = (uintptr_t)GetModuleHandleW(nullptr);
+    uintptr_t modEnd = modBase + TailleModule(modBase);
+    if (modEnd == modBase) return;
+
+    static const int TAILLE = 32768;
+    static const int SONDAGE = 16;
+    static uintptr_t cleVptr[TAILLE] = {};
+    static int       verdict[TAILLE] = {};
+    static int       occupe = 0;
+
+    // >>> LE BLOC VA ICI <
+    // La table memorise un INDICE dans `noms` : si la liste change entre deux
+    // appels, les anciens verdicts designent les mauvaises classes.
+    static const char* dernieresNoms[16] = {};
+    static int dernierNb = 0;
+    bool memeListe = (dernierNb == nNoms);
+    for (int i = 0; memeListe && i < nNoms; ++i)
+        if (dernieresNoms[i] != noms[i]) memeListe = false;
+
+    if (!memeListe) {
+        for (int i = 0; i < TAILLE; ++i) { cleVptr[i] = 0; verdict[i] = 0; }
+        occupe = 0;
+        dernierNb = (nNoms < 16) ? nNoms : 16;
+        for (int i = 0; i < dernierNb; ++i) dernieresNoms[i] = noms[i];
+        printf("[SCAN] liste de classes changee -- table videe\n");
+    }
+
+    uintptr_t addr = 0;
+    MEMORY_BASIC_INFORMATION mbi;
+
+    while (VirtualQuery((void*)addr, &mbi, sizeof(mbi))) {
+        uintptr_t next = (uintptr_t)mbi.BaseAddress + mbi.RegionSize;
+        if (next <= addr) break;
+
+        bool lisible = (mbi.State == MEM_COMMIT) && (mbi.Type == MEM_PRIVATE) &&
+            !(mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) &&
+            (mbi.Protect & (PAGE_READWRITE | PAGE_EXECUTE_READWRITE));
+
+        if (lisible && mbi.RegionSize <= 0x4000000) {
+            __try {
+                uintptr_t* d = (uintptr_t*)mbi.BaseAddress;
+                uintptr_t* fin = (uintptr_t*)next;
+                for (; d < fin; ++d) {
+                    uintptr_t vptr = *d;
+                    if (vptr < modBase || vptr >= modEnd) continue;
+
+                    // Sondage borne : on cherche la cle ou un emplacement libre.
+                    int h = (int)((vptr >> 4) & (TAILLE - 1));
+                    int trouve = -1, libre = -1;
+                    for (int s = 0; s < SONDAGE; ++s) {
+                        int k = (h + s) & (TAILLE - 1);
+                        if (cleVptr[k] == vptr) { trouve = k; break; }
+                        if (cleVptr[k] == 0) { libre = k; break; }
+                    }
+
+                    int c;
+                    if (trouve >= 0) {
+                        c = verdict[trouve];
+                    }
+                    else {
+                        // Verdict a calculer. On ne memorise que s'il reste
+                        // de la place, sinon on recalcule (rare).
+                        c = -1;
+                        char cls[128] = { 0 };
+                        if (GetClassNameFP((uintptr_t)d, cls, sizeof(cls))) {
+                            for (int i = 0; i < nNoms; ++i) {
+                                bool eq = true;
+                                for (int j = 0; ; ++j) {
+                                    if (cls[j] != noms[i][j]) { eq = false; break; }
+                                    if (noms[i][j] == 0) break;
+                                }
+                                if (eq) { c = i; break; }
+                            }
+                        }
+                        if (libre >= 0 && occupe < (TAILLE * 3) / 4) {
+                            cleVptr[libre] = vptr;
+                            verdict[libre] = c;
+                            occupe++;
+                        }
+                    }
+
+                    if (c >= 0 && compteurs[c] < maxParClasse)
+                        sorties[c][compteurs[c]++] = (uintptr_t)d;
+                }
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER) {}
+        }
+        addr = next;
+    }
 }
