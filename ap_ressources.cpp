@@ -1,5 +1,7 @@
 #include "ap_ressources.h"
 #include "mod_common.h"
+#include "scooting.h"
+#include "scenario.h"
 
 // GUID invente, volontairement reconnaissable dans un dump.
 static const uint64_t AP_GUID0 = 0x4150204954454D31ULL;   // "AP ITEM1"
@@ -107,7 +109,9 @@ bool ApPorteurEstNotreGuid(uintptr_t guidPtr)
 
 const char* ApPorteurNomInterne() { return AP_NOM; }
 
-bool ApPorteurEnregistrer()
+
+//Rajoutait une douxième définition de ressource dans le tableau, déclenchant des crash lors du chargement de saivegarde.
+/*bool ApPorteurEnregistrer()
 {
     if (!g_apPorteurActif) return false;
 
@@ -156,26 +160,41 @@ bool ApPorteurEnregistrer()
     if (!SafeWrite((void*)(g_selfRessource + 0x2248), &neuf, 4)) return false;
 
     printf("[CONT] definition enregistree en position %u (%u/%u)\n", cnt, neuf, cap);
+    g_defEnregistree = true;
     return true;
-}
+}*/
 
 static bool EconomieValide()
 {
+    if (!g_run.valid) return false;
     if (!EnsureResSelf()) return false;
 
     uintptr_t arr = 0; uint32_t cnt = 0, cap = 0;
     if (!SafeRead((void*)(g_selfRessource + 0x2240), &arr, 8)) return false;
     if (!SafeRead((void*)(g_selfRessource + 0x2248), &cnt, 4)) return false;
     if (!SafeRead((void*)(g_selfRessource + 0x224C), &cap, 4)) return false;
-    if (arr <= 0x10000 || cnt < 8 || cnt > 64 || cap < cnt || cap > 64) return false;
+    if (arr <= 0x10000 || cap == 0 || cap > 64) return false;
 
-    // Les trois premieres entrees doivent porter un nom lisible.
-    for (int i = 0; i < 3; ++i) {
-        uintptr_t d = 0, np = 0; char n[32] = { 0 };
-        if (!SafeRead((void*)(arr + (uintptr_t)i * 0x70), &d, 8) || d <= 0x10000) return false;
-        if (!SafeRead((void*)d, &np, 8) || np <= 0x10000) return false;
+    // Toutes les entrees declarees doivent porter un nom lisible.
+    uint32_t valides = 0;
+    for (uint32_t i = 0; i < cnt && i < 64; ++i) {
+        uintptr_t def = 0;
+        if (!SafeRead((void*)(arr + (uintptr_t)i * 0x70), &def, 8) || def <= 0x10000) return false;
+        uintptr_t np = 0; char n[64] = { 0 };
+        if (!SafeRead((void*)def, &np, 8) || np <= 0x10000) return false;
         if (!SafeRead((void*)np, n, sizeof(n) - 1)) return false;
-        if (n[0] < 0x20 || n[0] > 0x7E || !n[1]) return false;
+        if (n[0] < 0x20 || n[0] > 0x7E) return false;
+        valides++;
     }
-    return true;
+    if (valides == 0) return false;
+
+    // Le compte doit rester identique sur deux tours consecutifs.
+    static uint32_t dernierCnt = 0;
+    static DWORD    stableDepuis = 0;
+    if (cnt != dernierCnt) {
+        dernierCnt = cnt;
+        stableDepuis = GetTickCount();
+        return false;
+    }
+    return (GetTickCount() - stableDepuis) > 2000;
 }

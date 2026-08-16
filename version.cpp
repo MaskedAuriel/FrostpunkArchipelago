@@ -88,6 +88,7 @@ DWORD WINAPI PayloadThread(LPVOID)
 		return 0;
 	}	
 
+
 	ApChargerChecksDeTest();
 	InstallResourceHooks(modBase);
 	InstallResearchHooks(modBase);
@@ -111,28 +112,25 @@ DWORD WINAPI PayloadThread(LPVOID)
 
 		if (GetAsyncKeyState(VK_F5) & 1) {
 			printf("[F5] appui detecte\n");
-			FindPropertyByName("Selected");
+			BaselineKeys(15000);
 			printf("[F5] End\n");
 			
 		}
 		if (GetAsyncKeyState(VK_F6) & 1) {
-			printf("[F6] appui detecte\n");
-			g_apTexteActif = !g_apTexteActif;
-			printf("[TEST] textes AP : %s\n", g_apTexteActif ? "ON" : "OFF");
+			OpenKeyLogWindow(15000);
 			printf("[F6] End\n");
 		}
 		
 		if (GetAsyncKeyState(VK_F7) & 1) {
 			printf("[F7] appui detecte\n");			
-			g_apDonneesActif = !g_apDonneesActif;
-			printf("[TEST] donnees AP : %s\n", g_apDonneesActif ? "ON" : "OFF");
+			ResetSeenKeys();
 			printf("[F7] End\n");
 		}
 
 		if (GetAsyncKeyState(VK_F8) & 1) {
-			printf("[F8] appui detecte\n");
-			g_apPorteurActif = !g_apPorteurActif;
-			printf("[TEST] porteur AP : %s\n", g_apPorteurActif ? "ON" : "OFF");
+			printf("[F8] appui detecte\n"); 
+			
+			ScootingDumpSiteCargo();
 			printf("[F8] End\n");
 		}
 
@@ -143,10 +141,9 @@ DWORD WINAPI PayloadThread(LPVOID)
 		static DWORD prochain = 0;
 		if (GetTickCount() > prochain) {
 			prochain = GetTickCount() + 1000;
+			
 			EnsureTechSelf();
 			EnsureResSelf();
-			CaptureRunState();
-
 			CaptureRunState();
 
 			// Seulement quand une partie est en place : jamais pendant un chargement.		

@@ -2,8 +2,6 @@
 #include <cstdint>
 
 // Nature du contenu d'un site : check envoye au serveur, ou item local.
-enum PayloadType { PAYLOAD_AP_CHECK = 0, PAYLOAD_PROGRESSIVE = 1 };
-
 struct SitePayload {
     const char* scenario;
     const char* site;
@@ -42,6 +40,10 @@ uint32_t CargaisonTotale(uintptr_t comp);
 void ScootingProbeConteneur();
 void ResoudreSelectionSystem();
 void MettreAJourListePortee();
+void ScootingFournirContenuSites();
 void ScootingEtatApresInit();
+void PatcherGabarits();
+void CacherGabarits();
 
 extern volatile bool g_apDonneesActif;
+extern bool g_defEnregistree;

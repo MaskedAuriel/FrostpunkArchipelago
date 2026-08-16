@@ -43,6 +43,13 @@ volatile bool    g_traceScout = false;   // trace verbeuse, a basculer sur une t
 static const char* PORTEUR_AP = "Steam Cores";
 volatile bool g_siteApAffiche = true;
 
+struct GabaritCache { uintptr_t tpl; char nom[128]; };
+static GabaritCache g_gabarits[64];
+static int          g_nGabarits = 0;
+
+
+static uint64_t g_modeleTresor[4];
+static bool     g_modeleTresorPret = false;
 // ============================================================================
 //  Table des contenus de sites
 // ============================================================================
@@ -116,31 +123,71 @@ static bool NomDeSite(const char* chemin, char* out, int maxlen)
     out[k] = 0;
     return k > 0;
 }
-
+extern bool g_defEnregistree = false;
 
 static bool CachesValides()
 {
     uintptr_t def = ApPorteurDef();
-    if (!def) return false;
+    //printf("Valeur de def : %lu\n", (unsigned long)def);
+    if (!def)
+    {
+        return false;
+        printf("Raison 1\n");
+    }
+   
 
-    if (!EnsureResSelf()) return false;
+    if (!EnsureResSelf())
+    {
+        printf("Raison 2\n");
+        return false;
+    }
+    
     uintptr_t arr = 0; uint32_t cnt = 0;
-    if (!SafeRead((void*)(g_selfRessource + 0x2240), &arr, 8)) return false;
-    if (!SafeRead((void*)(g_selfRessource + 0x2248), &cnt, 4)) return false;
-    if (arr <= 0x10000 || cnt == 0 || cnt > 64) return false;
+    if (!SafeRead((void*)(g_selfRessource + 0x2240), &arr, 8))
+    {
+        printf("Raison 3\n");
+        return false;
+    }
+    if (!SafeRead((void*)(g_selfRessource + 0x2248), &cnt, 4))
+    {
+        printf("Raison 4\n");
+        return false;
+    }
+    if (arr <= 0x10000 || cnt == 0 || cnt > 64)
+    {
+        printf("Raison 5\n");
+        return false;
+    }
+
+    //printf("Valeur de cnt : %lu\n", (unsigned long)cnt);
 
     bool enregistree = false;
     for (uint32_t i = 0; i < cnt; ++i) {
         uintptr_t d = 0;
-        if (!SafeRead((void*)(arr + (uintptr_t)i * 0x70), &d, 8)) continue;
+        if (!SafeRead((void*)(arr + (uintptr_t)i * 0x70), &d, 8))                      
+            continue;
+        //printf("    Valeur de d : %lu\n", (unsigned long)d);
         if (d == def) { enregistree = true; break; }
     }
-    if (!enregistree) return false;
+    //printf("%s\n", g_defEnregistree ? "true" : "false");
+    if (!enregistree && g_defEnregistree)
+    {
+        printf("Raison 6\n");
+        return false;
+    }
 
     if (!g_sending || !ClasseExacte(g_sending, "FrostpunkExpeditionSendingComponent"))
+    {
+        printf("Raison 7\n");
         return false;
+    }
+        
     if (g_nSites > 0 && !EstSiteComponent(g_sites[0].comp))
+    {
+        printf("Raison 8\n");
         return false;
+    }
+        
 
     return true;
 }
@@ -354,8 +401,6 @@ static uintptr_t DefRessourceParNom(const char* nom)
 
 // Remplace toute la cargaison par une seule ressource porteuse.
 // Element de CarriedResources : {pointeur def (8 o), quantite (8 o)}.
-// Remplace toute la cargaison par une seule ressource porteuse.
-// Element de CarriedResources : {pointeur def (8 o), quantite (8 o)}.
 bool InjecterPorteur(uintptr_t comp, uintptr_t def, int64_t quantite)
 {
     if (def <= 0x10000) { printf("[INJ] definition nulle\n"); return false; }
@@ -365,8 +410,7 @@ bool InjecterPorteur(uintptr_t comp, uintptr_t def, int64_t quantite)
     if (!SafeRead((void*)(comp + 0x168 + 8), &cnt, 4)) { printf("[INJ] compte illisible\n");   return false; }
     if (!SafeRead((void*)(comp + 0x168 + 12), &cap, 4)) { printf("[INJ] capacite illisible\n"); return false; }
 
-    printf("[INJ] CarriedResources : arr=0x%llX  cnt=%u  cap=%u\n",
-        (unsigned long long)arr, cnt, cap);
+    printf("[INJ] CarriedResources : arr=0x%llX  cnt=%u  cap=%u\n",(unsigned long long)arr, cnt, cap);
 
     if (arr <= 0x10000) { printf("[INJ] tableau non alloue -- rien a ecrire\n"); return false; }
     if (cap < 1) { printf("[INJ] capacite nulle\n");                      return false; }
@@ -501,7 +545,6 @@ void ScootingTick()
 {
     // Enregistrement le plus tot possible : sans lui, le jeu ne peut pas
     // resoudre notre GUID en deserialisant la cargaison d'un scout.   
-
     // --- changement de partie ---
     static uint64_t dernierGame[2] = { 0, 0 };
     if (g_run.valid &&
@@ -512,12 +555,15 @@ void ScootingTick()
         printf("[SCOUT] nouvelle partie detectee\n");
     }
 
-    // --- rechargement : l'economie est recreee, nos caches sont perimes ---
-    if (g_pret && !CachesValides()) {
-        g_pret = false; g_blocVille = 0; g_nExps = 0;
-        printf("[SCOUT] caches perimes (partie rechargee) -- reinitialisation\n");
+    if (PartieRechargee()) {
+        g_pret = false;
+        g_blocVille = 0;
+        g_nExps = 0;
+        g_nSites = 0;
+        g_nGabarits = 0;              // les gabarits sont recharges avec le scenario
+        g_modeleTresorPret = false;
     }
-
+        
     // --- initialisation differee ---
     if (!g_pret) {
         if (!g_run.valid) return;
@@ -1129,62 +1175,6 @@ void ScootingTrouverParGuid(uint64_t g0, uint64_t g1)
     printf("[GUID] %d occurrence(s)\n", trouves);
 }
 
-bool ScootingSetTreasureResource(const char* nomSite, int element, const char* nomRessource)
-{
-    // GUID de la ressource porteuse
-    uint64_t gr[2] = {};
-    {
-        uintptr_t def = DefRessourceParNom(nomRessource);
-        if (!def) { printf("[TRES] ressource \"%s\" introuvable\n", nomRessource); return false; }
-        SafeRead((void*)(def + 0x08), &gr[0], 8);
-        SafeRead((void*)(def + 0x10), &gr[1], 8);
-        printf("[TRES] %s -> guid %016llX%016llX\n", nomRessource,
-            (unsigned long long)gr[1], (unsigned long long)gr[0]);
-    }
-
-    static uintptr_t objs[256];
-    int n = CollectObjectsByClass("FrostpunkExpeditionSiteComponent", objs, 256);
-
-    for (int i = 0; i < n; ++i) {
-        if (!EstSiteComponent(objs[i])) continue;
-
-        uintptr_t tpl = 0; char nom[128] = { 0 };
-        if (!SafeRead((void*)(objs[i] + 0x20), &tpl, 8) || tpl <= 0x10000) continue;
-        NomDuGabarit(tpl, nom, sizeof(nom));
-        if (!StrEq(nom, nomSite)) continue;
-
-        uintptr_t arr = 0; uint32_t cnt = 0, cap = 0;
-        SafeRead((void*)(tpl + 0x1C0), &arr, 8);
-        SafeRead((void*)(tpl + 0x1C0 + 8), &cnt, 4);
-        SafeRead((void*)(tpl + 0x1C0 + 12), &cap, 4);
-        if (arr <= 0x10000 || cnt == 0 || cnt > 32) {
-            printf("[TRES] %s : tresor vide (n=%u)\n", nom, cnt);
-            return false;
-        }
-        if (element < 0 || (uint32_t)element >= cnt) {
-            printf("[TRES] %s : element %d hors bornes (n=%u)\n", nom, element, cnt);
-            return false;
-        }
-
-        uintptr_t e = arr + (uintptr_t)element * 0x20;
-
-        uint64_t avant[2] = {};
-        SafeRead((void*)e, &avant[0], 8);
-        SafeRead((void*)(e + 8), &avant[1], 8);
-
-        if (!SafeWrite((void*)e, &gr[0], 8)) return false;
-        if (!SafeWrite((void*)(e + 8), &gr[1], 8)) return false;
-
-        printf("[TRES] %s element %d : %016llX%016llX -> %016llX%016llX\n",
-            nom, element,
-            (unsigned long long)avant[1], (unsigned long long)avant[0],
-            (unsigned long long)gr[1], (unsigned long long)gr[0]);
-        return true;
-    }
-    printf("[TRES] site \"%s\" introuvable\n", nomSite);
-    return false;
-}
-
 int ScootingLocationPourCleSite(const char* cle)
 {
     if (!cle || !g_run.valid) return -1;
@@ -1544,6 +1534,7 @@ static const SitePayload* PayloadParLocation(int locationId)
 // dans la cargaison des expeditions concernees.
 void ScootingChargerEnAttente()
 {
+    printf("[START PERSIST]");
     char chemin[MAX_PATH];
     if (!CheminPersistance(chemin, MAX_PATH)) return;
 
@@ -1557,20 +1548,28 @@ void ScootingChargerEnAttente()
 
     int lus = 0, idExp = 0, idLoc = 0;
     while (fscanf_s(f, "%d %d", &idExp, &idLoc) == 2) {
-        const SitePayload* p = PayloadParLocation(idLoc);
-        if (!p) { printf("[PERSIST] location %d inconnue, ignoree\n", idLoc); continue; }
+        const SitePayload* location = PayloadParLocation(idLoc);
+        if (!location) { printf("[PERSIST] location %d inconnue, ignoree\n", idLoc); continue; }
+        else
+        {            
+            printf("[PERSIST] location %d connue\n", idLoc);
+            printf("[PERSIST] Restaured this check : %s \n", ApCheckById(idLoc)->description);
+        }
 
+        //Ce bloc charge dans l'expédition les location dans l'inventaire du scout.
         for (int i = 0; i < g_nExps; ++i) {
             if (!g_exps[i].valide || g_exps[i].id != idExp) continue;
+
             if (g_exps[i].nEnAttente >= MAX_EN_ATTENTE) break;
-            g_exps[i].enAttente[g_exps[i].nEnAttente++] = p;
+
+            g_exps[i].enAttente[g_exps[i].nEnAttente++] = location;
             lus++;
             break;
         }
     }
     fclose(f);
 
-    // Reinjection : la cargaison sauvegardee est inutilisable, on la refait.
+    //On reinject 
     for (int i = 0; i < g_nExps; ++i) {
         if (!g_exps[i].valide || g_exps[i].nEnAttente <= 0) continue;
         uintptr_t def = ApPorteurDef();
@@ -1583,7 +1582,7 @@ void ScootingChargerEnAttente()
             printf("[PERSIST] exp %d : reinjection impossible\n", g_exps[i].id);
         }
     }
-    printf("[PERSIST] %d item(s) restaure(s) au total\n", lus);
+    printf("[END PERSIST] %d item(s) restaure(s) au total\n", lus);
 }
 
 uint32_t CargaisonTotale(uintptr_t comp)
@@ -1662,8 +1661,12 @@ static void ResoudreSelectionSystem()
 
 
 // Recalcule la liste. Appelee une fois par tick, jamais depuis hkTranslate.
-void MettreAJourListePortee()
+static void MettreAJourListePortee()
 {
+    // Le retour a la ligne n'est pas rendu par les infobulles : on separe
+    // par une barre verticale.
+    static const wchar_t* SEPARATEUR = L"\n";
+
     g_listePortee[0] = 0;
     g_nListePortee = 0;
 
@@ -1675,21 +1678,32 @@ void MettreAJourListePortee()
         const ApCheck* ac = ApCheckById(g_exps[cible].enAttente[k]->locationId);
         const char* s = ac ? ac->description : "(inconnu)";
 
-        if (g_nListePortee > 0 && pos < 510) g_listePortee[pos++] = L'\n';
+        if (g_nListePortee > 0)
+            for (int j = 0; SEPARATEUR[j] && pos < 510; ++j)
+                g_listePortee[pos++] = SEPARATEUR[j];
+
         for (int j = 0; s[j] && pos < 511; ++j)
             g_listePortee[pos++] = (wchar_t)(unsigned char)s[j];
+
         g_nListePortee++;
     }
     g_listePortee[pos] = 0;
 
-    static int dernierN = -1, dernierCible = -2;
-    if (g_nListePortee != dernierN || cible != dernierCible) {
-        dernierN = g_nListePortee; dernierCible = cible;
-        printf("[LISTE] expedition selectionnee=%d  items=%d  nExps=%d\n",
-            cible, g_nListePortee, g_nExps);
+    // Trace a chaque changement : les sauts de ligne deviennent des '/'
+    // pour rester sur une seule ligne de console.
+    static int dernierN = -1;
+    if (g_nListePortee != dernierN) {
+        dernierN = g_nListePortee;
+        char a[512] = {};
+        int j = 0;
+        for (; g_listePortee[j] && j < 511; ++j) {
+            wchar_t c = g_listePortee[j];
+            a[j] = (c == L'\n') ? '/' : ((c < 128) ? (char)c : '?');
+        }
+        a[j] = 0;
+        printf("[LISTE] %d item(s) : %s\n", g_nListePortee, a);
     }
 }
-
 // Remplace le contenu des sites configures par notre item, UNIQUEMENT quand
 // le jeu a deja alloue le tableau. On ne fournit jamais le notre : le jeu
 // ecrit dedans en consommant le butin.
@@ -1758,3 +1772,26 @@ void ScootingEtatApresInit()
         }
     }
 }
+
+static HANDLE TasDuJeu(uintptr_t pointeurConnu)
+{
+    static HANDLE cache = nullptr;
+    if (cache) return cache;
+    if (pointeurConnu <= 0x10000) return nullptr;
+
+    HANDLE tas[64];
+    DWORD n = GetProcessHeaps(64, tas);
+    printf("[TAS] %lu tas dans le processus\n", n);
+
+    for (DWORD i = 0; i < n; ++i) {
+        if (HeapValidate(tas[i], 0, (void*)pointeurConnu)) {
+            cache = tas[i];
+            printf("[TAS] pointeur 0x%llX appartient au tas %p\n",
+                (unsigned long long)pointeurConnu, tas[i]);
+            return cache;
+        }
+    }
+    printf("[TAS] tas introuvable pour 0x%llX\n", (unsigned long long)pointeurConnu);
+    return nullptr;
+}
+

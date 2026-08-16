@@ -25,7 +25,7 @@ static void CopieAscii(char* dst, int taille, const char* src)
     dst[i] = 0;
 }
 
-static ApSlot* SlotById(int id)
+ApSlot* SlotById(int id)
 {
     for (int i = 0; i < g_nSlots; ++i)
         if (g_slots[i].valide && g_slots[i].c.id == id) return &g_slots[i];

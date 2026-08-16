@@ -63,6 +63,8 @@ void ScanForStrings(const char* label, uintptr_t base, int lenBytes)
     }
 }
 
+
+
 void FindStaticPointersTo(uintptr_t value)
 {
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
@@ -1226,6 +1228,39 @@ static LONG NTAPI hkNtReadFile(HANDLE h, HANDLE ev, void* apc, void* apcCtx,
     return oNtReadFile(h, ev, apc, apcCtx, iosb, buf, len, off, key);
 }
 
+typedef LONG(NTAPI* NtWriteFile_t)(HANDLE, HANDLE, void*, void*,
+    IO_STATUS_BLOCK_FP*, PVOID, ULONG,
+    PLARGE_INTEGER, PULONG);
+static NtWriteFile_t oNtWriteFile = nullptr;
+
+volatile bool g_traceEcriture = true;
+
+static LONG NTAPI hkNtWriteFile(HANDLE h, HANDLE ev, void* apc, void* apcCtx,
+    IO_STATUS_BLOCK_FP* iosb, PVOID buf, ULONG len,
+    PLARGE_INTEGER off, PULONG key)
+{
+    if (g_traceEcriture && !t_dansHook) {
+        t_dansHook = true;
+        const wchar_t* nom = NomCache(h);
+        // On ignore la console et les journaux du jeu.
+        bool interessant = true;
+        if (nom) {
+            for (int i = 0; nom[i] && nom[i + 3]; ++i)
+                if (nom[i] == L'.' && nom[i + 1] == L'l' && nom[i + 2] == L'o' && nom[i + 3] == L'g')
+                {
+                    interessant = false; break;
+                }
+        }
+        if (interessant) {
+            static int n = 0;
+            if (++n <= 40)
+                wprintf(L"[WRITE] #%d %-28s len=%u\n", n, nom ? nom : L"?", len);
+        }
+        t_dansHook = false;
+    }
+    return oNtWriteFile(h, ev, apc, apcCtx, iosb, buf, len, off, key);
+}
+
 // A appeler depuis une touche, jamais au demarrage : hooker les E/S pendant
 // l'initialisation du processus fait crasher le jeu.
 void InstallNtHooks()
@@ -1233,12 +1268,51 @@ void InstallNtHooks()
     if (g_ntInstalle) return;
 
     HMODULE nt = GetModuleHandleW(L"ntdll.dll");
-    if (!nt) return;
+    if (!nt) { printf("[NT] ntdll introuvable\n"); return; }
 
+    // --- NtReadFile : substitution de textures -----------------------------
     void* c = (void*)GetProcAddress(nt, "NtReadFile");
-    if (!c) return;
+    if (!c) {
+        printf("[NT] NtReadFile introuvable\n");
+    }
+    else if (MH_CreateHook(c, (void*)&hkNtReadFile, (void**)&oNtReadFile) == MH_OK &&
+        MH_EnableHook(c) == MH_OK) {
+        printf("[NT] hook NtReadFile OK\n");
+    }
+    else {
+        printf("[NT] hook NtReadFile KO\n");
+    }
 
-    if (MH_CreateHook(c, (void*)&hkNtReadFile, (void**)&oNtReadFile) == MH_OK &&
-        MH_EnableHook(c) == MH_OK)
-        g_ntInstalle = true;
+    // --- NtWriteFile : reperage des sauvegardes ----------------------------
+    void* w = (void*)GetProcAddress(nt, "NtWriteFile");
+    if (!w) {
+        printf("[NT] NtWriteFile introuvable\n");
+    }
+    else if (MH_CreateHook(w, (void*)&hkNtWriteFile, (void**)&oNtWriteFile) == MH_OK &&
+        MH_EnableHook(w) == MH_OK) {
+        printf("[NT] hook NtWriteFile OK\n");
+    }
+    else {
+        printf("[NT] hook NtWriteFile KO\n");
+    }
+
+    g_ntInstalle = true;
+}
+
+bool PartieRechargee()
+{
+    static uintptr_t derniere = 0;
+    uintptr_t modBase = reinterpret_cast<uintptr_t>(GetModuleHandleW(NULL));
+    uintptr_t eco = 0;
+    if (!SafeRead((void*)(modBase + 0x40916D0), &eco, 8)) return false;
+    if (eco <= 0x10000) return false;                 // pas encore en partie
+
+    if (eco == derniere) return false;                // rien de neuf
+    bool premiere = (derniere == 0);
+    derniere = eco;
+
+    printf("[LOADING] %s : economie a 0x%llX\n",
+        premiere ? "partie chargee" : "PARTIE RECHARGEE",
+        (unsigned long long)eco);
+    return true;
 }

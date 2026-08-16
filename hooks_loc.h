@@ -24,3 +24,6 @@ static bool SeenAdd(const char* k);
 extern volatile bool g_apTexteActif;
 void DumpClesDilemme(const char* k, uintptr_t ret);
 wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot);
+
+bool TexteDescriptionSite(const char* k, uintptr_t ret);
+static void DumpClesLandmark(const char* k, uintptr_t ret);

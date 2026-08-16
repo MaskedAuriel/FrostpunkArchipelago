@@ -8,7 +8,7 @@ bool       ApPorteurInit();                    // une fois par session
 uintptr_t  ApPorteurDef();                     // 0 tant que non initialisee
 bool       ApPorteurEstNotreGuid(uintptr_t guidPtr);
 const char* ApPorteurNomInterne();
-bool ApPorteurEnregistrer();
+//bool ApPorteurEnregistrer();
 
 extern volatile bool g_apPorteurActif;
 bool EconomieValide();

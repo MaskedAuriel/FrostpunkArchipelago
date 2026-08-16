@@ -266,10 +266,8 @@ static bool TexteExpedition(const char* k, uintptr_t ret)
         g_instantSite = GetTickCount();
         return false;
     }
-
     if (!StrEqLoc(k, "Expeditions/EffectBaseResources")) return false;
     if (g_locationAffichee < 0) return false;
-
     const ApCheck* ac = ApCheckById(g_locationAffichee);
     if (!ac) return false;
 
@@ -299,7 +297,19 @@ static const bool BLOC_APITEM = true;
 static const bool BLOC_OVERRIDE = true;
 static const bool BLOC_SITE = true;
 static const bool BLOC_TECHNO = true;
-volatile bool g_dumpDilemmes = true;
+volatile bool g_dumpDilemmes = false;
+
+static void TracerCleEnumeration(const char* k)
+{
+    if (!StrEqLoc(k, "Expeditions/EffectBaseResources")) return;
+
+    static DWORD dernier = 0;
+    if (GetTickCount() - dernier < 500) return;      // une fois par demi-seconde
+    dernier = GetTickCount();
+
+    printf("[ENUM] EffectBaseResources passe  (locationAffichee=%d)\n",
+        g_locationAffichee);
+}
 
 static uintptr_t hkTranslate(uintptr_t loc, const char* key,
     uintptr_t p3, uintptr_t p4)
@@ -313,6 +323,7 @@ static uintptr_t hkTranslate(uintptr_t loc, const char* key,
     if (!SafeRead((void*)key, k, sizeof(k) - 1)) return ret;
 
     const char* kp = (k[0] == '@') ? k + 1 : k;
+    TracerCleEnumeration(k);
 
     if (BLOC_APITEM && StrEqLoc(kp, "Resources/Names/AP_Item")) {
         if (!g_apLocPret || !g_modeleChars) return ret;
@@ -353,11 +364,13 @@ static uintptr_t hkTranslate(uintptr_t loc, const char* key,
     }
 
     if (BLOC_MODELE) ApLocCapturerModele(ret);
+    DumpClesLandmark(k, ret);
     if (g_dumpDilemmes) DumpClesDilemme(k, ret);
     if (ret <= 0x10000) return ret;
 
     if (BLOC_OVERRIDE && ApplyOverride(k, ret)) return ret;
-    if (BLOC_SITE && TexteExpedition(k, ret)) return ret;
+    if (BLOC_SITE && TexteExpedition(k, ret)) return ret;  
+    //if (TexteDescriptionSite(k, ret))  return ret;
 
     if (BLOC_TECHNO) {
         uint64_t th = 0; int slot = -1;
@@ -560,6 +573,16 @@ static wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot)
         if (modele <= 0x10000) return nullptr;
         if (!SafeRead((void*)(modele - 0x14), bloc, 0x14)) return nullptr;
         prets[slot] = true;
+
+        // Longueur de la chaine modele, pour identifier le champ
+        wchar_t m[128] = {};
+        SafeRead((void*)modele, m, sizeof(m) - 2);
+        int lm = 0; while (lm < 127 && m[lm]) lm++;
+
+        printf("[CHAINE] modele len=%d  en-tete (0x14 octets) :", lm);
+        for (int z = 0; z < 0x14; z += 4)
+            printf(" %08X", *(uint32_t*)(bloc + z));
+        printf("\n");
     }
 
     uintptr_t debut = (uintptr_t)bloc;
@@ -575,3 +598,69 @@ static wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot)
 }
 
 
+bool TexteDescriptionSite(const char* k, uintptr_t ret)
+{
+    if (g_locationAffichee < 0) return false;
+
+    // La cle doit finir par "description" (Unvisited/Explored/Depleted inclus)
+    int len = 0;
+    while (len < 255 && k[len]) len++;
+    const char* suf = "description";
+    int ls = 11;
+    if (len < ls) return false;
+    for (int i = 0; i < ls; ++i) {
+        char c = k[len - ls + i];
+        if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+        if (c != suf[i]) return false;
+    }
+
+    const ApCheck* ac = ApCheckById(g_locationAffichee);
+    if (!ac) return false;
+
+    uintptr_t chars = 0;
+    if (!SafeRead((void*)ret, &chars, 8) || chars <= 0x10000) return false;
+
+    // Deja prefixee ? (le hook peut repasser plusieurs fois)
+    wchar_t orig[400] = {};
+    if (!SafeRead((void*)chars, orig, sizeof(orig) - 2)) return false;
+    if (orig[0] == L'[') return false;
+
+    wchar_t tmp[512];
+    int n = 0;
+    for (int i = 0; ac->description[i] && n < 200; ++i)
+        tmp[n++] = (wchar_t)(unsigned char)ac->description[i];
+    tmp[n++] = L'\n';
+    tmp[n++] = L'\n';
+    for (int i = 0; orig[i] && n < 511; ++i) tmp[n++] = orig[i];
+    tmp[n] = 0;
+
+    wchar_t* nouvelle = ApChaine(tmp, chars, 2);
+    if (!nouvelle) return false;
+
+    uintptr_t p = (uintptr_t)nouvelle;
+    return SafeWrite((void*)ret, &p, 8);
+}
+
+static void DumpClesLandmark(const char* k, uintptr_t ret)
+{
+    static const char* cles[] = {
+        "Expeditions/GenericSiteDescription",
+        "Expeditions/LandmarkName",
+        "Expeditions/LandmarkSubtitle",
+        "Expeditions/LandmarkDescription",
+        "Expeditions/LandmarkCarryOn",
+        "Expeditions/LandmarkTooltip",
+        "Expeditions/LandsmarkArcSubtitle",
+        "Expeditions/GenericSiteDepletedDescription",
+    };
+    static const int N = 8;
+    static bool vues[N] = {};
+
+    for (int i = 0; i < N; ++i) {
+        if (vues[i]) continue;
+        if (!StrEqLoc(k, cles[i])) continue;
+        vues[i] = true;
+        DumpWide(k, ret);
+        return;
+    }
+}

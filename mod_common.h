@@ -54,6 +54,7 @@ void ResetBlobLog();
 bool AjouterSubstitution(unsigned long long off, const wchar_t* fichier);
 void SetIconCell(const char* ressource, int col, int row);
 void ChargerSubstitutions();
+bool PartieRechargee();
 
 extern volatile bool g_traceIO;
 extern volatile bool g_consolePrete;
