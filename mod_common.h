@@ -57,6 +57,10 @@ void ChargerSubstitutions();
 bool PartieRechargee();
 void CollectObjectsByClasses(const char** noms, int nNoms, uintptr_t** sorties, int* compteurs, int maxParClasse);
 void DumpGlobauxEconomie();
+void SetTechIconTile(const char* nomTechno, int32_t col, int32_t row);
+void BroyerToutesLesIcones();
+void DumpBatimentsDesTechnos();
+bool ClasseExacte(uintptr_t obj, const char* ref);
 
 extern volatile bool g_traceIO;
 extern volatile bool g_consolePrete;

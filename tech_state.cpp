@@ -388,3 +388,37 @@ bool LookupLocKey(const char* localKey, uint64_t* outHash, int* outSlot)
     }
     return false;
 }
+void DimensionsAtlasTechnos()
+{
+    if (!EnsureTechSelf()) return;
+
+    uintptr_t base = 0; uint32_t cnt = 0;
+    SafeRead((void*)(g_selfTech + 0x2248), &base, 8);
+    SafeRead((void*)(g_selfTech + 0x2250), &cnt, 4);
+
+    int maxCol = -1, maxLig = -1, n = 0;
+    bool occupe[32][32] = {};
+
+    for (uint32_t k = 0; k < cnt; ++k) {
+        uintptr_t te = 0;
+        SafeRead((void*)(base + (uintptr_t)k * 0x10), &te, 8);
+        if (te <= 0x10000) continue;
+
+        int32_t t[2] = {};
+        if (!SafeRead((void*)(te + 0x80), t, 8)) continue;
+        if (t[0] < 0 || t[0] > 31 || t[1] < 0 || t[1] > 31) continue;
+        if (t[0] == 0 && t[1] == 2) continue;          // sentinelle : miniature
+
+        if (t[0] > maxCol) maxCol = t[0];
+        if (t[1] > maxLig) maxLig = t[1];
+        occupe[t[0]][t[1]] = true;
+        n++;
+    }
+
+    printf("\n[ATECH] %d techno(s) a tuile, grille au moins %d x %d\n",
+        n, maxCol + 1, maxLig + 1);
+    printf("[ATECH] cases LIBRES :\n");
+    for (int l = 0; l <= maxLig; ++l)
+        for (int c = 0; c <= maxCol; ++c)
+            if (!occupe[c][l]) printf("   (%2d,%2d)\n", c, l);
+}

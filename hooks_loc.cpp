@@ -21,8 +21,6 @@ void LogLocKey(const char* key);
 static volatile bool  g_silent = false;   // amorcage : enregistre sans afficher
 
 
-// PIEGE : ici rdx est un char* DIRECT (contrairement a HashMapLookup 0x1079AA0
-// qui recoit un char** et double-dereference).
 typedef uintptr_t (*Translate_t)(uintptr_t loc, const char* key,
                                  uintptr_t p3, uintptr_t p4);
 typedef uintptr_t(*HashMapLookup_t)(uintptr_t map, const char** key);

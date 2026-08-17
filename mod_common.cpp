@@ -1284,19 +1284,6 @@ void InstallNtHooks()
         printf("[NT] hook NtReadFile KO\n");
     }
 
-    // --- NtWriteFile : reperage des sauvegardes ----------------------------
-    void* w = (void*)GetProcAddress(nt, "NtWriteFile");
-    if (!w) {
-        printf("[NT] NtWriteFile introuvable\n");
-    }
-    else if (MH_CreateHook(w, (void*)&hkNtWriteFile, (void**)&oNtWriteFile) == MH_OK &&
-        MH_EnableHook(w) == MH_OK) {
-        printf("[NT] hook NtWriteFile OK\n");
-    }
-    else {
-        printf("[NT] hook NtWriteFile KO\n");
-    }
-
     g_ntInstalle = true;
 }
 
@@ -1426,3 +1413,72 @@ void CollectObjectsByClasses(const char** noms, int nNoms,
         addr = next;
     }
 }
+
+bool ClasseExacte(uintptr_t obj, const char* ref)
+{
+    char cls[128] = { 0 };
+    if (!GetClassNameFP(obj, cls, sizeof(cls))) return false;
+    for (int j = 0; ; ++j) {
+        if (cls[j] != ref[j]) return false;
+        if (ref[j] == 0) return true;
+    }
+}
+
+
+// Ecrit l'icone sur TOUTES les entrees portant ce nom, et relit pour verifier.
+void SetTechIconTile(const char* nomTechno, int32_t col, int32_t row)
+{
+    if (!EnsureTechSelf()) return;
+
+    uintptr_t base = 0; uint32_t cnt = 0;
+    SafeRead((void*)(g_selfTech + 0x2248), &base, 8);
+    SafeRead((void*)(g_selfTech + 0x2250), &cnt, 4);
+
+    int touchees = 0;
+    for (uint32_t k = 0; k < cnt; ++k) {
+        uintptr_t te = 0;
+        SafeRead((void*)(base + (uintptr_t)k * 0x10), &te, 8);
+        if (te <= 0x10000) continue;
+
+        uintptr_t dsc = 0; char nom[64] = { 0 };
+        SafeRead((void*)(te + 0x18), &dsc, 8);
+        if (dsc > 0x10000) SafeRead((void*)dsc, nom, sizeof(nom) - 1);
+        if (strcmp(nom, nomTechno) != 0) continue;
+
+        int32_t avant[2] = {}, apres[2] = {};
+        SafeRead((void*)(te + 0x80), avant, 8);
+
+        int32_t cr[2] = { col, row };
+        bool ok = SafeWrite((void*)(te + 0x80), cr, 8);
+        SafeRead((void*)(te + 0x80), apres, 8);
+
+        uint64_t h = 0;
+        SafeRead((void*)(te + 0x20), &h, 8);
+        printf("[TILE] %s hash=%016llX : (%d,%d) -> (%d,%d)  ecriture=%d  relu=(%d,%d)\n",
+            nom, (unsigned long long)h, avant[0], avant[1], col, row,
+            (int)ok, apres[0], apres[1]);
+        touchees++;
+    }
+    printf("[TILE] %d entree(s) touchee(s)\n", touchees);
+}
+
+void BroyerToutesLesIcones()
+{
+    if (!EnsureTechSelf()) return;
+
+    uintptr_t base = 0; uint32_t cnt = 0;
+    SafeRead((void*)(g_selfTech + 0x2248), &base, 8);
+    SafeRead((void*)(g_selfTech + 0x2250), &cnt, 4);
+
+    int n = 0;
+    for (uint32_t k = 0; k < cnt; ++k) {
+        uintptr_t te = 0;
+        SafeRead((void*)(base + (uintptr_t)k * 0x10), &te, 8);
+        if (te <= 0x10000) continue;
+        int32_t cr[2] = { 99, 99 };
+        if (SafeWrite((void*)(te + 0x80), cr, 8)) n++;
+    }
+    printf("[TILE] %d icone(s) mises a (99,99)\n", n);
+}
+
+

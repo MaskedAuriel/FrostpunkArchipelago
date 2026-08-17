@@ -101,36 +101,33 @@ DWORD WINAPI PayloadThread(LPVOID)
 	while (true) {		
 		if (GetAsyncKeyState(VK_F4) & 1) {
 			printf("[F4] appui detecte\n");
-			// 1) Le vocabulaire complet de l'exploration.
-			ScanClassesDistinct("Expedition", 0);
-			ScanClassesDistinct("WorldMap", 0);
+			ResetSeenKeys();
+			printf("[F4] End\n");
 
-			// 2) Le mecanisme de decouverte : qui porte une propriete "Reveal" ?
-			FindPropertyByName("Reveal");
-			FindPropertyByName("Discover");
 		}
 
 		if (GetAsyncKeyState(VK_F5) & 1) {
 			printf("[F5] appui detecte\n");
-			DumpRecordProperties(FindClassRecord("FrostpunkSelectionComponent"));
+			ResetBlobLog();
 			printf("[F5] End\n");
 			
 		}
 		if (GetAsyncKeyState(VK_F6) & 1) {
-			FindPropertyByName("Hover");
+			printf("[F6] appui detecte\n");
+			DumpBlobLog();
 			printf("[F6] End\n");
 		}
 		
 		if (GetAsyncKeyState(VK_F7) & 1) {
 			printf("[F7] appui detecte\n");			
-			ResetSeenKeys();
+			DimensionsAtlasTechnos();
 			printf("[F7] End\n");
 		}
 
 		if (GetAsyncKeyState(VK_F8) & 1) {
 			printf("[F8] appui detecte\n"); 
 			
-			ScootingDumpSiteCargo();
+			DumpRecordProperties(FindClassRecord("FrostpunkBuildingComponentTemplate"));
 			printf("[F8] End\n");
 		}
 
@@ -146,17 +143,6 @@ DWORD WINAPI PayloadThread(LPVOID)
 			CHRONO(EnsureResSelf());
 			CHRONO(CaptureRunState());
 			CHRONO(ScootingTick());
-
-			/*static bool dejaSignale = false;
-			bool vic = ScenarioJustWon();
-			if (vic && !dejaSignale && g_run.valid) {
-				dejaSignale = true;
-				printf("[VICTOIRE] %s remporte\n", g_run.scenario);
-				for (int i = 0; i < g_run.diffCount; ++i)
-					printf("   %s = niveau %d/%d\n",
-						g_run.diff[i].name, g_run.diff[i].level, g_run.diff[i].levelCount);
-			}
-			if (!vic) dejaSignale = false;*/
 		}
 		Sleep(16);            // evite de saturer un coeur du CPU
 	}

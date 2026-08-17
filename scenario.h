@@ -30,6 +30,8 @@ bool FindSettingName(const uint64_t* guid, char* out, int maxlen);
 void LireDifficultesRuntime();
 uintptr_t FindScenarioSystem();
 void ScenarioSetCaches(uintptr_t scenarioSys, uintptr_t difficultySys);
+void DumpIconTile();
+
 
 struct RunState {
     bool     valid;             // une partie est en cours et lisible

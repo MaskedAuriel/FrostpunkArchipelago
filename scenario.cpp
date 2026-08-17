@@ -514,6 +514,41 @@ bool GetClassNameFP(uintptr_t obj, char* out, int maxlen)
     return j > 0;
 }
 
+void DumpIconTile()
+{
+    if (!EnsureTechSelf()) return;
+
+    uintptr_t base = 0; uint32_t cnt = 0;
+    SafeRead((void*)(g_selfTech + 0x2248), &base, 8);
+    SafeRead((void*)(g_selfTech + 0x2250), &cnt, 4);
+
+    for (uint32_t k = 0; k < cnt && k < 4; ++k) {
+        uintptr_t te = 0;
+        SafeRead((void*)(base + (uintptr_t)k * 0x10), &te, 8);
+        if (te <= 0x10000) continue;
+
+        uintptr_t dsc = 0; char nom[64] = { 0 };
+        SafeRead((void*)(te + 0x18), &dsc, 8);
+        if (dsc > 0x10000) SafeRead((void*)dsc, nom, sizeof(nom) - 1);
+
+        uint64_t tile = 0, grid = 0;
+        SafeRead((void*)(te + 0x80), &tile, 8);
+        SafeRead((void*)(te + 0x88), &grid, 8);
+
+        printf("[TILE] %-24s  IconTile=%016llX  Grid=%016llX\n",
+            nom, (unsigned long long)tile, (unsigned long long)grid);
+
+        // Si c'est un pointeur, que trouve-t-on derriere ?
+        if (tile > 0x10000 && tile < 0x7FFFFFFFFFFF) {
+            char s[128] = { 0 };
+            if (SafeRead((void*)tile, s, sizeof(s) - 1) && s[0] >= 0x20 && s[0] < 0x7F)
+                printf("        -> \"%s\"\n", s);
+            char cls[96] = { 0 };
+            if (GetClassNameFP(tile, cls, sizeof(cls)))
+                printf("        [%s]\n", cls);
+        }
+    }
+}
 
 
 static uintptr_t hkCtor(uintptr_t self)

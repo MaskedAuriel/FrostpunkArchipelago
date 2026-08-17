@@ -35,3 +35,4 @@ bool TechLocKeyAt(uintptr_t techPtr, int off, char* out, int maxlen);
 static uint32_t Fnv32(const char* s);
 static void BuildLocKeyTable();
 bool StrEq(const char* a, const char* b);
+void DimensionsAtlasTechnos();
