@@ -19,8 +19,8 @@ struct TechInfo {
     int progressiveTreePosition;
 };
 
-struct TechGroup { const TechInfo* items; int count; const char* label; };
 
+struct TechGroup { const TechInfo* items; int count; const char* label; };
 
 static const TechInfo KNOWN_TECHS_MAIN_HEATING[] = {
 { 0xA0E0D2727D0B336AULL, "SteamHub", 0, 0},

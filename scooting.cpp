@@ -36,7 +36,7 @@ static SiteCache g_sites[64];
 static int       g_nSites = 0;
 static uintptr_t g_sending = 0;      // FrostpunkExpeditionSendingComponent
 static uintptr_t g_blocVille = 0;
-static bool      g_pret = false;
+volatile bool      g_pret = false;
 
 
 struct GabaritCache { uintptr_t tpl; char nom[128]; };
@@ -70,11 +70,6 @@ volatile bool g_apDonneesActif = true;
 //  Utilitaires
 // ============================================================================
 
-static bool StrEq(const char* a, const char* b)
-{
-    if (!a || !b) return false;
-    for (int i = 0; ; ++i) { if (a[i] != b[i]) return false; if (a[i] == 0) return true; }
-}
 
 // Filtre exact : CollectObjectsByClass utilise StrContains, qui attraperait
 // aussi les ...ComponentTemplate.
@@ -404,9 +399,8 @@ static void RescanExpeditions()
         g_nExps, rejetes);
 }
 
-// ============================================================================
-//  Initialisation
-// ============================================================================
+
+
 void ScootingInit()
 {
     g_nSites = 0; g_sending = 0; g_pret = false; g_blocVille = 0; g_selSys = 0;
@@ -415,10 +409,12 @@ void ScootingInit()
         printf("[SCOUT] porteur non fabrique -- init reportee\n");
         return;
     }
-    static uintptr_t bufSites[256], bufSend[256], bufCity[256],
-        bufSel[256], bufExp[256], bufScn[256], bufDif[256];
 
-    static const char* noms[7] = {
+    static uintptr_t bufSites[256], bufSend[256], bufCity[256],
+        bufSel[256], bufExp[256], bufScn[256],
+        bufDif[256], bufBat[512];
+
+    static const char* noms[8] = {
         "FrostpunkExpeditionSiteComponent",
         "FrostpunkExpeditionSendingComponent",
         "FrostpunkCityComponent",
@@ -426,15 +422,18 @@ void ScootingInit()
         "FrostpunkExpeditionComponent",
         "FrostpunkScenarioSystem",
         "FrostpunkDifficultySystem",
+        "FrostpunkBuildingComponentTemplate",
     };
-    uintptr_t* sorties[7] = { bufSites, bufSend, bufCity, bufSel, bufExp, bufScn, bufDif };
-    int compteurs[7] = {};
+    uintptr_t* sorties[8] = { bufSites, bufSend, bufCity, bufSel,
+                              bufExp,   bufScn,  bufDif,  bufBat };
+    int compteurs[8] = {};
 
-    CHRONO(CollectObjectsByClasses(noms, 7, sorties, compteurs, 256));
-    printf("[SCAN] sites=%d send=%d city=%d sel=%d exp=%d scn=%d dif=%d\n",
-        compteurs[0], compteurs[1], compteurs[2],
-        compteurs[3], compteurs[4], compteurs[5], compteurs[6]);
-    // --- systemes scenario et difficulte, avec validation ---
+    CHRONO(CollectObjectsByClasses(noms, 8, sorties, compteurs, 256));
+    printf("[SCAN] sites=%d send=%d city=%d sel=%d exp=%d scn=%d dif=%d bat=%d\n",
+        compteurs[0], compteurs[1], compteurs[2], compteurs[3],
+        compteurs[4], compteurs[5], compteurs[6], compteurs[7]);
+
+    // --- systemes scenario et difficulte ---
     uintptr_t scnSys = 0, difSys = 0;
     for (int i = 0; i < compteurs[5] && !scnSys; ++i) {
         uintptr_t s = 0;
@@ -448,12 +447,15 @@ void ScootingInit()
     }
     ScenarioSetCaches(scnSys, difSys);
 
+    // --- gabarits de batiment, depuis le balayage : plus de scan dedie ---
+    RemplirCacheGabarits(bufBat, compteurs[7]);
+    ResoudreTechnosAP();
+
     // --- sites ---
     for (int i = 0; i < compteurs[0] && g_nSites < 64; ++i) {
         uintptr_t ent = 0, bloc = 0;
         if (!SafeRead((void*)(bufSites[i] + 0x18), &ent, 8) || ent <= 0x10000) continue;
         if (!SafeRead((void*)(ent + 0x08), &bloc, 8) || bloc <= 0x10000) continue;
-
         SiteCache& s = g_sites[g_nSites];
         s.comp = bufSites[i]; s.bloc = bloc; s.nom[0] = 0;
         s.dernierEtat = -1;
@@ -507,20 +509,13 @@ void ScootingInit()
         g_nSites, (unsigned long long)g_blocVille, g_nExps,
         g_pret ? "pret" : "incomplet");
 
-  
-   
-   
     CHRONO(ScootingAppliquerTresors());
     CHRONO(ScootingSubstituerContenuSites());
-
     if (g_pret) {
-        
         CHRONO(ScootingReparerCargaisons());
-        CHRONO(ScootingChargerEnAttente());
-        g_persistChargee = false;      // sera fait dans le tick
+        g_persistChargee = false;
     }
 }
-
 void ScootingTick()
 {
     // --- changement de partie : l'economie est recreee a chaque chargement ---

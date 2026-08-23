@@ -134,10 +134,7 @@ void InternalToSeg(const char* internal, char* out, int maxlen)
     out[j] = 0;
 }
 
-bool StrEq(const char* a, const char* b)
-{
-    for (int i = 0; ; ++i) { if (a[i] != b[i]) return false; if (a[i] == 0) return true; }
-}
+
 
 // --- Parcours ---------------------------------------------------------------
 int ForEachTech(void (*fn)(uint64_t hash))

@@ -9,7 +9,7 @@ static const uint64_t AP_GUID1 = 0x4152434849504F31ULL;   // "ARCHIPO1"
 
 static const char  AP_NOM[] = "AP_Item";
 static uint8_t     g_def[0x100];         // notre definition, jamais liberee
-static bool        g_pret = false;
+static bool        g_pret_ressources = false;
 
 volatile bool g_apPorteurActif = true;
 
@@ -61,7 +61,7 @@ static const size_t AP_DEF_TAILLE = 0xD8;   // taille reelle de FrostpunkResourc
 bool ApPorteurInit()
 {
     if (!g_apPorteurActif) return false;
-    if (g_pret) return true;
+    if (g_pret_ressources) return true;
 
     if (!EconomieValide()) {
         static DWORD dernier = 0;
@@ -88,14 +88,14 @@ bool ApPorteurInit()
     int32_t cr[2] = { 0, 1 };
     memcpy(g_def + 0x98 + 8, cr, 8);
 
-    g_pret = true;
+    g_pret_ressources = true;
     printf("[APRES] definition fabriquee a 0x%llX\n",
         (unsigned long long)(uintptr_t)g_def);
     return true;
 }
 uintptr_t ApPorteurDef()
 {
-    return g_pret ? (uintptr_t)g_def : 0;
+    return g_pret_ressources ? (uintptr_t)g_def : 0;
 }
 
 bool ApPorteurEstNotreGuid(uintptr_t guidPtr)

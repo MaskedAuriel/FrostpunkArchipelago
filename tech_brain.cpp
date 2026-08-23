@@ -9,6 +9,9 @@ bool g_showApInfo = true;
 static const int BONUS_TREE = 36;   // arbre debloque par palier
 static const int BONUS_EVERY = 5;    // une progressive de BONUS_TREE toutes les 5
 static int g_sinceBonus = 0;
+
+
+
 static const char* NameOfHash(uint64_t hash)
 {
     const TechInfo* t = TechByHash(hash);
@@ -151,4 +154,5 @@ void DumpProgression()
     }
     printf("[PROG] total : %d progressives\n", total);
 }
+
 

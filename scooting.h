@@ -27,3 +27,4 @@ void MettreAJourListePortee();
 bool EnJeu();
 extern volatile bool g_apDonneesActif;
 extern bool g_defEnregistree;
+extern volatile bool g_pret;

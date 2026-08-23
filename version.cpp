@@ -23,6 +23,7 @@
 #include "scooting.h"
 #include "ap_data.h"
 #include "ap_ressources.h"
+#include "IconSubManager.h"
 
 #pragma comment(lib, "user32.lib")
 
@@ -90,6 +91,7 @@ DWORD WINAPI PayloadThread(LPVOID)
 
 
 	ApChargerChecksDeTest();
+	ApChargerTechnosDeTest();
 	InstallResourceHooks(modBase);
 	InstallResearchHooks(modBase);
 	InstallLocHooks(modBase);
@@ -108,19 +110,19 @@ DWORD WINAPI PayloadThread(LPVOID)
 
 		if (GetAsyncKeyState(VK_F5) & 1) {
 			printf("[F5] appui detecte\n");
-			ResetBlobLog();
+			BaselineKeys(10000);			
 			printf("[F5] End\n");
 			
 		}
 		if (GetAsyncKeyState(VK_F6) & 1) {
 			printf("[F6] appui detecte\n");
-			DumpBlobLog();
+			OpenKeyLogWindow(10000);
 			printf("[F6] End\n");
 		}
 		
 		if (GetAsyncKeyState(VK_F7) & 1) {
-			printf("[F7] appui detecte\n");			
-			DimensionsAtlasTechnos();
+			printf("[F7] appui detecte\n");		
+			FindPropertyByName("Color");
 			printf("[F7] End\n");
 		}
 
@@ -143,6 +145,8 @@ DWORD WINAPI PayloadThread(LPVOID)
 			CHRONO(EnsureResSelf());
 			CHRONO(CaptureRunState());
 			CHRONO(ScootingTick());
+
+			CHRONO(SurveillerArbreTechno());
 		}
 		Sleep(16);            // evite de saturer un coeur du CPU
 	}

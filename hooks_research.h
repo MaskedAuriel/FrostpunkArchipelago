@@ -8,6 +8,7 @@
 // ---------------------------------------------------------------------------
 #pragma once
 #include "mod_common.h"
+#include "IconSubManager.h"
 
 // Cree et active les hooks. MH_Initialize doit avoir ete appele avant.
 void InstallResearchHooks(uintptr_t modBase);

@@ -27,3 +27,6 @@ wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot);
 
 bool TexteDescriptionSite(const char* k, uintptr_t ret);
 static void DumpClesLandmark(const char* k, uintptr_t ret);
+
+
+bool TexteArbreTechno(const char* k);

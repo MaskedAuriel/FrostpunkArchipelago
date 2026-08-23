@@ -81,11 +81,6 @@ static bool ApplyOverride(const char* k, uintptr_t ret)
 }
 
 
-static bool StrEq(const char* a, const char* b)
-{
-    for (int i = 0; ; ++i) { if (a[i] != b[i]) return false; if (a[i] == 0) return true; }
-}
-
 // Construit (une seule fois par techno) le nom suffixe et renvoie le buffer.
 static wchar_t* GetResearchedName(const char* seg, uintptr_t origChars)
 {
@@ -362,10 +357,10 @@ static uintptr_t hkTranslate(uintptr_t loc, const char* key,
     }
 
     if (BLOC_MODELE) ApLocCapturerModele(ret);
-    DumpClesLandmark(k, ret);
+    //DumpClesLandmark(k, ret);
     if (g_dumpDilemmes) DumpClesDilemme(k, ret);
     if (ret <= 0x10000) return ret;
-
+    TexteArbreTechno(k);
     if (BLOC_OVERRIDE && ApplyOverride(k, ret)) return ret;
     if (BLOC_SITE && TexteExpedition(k, ret)) return ret;  
     //if (TexteDescriptionSite(k, ret))  return ret;
@@ -661,4 +656,12 @@ static void DumpClesLandmark(const char* k, uintptr_t ret)
         DumpWide(k, ret);
         return;
     }
+}
+
+bool TexteArbreTechno(const char* k)
+{
+    const char* pref = "UI/OtherPanels/TechnologyHUD/";
+    for (int i = 0; pref[i]; ++i) if (k[i] != pref[i]) return false;
+    g_instantArbre = GetTickCount();
+    return false;                       // on ne modifie rien, on observe
 }

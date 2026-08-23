@@ -35,4 +35,3 @@ void AP_LocationText(uint64_t hash, char* out, int maxlen);
 void ReceiveRandomProgressive();
 void DumpProgression(); 
 bool OnProgressiveReceived(int tree);
-

@@ -13,6 +13,9 @@
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
+#include "scooting.h"
+#include "known_techs.h"
+#include "IconSubManager.h"
 
 // --- Lecture / ecriture memoire protegees -----------------------------------
 // Attention a l'ordre des parametres : (source, destination, taille).
@@ -61,10 +64,15 @@ void SetTechIconTile(const char* nomTechno, int32_t col, int32_t row);
 void BroyerToutesLesIcones();
 void DumpBatimentsDesTechnos();
 bool ClasseExacte(uintptr_t obj, const char* ref);
+void SurveillerArbreTechno();
+void DumpNomsGabarits();
+bool StrEq(const char* a, const char* b);
+
 
 extern volatile bool g_traceIO;
 extern volatile bool g_consolePrete;
 extern volatile bool g_siteApAffiche;
+extern volatile DWORD g_instantArbre;
 
 // --- Les "self" captures par les hooks --------------------------------------
 // g_selfRessource : renseigne par le hook du setter de ressources (0x173FE40)

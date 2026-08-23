@@ -4,11 +4,13 @@
 #include "MinHook.h"
 #include <psapi.h>
 
+
+
 uintptr_t g_selfRessource = 0;
 uintptr_t g_selfTech      = 0;
 uintptr_t g_setupSelf = 0;
 uintptr_t g_scenarioSelf = 0;
-
+extern volatile DWORD g_instantArbre = 0;
 
 bool SafeRead(const void* src, void* dst, size_t size)
 {
@@ -889,14 +891,44 @@ void ResetBlobLog()
     printf("[BLOB] journal vide\n");
 }
 
+static volatile LONG g_vus = 0, g_retenus = 0, g_sansPos = 0;
+
+static void EnregistrerLecture(HANDLE h, unsigned long long pos, ULONG len)
+{
+    InterlockedIncrement(&g_vus);
+    if (!pos) { InterlockedIncrement(&g_sansPos); return; }
+
+    // Position attendue si la lecture prolongeait la precedente sur ce handle
+    static HANDLE            handles[64] = {};
+    static unsigned long long suivantes[64] = {};
+    int slot = -1;
+    for (int i = 0; i < 64; ++i) {
+        if (handles[i] == h) { slot = i; break; }
+        if (handles[i] == nullptr && slot < 0) slot = i;
+    }
+    if (slot < 0) return;
+
+    bool nouveau = (handles[slot] != h) || (pos != suivantes[slot]);
+    handles[slot] = h;
+    suivantes[slot] = pos + len;
+
+    if (!nouveau) return;
+
+    if (g_nBlobs < 8192) {
+        g_blobs[g_nBlobs].h = h;
+        g_blobs[g_nBlobs].off = pos;
+        g_nBlobs++;
+        InterlockedIncrement(&g_retenus);
+    }
+}
+
 void DumpBlobLog()
 {
-    long n = g_nBlobs; if (n > 8192) n = 8192;
-    printf("\n[BLOB] %ld debut(s) de blob\n", n);
-    for (long i = 0; i < n; ++i) {
-        const wchar_t* nom = NomCache(g_blobs[i].h);
-        wprintf(L"   %-22s 0x%010llX\n", nom, g_blobs[i].off);
-    }
+    printf("\n[BLOB] %ld lectures vues, %ld retenues, %ld sans position\n",
+        g_vus, g_retenus, g_sansPos);
+    printf("[BLOB] %d debut(s) enregistre(s)\n", g_nBlobs);
+    for (int i = 0; i < g_nBlobs; ++i)
+        printf("   textures-s3.dat 0x%010llX\n", (unsigned long long)g_blobs[i].off);
 }
 void DumpMappedRegions(SIZE_T tailleMin)
 {
@@ -1146,14 +1178,26 @@ static Substitution* SubPour(unsigned long long pos, size_t* dedans)
     return nullptr;
 }
 
-// Table des textures a substituer. Les .gz sont livres avec le mod,
-// prepares hors ligne par le script de decoupe par blocs.
-struct SubDecl { unsigned long long off; const wchar_t* fichier; const char* libelle; };
 
-static const SubDecl SUBSTITUTIONS[] = {
-    { 0x0141E0F20CULL, L"ap_icons.gz", "atlas icones ressources" },
-    // a completer au fil des textures remplacees
-};
+static unsigned long long OffsetDuBlob(int index)
+{
+    wchar_t chemin[MAX_PATH];
+    GetModuleFileNameW(NULL, chemin, MAX_PATH);
+    for (int i = (int)wcslen(chemin) - 1; i >= 0; --i)
+        if (chemin[i] == L'\\') { chemin[i + 1] = 0; break; }
+    wcscat_s(chemin, MAX_PATH, L"textures-s3.idx");
+
+    HANDLE h = CreateFileW(chemin, GENERIC_READ, FILE_SHARE_READ, nullptr,
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE) return 0;
+
+    LARGE_INTEGER pos; pos.QuadPart = 11 + (long long)index * 29 + 20;
+    SetFilePointerEx(h, pos, nullptr, FILE_BEGIN);
+    unsigned long long off = 0; DWORD lus = 0;
+    ReadFile(h, &off, 8, &lus, nullptr);
+    CloseHandle(h);
+    return (lus == 8) ? off : 0;
+}
 
 void ChargerSubstitutions()
 {
@@ -1168,63 +1212,62 @@ void ChargerSubstitutions()
     for (const auto& s : SUBSTITUTIONS) {
         wchar_t chemin[MAX_PATH];
         swprintf_s(chemin, MAX_PATH, L"%smods\\%s", base, s.fichier);
-        if (AjouterSubstitution(s.off, chemin)) ok++;
+        if (AjouterSubstitution(OffsetDuBlob(s.off), chemin)) ok++;
         else printf("[SUB] %s : non charge\n", s.libelle);
     }
     printf("[SUB] %d/%d substitution(s) active(s)\n", ok, (int)(sizeof(SUBSTITUTIONS) / sizeof(SUBSTITUTIONS[0])));
 }
 
+
+
 static LONG NTAPI hkNtReadFile(HANDLE h, HANDLE ev, void* apc, void* apcCtx,
     IO_STATUS_BLOCK_FP* iosb, PVOID buf, ULONG len,
     PLARGE_INTEGER off, PULONG key)
 {
+    // Reentrance : NomCache et SetFilePointerEx font des E/S.
+    if (t_dansHook)
+        return oNtReadFile(h, ev, apc, apcCtx, iosb, buf, len, off, key);
+
+    t_dansHook = true;
+    bool tex = EstArchiveTextures(h);
+
+    // Position : ByteOffset est nul ou vaut la sentinelle -2 pour ces lectures,
+    // la position reelle vient du pointeur de fichier interne.
     unsigned long long pos = 0;
     bool posOk = false;
-    if (off) { long long v = off->QuadPart; if (v >= 0) { pos = (unsigned long long)v; posOk = true; } }
-    if (!posOk) {
-        LARGE_INTEGER z; z.QuadPart = 0; LARGE_INTEGER c; c.QuadPart = 0;
-        if (SetFilePointerEx(h, z, &c, FILE_CURRENT)) { pos = (unsigned long long)c.QuadPart; posOk = true; }
-    }
-
-    // --- Substitution : on sert nos octets et on n'appelle pas l'original ---
-    if (posOk && buf) {
-        bool cible = EstArchiveTextures(h);
-
-        // Trace : toute lecture proche de nos blobs substitues
-        if (cible && !t_dansHook) {
-            t_dansHook = true;
-            for (int i = 0; i < g_nSubs; ++i) {
-                unsigned long long a = g_subs[i].off;
-                unsigned long long b = a + g_subs[i].len;
-                if (pos >= a - 65536 && pos < b + 65536) {
-                    /*printf("[SUB?] lecture pos=0x%llX len=%u  blob=[0x%llX,0x%llX)  %s\n",
-                        pos, len, a, b,
-                        (pos >= a && pos < b) ? "DANS LA PLAGE" : "hors plage");*/
-                }
-            }
-            t_dansHook = false;
+    if (tex) {
+        if (off) {
+            long long v = off->QuadPart;
+            if (v >= 0) { pos = (unsigned long long)v; posOk = true; }
         }
-
-        if (cible) {
-            size_t dedans = 0;
-            Substitution* s = SubPour(pos, &dedans);
-            if (s) {
-                size_t dispo = s->len - dedans;
-                size_t n = (len < dispo) ? len : dispo;
-                memcpy(buf, s->data + dedans, n);
-                if (iosb) { iosb->Status = 0; iosb->Information = n; }
-                LARGE_INTEGER d; d.QuadPart = (long long)n;
-                SetFilePointerEx(h, d, nullptr, FILE_CURRENT);
-
-                if (!t_dansHook) {
-                    t_dansHook = true;
-                    printf("[SUB] SERVI pos=0x%llX offset=%zu taille=%zu\n", pos, dedans, n);
-                    t_dansHook = false;
-                }
-                return 0;
+        if (!posOk) {
+            LARGE_INTEGER z; z.QuadPart = 0;
+            LARGE_INTEGER cur; cur.QuadPart = 0;
+            if (SetFilePointerEx(h, z, &cur, FILE_CURRENT)) {
+                pos = (unsigned long long)cur.QuadPart;
+                posOk = true;
             }
         }
     }
+    t_dansHook = false;
+
+    // --- Substitution : on sert nos octets sans appeler l'original ---
+    if (tex && posOk && buf) {
+        size_t dedans = 0;
+        Substitution* s = SubPour(pos, &dedans);
+        if (s) {
+            size_t dispo = s->len - dedans;
+            size_t n = (len < dispo) ? len : dispo;
+            memcpy(buf, s->data + dedans, n);
+            if (iosb) { iosb->Status = 0; iosb->Information = n; }
+            LARGE_INTEGER d; d.QuadPart = (long long)n;
+            SetFilePointerEx(h, d, nullptr, FILE_CURRENT);
+            return 0;
+        }
+    }
+
+    // --- Enregistrement des debuts de blob ---
+    if (tex && posOk) EnregistrerLecture(h, pos, len);
 
     return oNtReadFile(h, ev, apc, apcCtx, iosb, buf, len, off, key);
 }
@@ -1424,61 +1467,46 @@ bool ClasseExacte(uintptr_t obj, const char* ref)
     }
 }
 
-
-// Ecrit l'icone sur TOUTES les entrees portant ce nom, et relit pour verifier.
-void SetTechIconTile(const char* nomTechno, int32_t col, int32_t row)
+bool StrEq(const char* a, const char* b)
 {
-    if (!EnsureTechSelf()) return;
-
-    uintptr_t base = 0; uint32_t cnt = 0;
-    SafeRead((void*)(g_selfTech + 0x2248), &base, 8);
-    SafeRead((void*)(g_selfTech + 0x2250), &cnt, 4);
-
-    int touchees = 0;
-    for (uint32_t k = 0; k < cnt; ++k) {
-        uintptr_t te = 0;
-        SafeRead((void*)(base + (uintptr_t)k * 0x10), &te, 8);
-        if (te <= 0x10000) continue;
-
-        uintptr_t dsc = 0; char nom[64] = { 0 };
-        SafeRead((void*)(te + 0x18), &dsc, 8);
-        if (dsc > 0x10000) SafeRead((void*)dsc, nom, sizeof(nom) - 1);
-        if (strcmp(nom, nomTechno) != 0) continue;
-
-        int32_t avant[2] = {}, apres[2] = {};
-        SafeRead((void*)(te + 0x80), avant, 8);
-
-        int32_t cr[2] = { col, row };
-        bool ok = SafeWrite((void*)(te + 0x80), cr, 8);
-        SafeRead((void*)(te + 0x80), apres, 8);
-
-        uint64_t h = 0;
-        SafeRead((void*)(te + 0x20), &h, 8);
-        printf("[TILE] %s hash=%016llX : (%d,%d) -> (%d,%d)  ecriture=%d  relu=(%d,%d)\n",
-            nom, (unsigned long long)h, avant[0], avant[1], col, row,
-            (int)ok, apres[0], apres[1]);
-        touchees++;
-    }
-    printf("[TILE] %d entree(s) touchee(s)\n", touchees);
+    for (int i = 0; ; ++i) { if (a[i] != b[i]) return false; if (a[i] == 0) return true; }
 }
 
-void BroyerToutesLesIcones()
+
+void SurveillerArbreTechno()
 {
-    if (!EnsureTechSelf()) return;
+    static bool  ouvertAvant = false;
+    static DWORD debutSignal = 0;
 
-    uintptr_t base = 0; uint32_t cnt = 0;
-    SafeRead((void*)(g_selfTech + 0x2248), &base, 8);
-    SafeRead((void*)(g_selfTech + 0x2250), &cnt, 4);
+    bool signal = (g_instantArbre != 0) &&
+        (GetTickCount() - g_instantArbre < 2000);
 
-    int n = 0;
-    for (uint32_t k = 0; k < cnt; ++k) {
-        uintptr_t te = 0;
-        SafeRead((void*)(base + (uintptr_t)k * 0x10), &te, 8);
-        if (te <= 0x10000) continue;
-        int32_t cr[2] = { 99, 99 };
-        if (SafeWrite((void*)(te + 0x80), cr, 8)) n++;
+    if (signal && debutSignal == 0) debutSignal = GetTickCount();
+    if (!signal) debutSignal = 0;
+
+    // Ouvert = signal present depuis plus d'une seconde
+    bool ouvert = signal && (GetTickCount() - debutSignal > 1000);
+
+    if (!g_pret) { ouvertAvant = false; return; }   // pas encore en partie
+
+    if (ouvert && !ouvertAvant) {
+        for (int i = 0; i < g_nTechnosAP; ++i) {
+            TechnoAP& t = g_technosAP[i];
+            if (!t.entree) continue;
+            if (t.miniature) {
+                if (t.batiment[0])
+                    AppliquerIconeBatiment(t.batiment, t.icone->batCol, t.icone->batRow);
+            }
+            else {
+                int32_t cr[2] = { t.icone->techCol, t.icone->techRow };
+                SafeWrite((void*)(t.entree + 0x80), cr, 8);
+            }
+        }
     }
-    printf("[TILE] %d icone(s) mises a (99,99)\n", n);
+    else if (!ouvert && ouvertAvant) {
+        printf("[ARBRE] ferme\n");
+        RestaurerIconesBatiments();
+    }
+    ouvertAvant = ouvert;
 }
-
 

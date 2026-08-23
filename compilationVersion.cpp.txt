@@ -1,4 +1,6 @@
-cl /LD /EHsc /std:c++17 version.cpp mod_common.cpp tech_state.cpp scenario.cpp tech_runtime.cpp tech_brain.cpp hooks_research.cpp ap_ressources.cpp ap_data.cpp scooting.cpp hooks_loc.cpp resources.cpp D:\Visual\Frost\DLL\minhook\src\*.c D:\Visual\Frost\DLL\minhook\src\hde\*.c /I D:\Visual\Frost\DLL\minhook\include user32.lib
+cl /LD /EHsc /std:c++17 version.cpp IconSubManager.cpp mod_common.cpp tech_state.cpp scenario.cpp tech_runtime.cpp tech_brain.cpp hooks_research.cpp ap_ressources.cpp ap_data.cpp scooting.cpp hooks_loc.cpp resources.cpp  D:\Visual\Frost\DLL\minhook\src\*.c D:\Visual\Frost\DLL\minhook\src\hde\*.c /I D:\Visual\Frost\DLL\minhook\include user32.lib
+
+
 
 Récupérer texture
 

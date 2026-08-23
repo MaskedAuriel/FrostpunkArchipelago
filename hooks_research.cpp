@@ -6,6 +6,7 @@
 #include "hooks_loc.h"
 #include "MinHook.h"
 
+
 // --- Pointeurs vers les originaux (internes a ce fichier) -------------------
 typedef char (*CanResearch_t)(uintptr_t self, uintptr_t tech, uintptr_t ctx);
 typedef void (*ResearchStart_t)(uintptr_t self, uintptr_t tech);
@@ -85,7 +86,16 @@ static void hkResearchComplete(uintptr_t self)
     OpenKeyLogWindow(10000);        // <-- AVANT, pas apres
     oResearchComplete(self);
 
-    if (hash) OnResearchComplete(hash);
+    if (hash)
+    {
+        OnResearchComplete(hash);
+        for (int i = 0; i < g_nTechnosAP; ++i) {
+            if (g_technosAP[i].hash != hash) continue;
+            RafraichirIconeTechno(g_technosAP[i]);
+            break;
+        }
+    }
+
 }
 
 // ---------------------------------------------------------------------------
