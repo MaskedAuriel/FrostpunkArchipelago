@@ -24,6 +24,15 @@
 #include "ap_data.h"
 #include "ap_ressources.h"
 #include "IconSubManager.h"
+#include "MessageManager.h"
+#include "archipelago.h"
+#include "groupes.h"
+#include "evenements.h"
+#include "dilemmes_ap.h"
+
+#include <io.h>
+#include <fcntl.h>
+#include <cstdarg>
 
 #pragma comment(lib, "user32.lib")
 
@@ -73,6 +82,78 @@ void CheckLocKeys()
 
 
 
+// --- Journal : copie de tout ce qui s'ecrit dans la console -----------------
+// stdout est redirige vers un tube ; un thread relais recopie chaque octet a la
+// fois dans la console et dans le fichier journal (ecrase a chaque lancement).
+static const wchar_t* JOURNAL_DOSSIER = L"C:\\Users\\Simon\\Desktop\\Visual\\Frost\\DLL\\logs";
+static const wchar_t* JOURNAL_FICHIER = L"C:\\Users\\Simon\\Desktop\\Visual\\Frost\\DLL\\logs\\console.log";
+
+static HANDLE g_tubeLecture = NULL;
+static HANDLE g_consoleSortie = INVALID_HANDLE_VALUE;
+static HANDLE g_journal = INVALID_HANDLE_VALUE;
+
+static DWORD WINAPI RelaisConsole(LPVOID)
+{
+	char buf[4096];
+	DWORD lu = 0, ecrit = 0;
+	while (ReadFile(g_tubeLecture, buf, sizeof(buf), &lu, NULL) && lu > 0) {
+		if (g_consoleSortie != INVALID_HANDLE_VALUE) WriteFile(g_consoleSortie, buf, lu, &ecrit, NULL);
+		if (g_journal != INVALID_HANDLE_VALUE)       WriteFile(g_journal, buf, lu, &ecrit, NULL);
+	}
+	return 0;
+}
+
+static void DupliquerConsoleVersJournal()
+{
+	g_consoleSortie = CreateFileW(L"CONOUT$", GENERIC_READ | GENERIC_WRITE,
+		FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+	CreateDirectoryW(JOURNAL_DOSSIER, NULL);
+	// Mode AJOUT (FILE_APPEND_DATA) : le relais du tube et JournalImmediat
+	// ecrivent dans le meme fichier depuis deux threads. Sans ce mode, ils
+	// partagent une position d'ecriture et peuvent s'ecraser (une ligne
+	// immediate a disparu ainsi le 2026-10-27). L'ancien journal est efface.
+	DeleteFileW(JOURNAL_FICHIER);
+	g_journal = CreateFileW(JOURNAL_FICHIER, FILE_APPEND_DATA | SYNCHRONIZE, FILE_SHARE_READ, NULL,
+		OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	DWORD erreurJournal = GetLastError();
+
+	HANDLE ecriture = NULL;
+	if (!CreatePipe(&g_tubeLecture, &ecriture, NULL, 1 << 20)) {
+		printf("[LOG] creation du tube KO -- pas de journal\n");
+		return;
+	}
+	int fd = _open_osfhandle((intptr_t)ecriture, _O_WRONLY | _O_TEXT);
+	if (fd < 0 || _dup2(fd, _fileno(stdout)) != 0) {
+		printf("[LOG] redirection de stdout KO -- pas de journal\n");
+		return;
+	}
+	setvbuf(stdout, NULL, _IONBF, 0);
+	CreateThread(NULL, 0, RelaisConsole, NULL, 0, NULL);
+
+	if (g_journal == INVALID_HANDLE_VALUE)
+		printf("[LOG] fichier journal KO (erreur %lu)\n", erreurJournal);
+	else
+		printf("[LOG] journal : %ls\n", JOURNAL_FICHIER);
+}
+
+// Ecriture SYNCHRONE dans le journal et la console, sans passer par le tube :
+// la ligne est sur disque avant le retour, meme si le jeu plante juste apres
+// (le relais du tube, lui, perd les dernieres lignes en cas de crash).
+// A reserver aux lignes critiques : l'ordre avec les printf n'est pas garanti.
+void JournalImmediat(const char* fmt, ...)
+{
+	char buf[512];
+	va_list args;
+	va_start(args, fmt);
+	int n = vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+	if (n <= 0) return;
+	if (n >= (int)sizeof(buf)) n = (int)sizeof(buf) - 1;
+	DWORD ecrit = 0;
+	if (g_journal != INVALID_HANDLE_VALUE)       WriteFile(g_journal, buf, (DWORD)n, &ecrit, NULL);
+	if (g_consoleSortie != INVALID_HANDLE_VALUE) WriteFile(g_consoleSortie, buf, (DWORD)n, &ecrit, NULL);
+}
+
 // ---------------------------------------------------------------------------
 DWORD WINAPI PayloadThread(LPVOID)
 {
@@ -80,6 +161,7 @@ DWORD WINAPI PayloadThread(LPVOID)
 	FILE* f = nullptr;
 	freopen_s(&f, "CONOUT$", "w", stdout);
 	setvbuf(stdout, NULL, _IONBF, 0);
+	DupliquerConsoleVersJournal();
 	g_consolePrete = true;
 
 	uintptr_t modBase = reinterpret_cast<uintptr_t>(GetModuleHandleW(NULL));
@@ -87,54 +169,93 @@ DWORD WINAPI PayloadThread(LPVOID)
 	if (MH_Initialize() != MH_OK) {
 		printf("[!] MH_Initialize KO -- aucun hook installe\n");
 		return 0;
-	}	
+	}
+
+	// TEST : capture des templates a leur construction, au plus tot pour ne
+	// pas rater ceux crees au demarrage (entrees de message, 6 gabarits).
+	InstallCaptureGabarits(modBase);
+	InstallCaptureEntrees(modBase);
+	InstallTraceCreationEntites(modBase);
+	InstallCaptureTemplatesGroupes(modBase);
+	InstallHooksEvenements(modBase);
+	InstallTraceArchives(modBase);
+	InstallTracePopups(modBase);
 
 
 	ApChargerChecksDeTest();
 	ApChargerTechnosDeTest();
 	InstallResourceHooks(modBase);
 	InstallResearchHooks(modBase);
-	InstallLocHooks(modBase);
+	InstallLocHooks(modBase);	
 	InstallScenarioHooks(modBase);
 	ChargerSubstitutions();
 	InstallNtHooks();
-
-
+	InitAllocateur(modBase);
+	InitFabriqueMessage(modBase);
+	InstallNotifHooks(modBase);
+		
 	while (true) {		
-		if (GetAsyncKeyState(VK_F4) & 1) {
+		if (ToucheAppuyee(VK_F4) & 1) {
 			printf("[F4] appui detecte\n");
 			ResetSeenKeys();
 			printf("[F4] End\n");
 
 		}
 
-		if (GetAsyncKeyState(VK_F5) & 1) {
+		if (ToucheAppuyee(VK_F5) & 1) {
 			printf("[F5] appui detecte\n");
 			BaselineKeys(10000);			
 			printf("[F5] End\n");
 			
 		}
-		if (GetAsyncKeyState(VK_F6) & 1) {
+		if (ToucheAppuyee(VK_F6) & 1) {
 			printf("[F6] appui detecte\n");
-			OpenKeyLogWindow(10000);
+			// Test : piege Archipelago par dilemme (perdre 50 charbon ou 50
+			// acier). Remplace l'ancienne fenetre de releve des cles
+			// (OpenKeyLogWindow), F10 etant le menu des options du jeu.
+			DilemmeAPDemander("trap_coal_or_steel");
 			printf("[F6] End\n");
 		}
 		
-		if (GetAsyncKeyState(VK_F7) & 1) {
-			printf("[F7] appui detecte\n");		
-			FindPropertyByName("Color");
+		if (ToucheAppuyee(VK_F7) & 1) {
+			printf("[F7] appui detecte\n");
+			// Test de la couche Archipelago : une progressive au hasard.
+			int arbre = ArbreProgressifAuHasard();
+			if (arbre < 0) printf("[F7] tous les arbres sont epuises\n");
+			else ReceiveProgressive(arbre, "Test F7");
 			printf("[F7] End\n");
 		}
 
-		if (GetAsyncKeyState(VK_F8) & 1) {
-			printf("[F8] appui detecte\n"); 
-			
-			DumpRecordProperties(FindClassRecord("FrostpunkBuildingComponentTemplate"));
+		if (ToucheAppuyee(VK_F8) & 1) {
+			printf("[F8] appui detecte\n");
+			// Test : rapprocher le premier groupe de survivants de la ville
+			// (l'ancien bilan des captures, valide, a ete retire de F8).
+			GroupesDemanderRapprochement();
 			printf("[F8] End\n");
 		}
 
-		if (GetAsyncKeyState(VK_F11) & 1) {
-			
+		if (ToucheAppuyee(VK_F9) & 1) {
+			printf("[F9] appui detecte\n");
+			DiagGroupes();
+			printf("[F9] End\n");
+		}
+
+		// Pas de F10 : c'est la touche du menu des options du jeu.
+		if (ToucheAppuyee(VK_F3) & 1) {
+			printf("[F3] appui detecte\n");
+			// Test : creation d'un groupe de survivants (copie du premier
+			// groupe existant), executee sur le thread du jeu.
+			GroupesDemanderCreation();
+			printf("[F3] End\n");
+		}
+
+		if (ToucheAppuyee(VK_F11) & 1) {
+			printf("[F11] appui detecte\n");
+			// Test de la couche Archipelago : ressources recues, dont une que
+			// le jeu touche rarement (coeurs de vapeur).
+			ReceiveResource("wood", 500, "F11 test");
+			ReceiveResource("steamcore", 1, "F11 test");
+			printf("[F11] End\n");
 		}
 
 		static DWORD prochain = 0;
@@ -143,11 +264,12 @@ DWORD WINAPI PayloadThread(LPVOID)
 			prochain = GetTickCount() + 1000;
 			CHRONO(EnsureTechSelf());
 			CHRONO(EnsureResSelf());
+			CHRONO(PartieTick());          // chargements + references globales
 			CHRONO(CaptureRunState());
 			CHRONO(ScootingTick());
-
 			CHRONO(SurveillerArbreTechno());
 		}
+		CouleursMessagesTick();   // couleur de nos messages, 2 s apres leur ajout
 		Sleep(16);            // evite de saturer un coeur du CPU
 	}
 	return 0;

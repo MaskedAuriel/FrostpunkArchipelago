@@ -70,26 +70,13 @@ const wchar_t* ApDescriptionW(int id)
     return s->descW;
 }
 
-void ApDumpChecks()
-{
-    for (int i = 0; i < g_nSlots; ++i) {
-        if (!g_slots[i].valide) continue;
-        printf("  [%5d] %-16s arbre=%-3d  %s\n",
-            g_slots[i].c.id, g_slots[i].c.joueur,
-            g_slots[i].c.arbreTest, g_slots[i].c.description);
-    }
-    printf("[AP] %d check(s) connu(s)\n", g_nSlots);
-}
 
 void ApChargerChecksDeTest()
 {
     // Les identifiants doivent correspondre a ceux de SITE_PAYLOADS.
-    ApSetCheck(1001, "[Masked Frostpunk Item]", "[AP] Envoi : Coal Mine Progressive", 28);
-    ApSetCheck(1003, "[Masked Frostpunk Item]", "[AP] Envoi : Generator Power Progressive", 12);
-    ApSetCheck(1002, "Alice", "[AP] Envoi : Bombes fumigenes", -1);
-
-    printf("[AP] checks de test charges :\n");
-    ApDumpChecks();
+    ApSetCheck(1001, "[Masked Frostpunk Item]", "[AP] Sending: Coal Mine Progressive", 28);
+    ApSetCheck(1003, "[Masked Frostpunk Item]", "[AP] Sending: Generator Power Progressive", 12);
+    ApSetCheck(1002, "Alice", "[AP] Sending: Smoke Bombs", -1);
 }
 
 const wchar_t* ApJoueurW(int id)

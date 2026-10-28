@@ -1,10 +1,15 @@
 // mod_common.cpp -- definitions du socle partage
 #include "mod_common.h"
 #include "scenario.h"
+#include "MessageManager.h"
+#include "resources.h"
 #include "MinHook.h"
 #include <psapi.h>
 
+typedef uintptr_t(*Fabrique_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
+static Fabrique_t oFabrique = nullptr;
 
+Alloc_t MoteurAlloc = nullptr;
 
 uintptr_t g_selfRessource = 0;
 uintptr_t g_selfTech      = 0;
@@ -972,7 +977,7 @@ void DumpResourceEntries()
     if (!SafeRead((void*)(g_selfRessource + RES_CONT_OFF), &cont, 8) || cont <= 0x10000) {
         printf("[RES] conteneur illisible\n"); return;
     }
-    base = cont;                      // adapte si ton code deréférence une fois de plus
+    base = cont;                      // adapte si ton code derï¿½fï¿½rence une fois de plus
 
     printf("\n[RES] conteneur 0x%llX\n", (unsigned long long)base);
 
@@ -1330,21 +1335,88 @@ void InstallNtHooks()
     g_ntInstalle = true;
 }
 
+// --- Recherche d'un fichier dans une archive (.dat / .idx) -------------------
+// FUN_140e51fa0(lecteur, sortie, nom) (containerfilereadercore, decompile du
+// 2026-10-28) : nom mis en minuscules (le 1er caractere semble saute), hash
+// MurmurHash2 FUN_140e53a40(nom, longueur, graine = lecteur[0xC], m =
+// lecteur[0xE] = 0x5bd1e995), dichotomie dans les enregistrements de 0x1D
+// octets (lecteur[0], compte lecteur[1]) ; sortie = copie de l'enregistrement
+// (hash +0, taille compressee +4, taille +0xC, decalage +0x14). But : trouver
+// le numero d'entree de "UI\Tiles\Icons.dds" (atlas des bulles de dilemme),
+// le hash hors du jeu n'ayant pas reproduit les noms.
+typedef uintptr_t(*ChercherDansArchive_t)(uintptr_t lecteur, uintptr_t sortie, uintptr_t nom, uintptr_t p4);
+static ChercherDansArchive_t oChercherDansArchive = nullptr;
+static volatile long g_rechArchives = 0;
+
+static bool ContientSansCasse(const char* s, const char* motif)
+{
+    for (; *s; ++s) {
+        int i = 0;
+        while (motif[i] && s[i] && tolower((unsigned char)s[i]) == motif[i]) ++i;
+        if (!motif[i]) return true;
+    }
+    return false;
+}
+
+static uintptr_t hkChercherDansArchive(uintptr_t lecteur, uintptr_t sortie, uintptr_t nom, uintptr_t p4)
+{
+    uintptr_t r = oChercherDansArchive(lecteur, sortie, nom, p4);
+    char n[260] = "";
+    if (nom) ReadAscii(nom, n, sizeof(n));
+    long k = InterlockedIncrement(&g_rechArchives);
+    if (k <= 20 || ContientSansCasse(n, "icons") || ContientSansCasse(n, "tiles")) {
+        uintptr_t enr = 0;
+        uint32_t compte = 0, graine = 0, m = 0, hash = 0;
+        uint64_t decalage = 0, taille = 0;
+        SafeRead((void*)lecteur, &enr, 8);
+        SafeRead((void*)(lecteur + 8), &compte, 4);
+        SafeRead((void*)(lecteur + 0x60), &graine, 4);
+        SafeRead((void*)(lecteur + 0x70), &m, 4);
+        bool trouve = (r & 0xFF) != 0;
+        if (trouve) {
+            SafeRead((void*)sortie, &hash, 4);
+            SafeRead((void*)(sortie + 0xC), &taille, 8);
+            SafeRead((void*)(sortie + 0x14), &decalage, 8);
+        }
+        printf("[ARCH] #%ld \"%s\" -> %s hash 0x%08X taille %llu decalage 0x%llX (lecteur %u entrees, graine %u, m 0x%X)\n",
+            k, n, trouve ? "trouve" : "absent", hash, (unsigned long long)taille,
+            (unsigned long long)decalage, compte, graine, m);
+    }
+    return r;
+}
+
+void InstallTraceArchives(uintptr_t modBase)
+{
+    void* c = (void*)(modBase + 0xE51FA0);
+    bool ok = MH_CreateHook(c, (void*)&hkChercherDansArchive, (void**)&oChercherDansArchive) == MH_OK &&
+              MH_EnableHook(c) == MH_OK;
+    printf("[ARCH] hook recherche dans les archives (+E51FA0) %s\n", ok ? "OK" : "KO");
+}
+
+// Detecte un (re)chargement de partie. L'economie (+0x40916D0) seule ne
+// suffit pas : en passant a un autre scenario, elle a ete reallouee a la meme
+// adresse (2026-10-15). Le systeme de technologies (+0x2C30A20), lui, a
+// change d'adresse a chaque chargement observe : on surveille les deux.
 bool PartieRechargee()
 {
-    static uintptr_t derniere = 0;
+    static uintptr_t derniereEco = 0, derniereTech = 0;
     uintptr_t modBase = reinterpret_cast<uintptr_t>(GetModuleHandleW(NULL));
-    uintptr_t eco = 0;
+    uintptr_t eco = 0, tech = 0;
     if (!SafeRead((void*)(modBase + 0x40916D0), &eco, 8)) return false;
     if (eco <= 0x10000) return false;                 // pas encore en partie
+    tech = SystemeParId(IdSysteme::Technology);
+    if (!tech) return false;                          // chargement en cours
 
-    if (eco == derniere) return false;                // rien de neuf
-    bool premiere = (derniere == 0);
-    derniere = eco;
+    if (eco == derniereEco && tech == derniereTech) return false;   // rien de neuf
+    bool premiere = (derniereEco == 0);
+    const char* cause = (eco != derniereEco && tech != derniereTech) ? "economie et technologies"
+        : (eco != derniereEco) ? "economie" : "technologies seules";
+    derniereEco = eco;
+    derniereTech = tech;
 
-    printf("[LOADING] %s : economie a 0x%llX\n",
+    printf("[LOADING] %s : economie a 0x%llX, technologies a 0x%llX (%s)\n",
         premiere ? "partie chargee" : "PARTIE RECHARGEE",
-        (unsigned long long)eco);
+        (unsigned long long)eco, (unsigned long long)tech, cause);
     return true;
 }
 
@@ -1370,28 +1442,26 @@ void CollectObjectsByClasses(const char** noms, int nNoms,
     uintptr_t modEnd = modBase + TailleModule(modBase);
     if (modEnd == modBase) return;
 
-    static const int TAILLE = 32768;
-    static const int SONDAGE = 16;
+    static const int TAILLE = 131072;
+    static const int SONDAGE = 32;
     static uintptr_t cleVptr[TAILLE] = {};
     static int       verdict[TAILLE] = {};
     static int       occupe = 0;
 
-    // >>> LE BLOC VA ICI <
-    // La table memorise un INDICE dans `noms` : si la liste change entre deux
-    // appels, les anciens verdicts designent les mauvaises classes.
     static const char* dernieresNoms[16] = {};
     static int dernierNb = 0;
     bool memeListe = (dernierNb == nNoms);
     for (int i = 0; memeListe && i < nNoms; ++i)
         if (dernieresNoms[i] != noms[i]) memeListe = false;
-
     if (!memeListe) {
         for (int i = 0; i < TAILLE; ++i) { cleVptr[i] = 0; verdict[i] = 0; }
         occupe = 0;
         dernierNb = (nNoms < 16) ? nNoms : 16;
         for (int i = 0; i < dernierNb; ++i) dernieresNoms[i] = noms[i];
-        printf("[SCAN] liste de classes changee -- table videe\n");
     }
+
+    // Compteurs de diagnostic
+    long nRegions = 0, nCandidats = 0, nRtti = 0, nOctets = 0;
 
     uintptr_t addr = 0;
     MEMORY_BASIC_INFORMATION mbi;
@@ -1404,15 +1474,22 @@ void CollectObjectsByClasses(const char** noms, int nNoms,
             !(mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) &&
             (mbi.Protect & (PAGE_READWRITE | PAGE_EXECUTE_READWRITE));
 
+        // Les objets du moteur vivent dans des regions de taille modeste.
+        // Au-dela, ce sont des tampons de donnees : les parcourir coute des
+        // minutes pour rien. 8 Mo ne suffit pas (init incomplete) : 16 Mo.
+        if (lisible && mbi.RegionSize > 0x1000000) lisible = false;
+
         if (lisible && mbi.RegionSize <= 0x4000000) {
+            nRegions++;
+            nOctets += (long)(mbi.RegionSize / 1024);
             __try {
                 uintptr_t* d = (uintptr_t*)mbi.BaseAddress;
                 uintptr_t* fin = (uintptr_t*)next;
                 for (; d < fin; ++d) {
                     uintptr_t vptr = *d;
                     if (vptr < modBase || vptr >= modEnd) continue;
+                    nCandidats++;
 
-                    // Sondage borne : on cherche la cle ou un emplacement libre.
                     int h = (int)((vptr >> 4) & (TAILLE - 1));
                     int trouve = -1, libre = -1;
                     for (int s = 0; s < SONDAGE; ++s) {
@@ -1426,8 +1503,7 @@ void CollectObjectsByClasses(const char** noms, int nNoms,
                         c = verdict[trouve];
                     }
                     else {
-                        // Verdict a calculer. On ne memorise que s'il reste
-                        // de la place, sinon on recalcule (rare).
+                        nRtti++;
                         c = -1;
                         char cls[128] = { 0 };
                         if (GetClassNameFP((uintptr_t)d, cls, sizeof(cls))) {
@@ -1455,6 +1531,109 @@ void CollectObjectsByClasses(const char** noms, int nNoms,
         }
         addr = next;
     }
+
+    printf("[SCAN] %ld regions, %ld Ko, %ld candidats, %ld resolutions RTTI, table %d/%d\n",
+        nRegions, nOctets, nCandidats, nRtti, occupe, TAILLE);
+}
+
+uintptr_t SystemeParId(int id)
+{
+    if (id < 0 || id > 0x200) return 0;
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL), sys = 0;
+    if (!SafeRead((void*)(base + GameOffsets::SystemesGlobaux +
+        (uintptr_t)id * GameOffsets::SystemesPas), &sys, 8)) return 0;
+    return sys > 0x10000 ? sys : 0;
+}
+
+int ComposantsDuSysteme(int idSysteme, const char* classe, uintptr_t* out, int maxOut)
+{
+    uintptr_t sys = SystemeParId(idSysteme);
+    if (!sys) return 0;
+    uintptr_t arr = 0; uint32_t cnt = 0;
+    if (!SafeRead((void*)(sys + 0x2078), &arr, 8)) return 0;
+    if (!SafeRead((void*)(sys + 0x2080), &cnt, 4)) return 0;
+    if (arr <= 0x10000 || cnt > 4096) return 0;
+
+    int n = 0;
+    for (uint32_t k = 0; k < cnt && n < maxOut; ++k) {
+        uintptr_t comp = 0;
+        if (!SafeRead((void*)(arr + (uintptr_t)k * 0x10 + 8), &comp, 8)) continue;
+        if (comp <= 0x10000 || !ClasseExacte(comp, classe)) continue;
+        out[n++] = comp;
+    }
+    return n;
+}
+
+void CaptureAjouter(ListeCaptures& l, uintptr_t obj)
+{
+    AcquireSRWLockExclusive(&l.verrou);
+    l.appels++;
+    if (l.n >= l.capacite) {
+        int garde = 0;
+        for (int i = 0; i < l.n; ++i)
+            if (ClasseExacte(l.objets[i], l.classe)) l.objets[garde++] = l.objets[i];
+        l.n = garde;
+    }
+    if (l.n < l.capacite) l.objets[l.n++] = obj;
+    ReleaseSRWLockExclusive(&l.verrou);
+}
+
+int CaptureLire(ListeCaptures& l, uintptr_t* out, int maxOut)
+{
+    AcquireSRWLockShared(&l.verrou);
+    int n = 0;
+    for (int i = 0; i < l.n && n < maxOut; ++i) {
+        uintptr_t o = l.objets[i];
+        if (!ClasseExacte(o, l.classe)) continue;
+        bool deja = false;
+        for (int j = 0; j < n; ++j) if (out[j] == o) { deja = true; break; }
+        if (!deja) out[n++] = o;
+    }
+    ReleaseSRWLockShared(&l.verrou);
+    return n;
+}
+
+// Cherche les emplacements du tas (memoire privee RW, regions <= 'borne'
+// octets, 0 = sans borne) qui contiennent exactement 'valeur'. Renvoie le
+// nombre trouve (borne a maxOut).
+int ChercherValeurDansTas(uintptr_t valeur, uintptr_t* out, int maxOut, SIZE_T borne)
+{
+    int n = 0;
+    uintptr_t addr = 0;
+    MEMORY_BASIC_INFORMATION mbi;
+
+    while (n < maxOut && VirtualQuery((void*)addr, &mbi, sizeof(mbi))) {
+        uintptr_t next = (uintptr_t)mbi.BaseAddress + mbi.RegionSize;
+        if (next <= addr) break;
+
+        bool lisible = (mbi.State == MEM_COMMIT) && (mbi.Type == MEM_PRIVATE) &&
+            !(mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) &&
+            (mbi.Protect & (PAGE_READWRITE | PAGE_EXECUTE_READWRITE)) &&
+            (borne == 0 || mbi.RegionSize <= borne);
+
+        if (lisible) {
+            __try {
+                uintptr_t* d = (uintptr_t*)mbi.BaseAddress;
+                uintptr_t* fin = (uintptr_t*)next;
+                for (; d < fin && n < maxOut; ++d)
+                    if (*d == valeur) out[n++] = (uintptr_t)d;
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER) {}
+        }
+        addr = next;
+    }
+    return n;
+}
+
+// Remonte depuis 'adr' (pas de 8, au plus 'reculMax' octets) jusqu'au premier
+// mot qui est un vptr resolu par le RTTI : donne l'objet qui contient 'adr'.
+bool DebutObjet(uintptr_t adr, int reculMax, uintptr_t* debut, char* cls, int maxlen)
+{
+    for (int r = 0; r <= reculMax; r += 8) {
+        uintptr_t cand = (adr & ~(uintptr_t)7) - (uintptr_t)r;
+        if (GetClassNameFP(cand, cls, maxlen)) { *debut = cand; return true; }
+    }
+    return false;
 }
 
 bool ClasseExacte(uintptr_t obj, const char* ref)
@@ -1471,6 +1650,36 @@ bool StrEq(const char* a, const char* b)
 {
     for (int i = 0; ; ++i) { if (a[i] != b[i]) return false; if (a[i] == 0) return true; }
 }
+
+bool GetClassNameFP(uintptr_t obj, char* out, int maxlen)
+{
+    if (obj <= 0x10000 || maxlen < 4) return false;
+
+    uintptr_t vptr = 0;
+    if (!SafeRead((void*)obj, &vptr, 8) || vptr <= 0x10000) return false;
+
+    uintptr_t col = 0;                       // CompleteObjectLocator
+    if (!SafeRead((void*)(vptr - 8), &col, 8) || col <= 0x10000) return false;
+
+    uint32_t sig = 0xFFFFFFFF, tdRva = 0;
+    SafeRead((void*)col, &sig, 4);
+    if (sig != 1) return false;              // 1 = format x64
+    if (!SafeRead((void*)(col + 0x0C), &tdRva, 4) || !tdRva) return false;
+
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
+    char raw[160] = { 0 };
+    if (!SafeRead((void*)(base + tdRva + 0x10), raw, sizeof(raw) - 1)) return false;
+
+    // ".?AVFrostpunkTruc@@" -> "FrostpunkTruc"
+    const char* s = raw;
+    if (s[0] == '.' && s[1] == '?' && s[2] == 'A' && (s[3] == 'V' || s[3] == 'U'))
+        s += 4;
+    int j = 0;
+    for (; s[j] && s[j] != '@' && j < maxlen - 1; ++j) out[j] = s[j];
+    out[j] = 0;
+    return j > 0;
+}
+
 
 
 void SurveillerArbreTechno()
@@ -1510,3 +1719,905 @@ void SurveillerArbreTechno()
     ouvertAvant = ouvert;
 }
 
+// Cherche dans le code de l'image les "lea reg, [rip+disp32]" qui chargent
+// l'adresse 'vtable' : ce sont les constructeurs (et destructeurs) de la
+// classe, qui y ecrivent le vptr. Le debut exact de chaque fonction vient de
+// la table .pdata (RtlLookupFunctionEntry).
+void ChercherReferencesVtable(uintptr_t vtable, const char* nom)
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    printf("\n[VTREF] %s : vtable Frostpunk.exe+%llX\n", nom,
+        (unsigned long long)(vtable - base));
+    if (vtable <= base) { printf("   vtable invalide\n"); return; }
+
+    IMAGE_DOS_HEADER* dos = (IMAGE_DOS_HEADER*)base;
+    IMAGE_NT_HEADERS64* nt = (IMAGE_NT_HEADERS64*)(base + dos->e_lfanew);
+    IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);
+
+    int n = 0;
+    for (int s = 0; s < nt->FileHeader.NumberOfSections; ++s) {
+        if (!(sec[s].Characteristics & IMAGE_SCN_MEM_EXECUTE)) continue;
+        const unsigned char* d = (const unsigned char*)(base + sec[s].VirtualAddress);
+        size_t taille = sec[s].Misc.VirtualSize;
+        __try {
+            for (size_t i = 0; i + 7 <= taille && n < 32; ++i) {
+                if ((d[i] != 0x48 && d[i] != 0x4C) || d[i + 1] != 0x8D) continue;
+                if ((d[i + 2] & 0xC7) != 0x05) continue;          // mod 00, rm 101
+                int32_t disp = *(const int32_t*)(d + i + 3);
+                uintptr_t cible = (uintptr_t)(d + i + 7) + (intptr_t)disp;
+                if (cible != vtable) continue;
+
+                uintptr_t ici = (uintptr_t)(d + i);
+                DWORD64 imageBase = 0;
+                PRUNTIME_FUNCTION f = RtlLookupFunctionEntry(ici, &imageBase, nullptr);
+                if (f)
+                    printf("   lea a +%llX  dans la fonction +%X (taille 0x%X, lea a +0x%llX)\n",
+                        (unsigned long long)(ici - base), f->BeginAddress,
+                        f->EndAddress - f->BeginAddress,
+                        (unsigned long long)(ici - base - f->BeginAddress));
+                else
+                    printf("   lea a +%llX  (fonction inconnue de .pdata)\n",
+                        (unsigned long long)(ici - base));
+                n++;
+            }
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER) {}
+    }
+    printf("[VTREF] %d reference(s)\n", n);
+}
+
+// Meme recherche que ChercherReferencesVtable, sans log : renvoie le debut
+// (adresse absolue) de chaque fonction distincte qui charge 'vtable'.
+int FonctionsChargeantVtable(uintptr_t vtable, uintptr_t* debuts, int maxOut)
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    if (vtable <= base) return 0;
+    IMAGE_DOS_HEADER* dos = (IMAGE_DOS_HEADER*)base;
+    IMAGE_NT_HEADERS64* nt = (IMAGE_NT_HEADERS64*)(base + dos->e_lfanew);
+    IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);
+
+    int n = 0;
+    for (int s = 0; s < nt->FileHeader.NumberOfSections; ++s) {
+        if (!(sec[s].Characteristics & IMAGE_SCN_MEM_EXECUTE)) continue;
+        const unsigned char* d = (const unsigned char*)(base + sec[s].VirtualAddress);
+        size_t taille = sec[s].Misc.VirtualSize;
+        __try {
+            for (size_t i = 0; i + 7 <= taille && n < maxOut; ++i) {
+                if ((d[i] != 0x48 && d[i] != 0x4C) || d[i + 1] != 0x8D) continue;
+                if ((d[i + 2] & 0xC7) != 0x05) continue;
+                int32_t disp = *(const int32_t*)(d + i + 3);
+                if ((uintptr_t)(d + i + 7) + (intptr_t)disp != vtable) continue;
+
+                DWORD64 imageBase = 0;
+                PRUNTIME_FUNCTION f = RtlLookupFunctionEntry((uintptr_t)(d + i), &imageBase, nullptr);
+                if (!f) continue;
+                uintptr_t debut = base + f->BeginAddress;
+                bool connu = false;
+                for (int k = 0; k < n; ++k) if (debuts[k] == debut) connu = true;
+                if (!connu) debuts[n++] = debut;
+            }
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER) {}
+    }
+    return n;
+}
+
+// Chemin inverse de GetClassNameFP : nom de classe -> vtable(s), sans
+// instance. Chaine ".?AV<nom>@@" -> TypeDescriptor (chaine - 0x10) ->
+// CompleteObjectLocator (signature 1, RVA du TypeDescriptor a +0x0C) ->
+// vtable (le mot qui precede la vtable pointe sur le COL). Plusieurs vtables
+// possibles (heritage multiple). Ne parcourt que l'image : rapide.
+int VtablesParNomDeClasse(const char* nom, uintptr_t* out, int maxOut)
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    IMAGE_DOS_HEADER* dos = (IMAGE_DOS_HEADER*)base;
+    IMAGE_NT_HEADERS64* nt = (IMAGE_NT_HEADERS64*)(base + dos->e_lfanew);
+    IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);
+    int nSec = nt->FileHeader.NumberOfSections;
+
+    char cherche[192];
+    int nCols = 0, n = 0;
+    uintptr_t cols[8] = {};
+    for (int forme = 0; forme < 2 && !nCols; ++forme) {
+        sprintf_s(cherche, forme ? ".?AU%s@@" : ".?AV%s@@", nom);
+        size_t lc = strlen(cherche);
+
+        // 1. TypeDescriptor : la chaine exacte (terminee par 0).
+        uintptr_t td = 0;
+        for (int s = 0; s < nSec && !td; ++s) {
+            if (sec[s].Characteristics & IMAGE_SCN_MEM_EXECUTE) continue;
+            const char* d = (const char*)(base + sec[s].VirtualAddress);
+            size_t taille = sec[s].Misc.VirtualSize;
+            __try {
+                for (size_t i = 0; i + lc + 1 <= taille; ++i)
+                    if (d[i] == '.' && memcmp(d + i, cherche, lc) == 0 && d[i + lc] == 0) {
+                        td = (uintptr_t)(d + i) - 0x10;
+                        break;
+                    }
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER) {}
+        }
+        if (!td) continue;
+        uint32_t tdRva = (uint32_t)(td - base);
+
+        // 2. CompleteObjectLocator(s) : signature 1 et RVA du TD a +0x0C.
+        for (int s = 0; s < nSec && nCols < 8; ++s) {
+            if (sec[s].Characteristics & IMAGE_SCN_MEM_EXECUTE) continue;
+            const uint8_t* d = (const uint8_t*)(base + sec[s].VirtualAddress);
+            size_t taille = sec[s].Misc.VirtualSize;
+            __try {
+                for (size_t i = 0; i + 0x18 <= taille && nCols < 8; i += 4)
+                    if (*(const uint32_t*)(d + i) == 1 && *(const uint32_t*)(d + i + 0x0C) == tdRva)
+                        cols[nCols++] = (uintptr_t)(d + i);
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER) {}
+        }
+    }
+
+    // 3. vtables : le mot juste avant la vtable pointe sur le COL.
+    for (int c = 0; c < nCols && n < maxOut; ++c) {
+        for (int s = 0; s < nSec && n < maxOut; ++s) {
+            if (sec[s].Characteristics & IMAGE_SCN_MEM_EXECUTE) continue;
+            const uint8_t* d = (const uint8_t*)(base + sec[s].VirtualAddress);
+            size_t taille = sec[s].Misc.VirtualSize;
+            __try {
+                for (size_t i = 0; i + 16 <= taille && n < maxOut; i += 8)
+                    if (*(const uintptr_t*)(d + i) == cols[c]) out[n++] = (uintptr_t)(d + i + 8);
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER) {}
+        }
+    }
+    return n;
+}
+
+void TrouverDebutFonction(uintptr_t adresse)
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    printf("\n[FN] remontee depuis Frostpunk.exe+%llX\n",
+        (unsigned long long)(adresse - base));
+
+    int trouves = 0;
+    for (uintptr_t p = adresse; p > adresse - 0x600 && trouves < 6; --p) {
+        unsigned char o[8] = {};
+        if (!SafeRead((void*)p, o, 8)) continue;
+
+        bool prologue =
+            (o[0] == 0x48 && o[1] == 0x89 && (o[2] == 0x5C || o[2] == 0x54 ||
+                o[2] == 0x4C || o[2] == 0x74) && o[3] == 0x24) ||
+            (o[0] == 0x40 && (o[1] == 0x53 || o[1] == 0x55 || o[1] == 0x56 || o[1] == 0x57)) ||
+            (o[0] == 0x48 && o[1] == 0x83 && o[2] == 0xEC) ||
+            (o[0] == 0x48 && o[1] == 0x81 && o[2] == 0xEC) ||
+            (o[0] == 0x4C && o[1] == 0x8B && o[2] == 0xDC) ||
+            (o[0] == 0x55 && o[1] == 0x48 && o[2] == 0x8B && o[3] == 0xEC);
+
+        if (!prologue) continue;
+
+        unsigned char av = 0;
+        SafeRead((void*)(p - 1), &av, 1);
+        const char* qualite = (av == 0xC3 || av == 0xCC || av == 0x90)
+            ? "sur" : "possible";
+
+        printf("   +%llX  (%d octets avant, %s)\n",
+            (unsigned long long)(p - base), (int)(adresse - p), qualite);
+        trouves++;
+    }
+    if (!trouves) printf("   aucun candidat\n");
+}
+
+
+
+
+void InitAllocateur(uintptr_t modBase)
+{
+    MoteurAlloc = (Alloc_t)(modBase + 0xE27BF0);
+    printf("[ALLOC] allocateur du moteur a Frostpunk.exe+E27BF0\n");
+}
+
+// Test prudent : on demande un petit bloc et on verifie qu'il est ecrivable.
+void TesterAllocateur()
+{
+    if (!MoteurAlloc) return;
+    uintptr_t p = MoteurAlloc(0x60);
+    printf("[ALLOC] demande de 96 octets -> 0x%llX\n", (unsigned long long)p);
+    if (p > 0x10000) {
+        uint64_t motif = 0x4141414141414141ULL;
+        bool ok = SafeWrite((void*)p, &motif, 8);
+        uint64_t relu = 0;
+        SafeRead((void*)p, &relu, 8);
+        printf("[ALLOC] ecriture=%d  relu=%016llX\n", (int)ok, (unsigned long long)relu);
+    }
+}
+
+bool StrEqLoc(const char* a, const char* b)
+{
+    for (int i = 0; ; ++i) { if (a[i] != b[i]) return false; if (a[i] == 0) return true; }
+}
+
+bool ToucheAppuyee(int vk)
+{
+    static bool avant[256] = {};
+    if (vk < 0 || vk > 255) return false;
+
+    bool maintenant = (GetAsyncKeyState(vk) & 0x8000) != 0;
+    bool front = maintenant && !avant[vk];
+    avant[vk] = maintenant;
+    return front;
+}
+
+// ============================================================================
+//  Cycle de vie de la partie
+// ============================================================================
+// Detection des chargements et resolution des references globales partagees
+// par tous les modules : systemes (scenario, difficulte, selection,
+// producteur de messages), gabarits de batiment, entrees de message, technos
+// Archipelago. Chaque init reussie incremente PartieGeneration() : un module
+// qui voit la generation changer refait sa propre init (ex. ScootingInit).
+
+static bool      g_partiePrete = false;
+static unsigned  g_partieGeneration = 0;
+static uintptr_t g_partieSelection = 0;
+static uintptr_t g_partieListeSites = 0;   // liste +0x2078 d'ExpeditionSite a l'init
+
+bool      PartiePrete()      { return g_partiePrete; }
+unsigned  PartieGeneration() { return g_partieGeneration; }
+uintptr_t PartieSelection()  { return g_partieSelection; }
+
+bool EconomiePresente()
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL), eco = 0;
+    if (!SafeRead((void*)(base + 0x40916D0), &eco, 8)) return false;
+    return eco > 0x10000;
+}
+
+// Tableau {entite, composant} d'un systeme (+0x2078), 0 si illisible.
+static uintptr_t ListeDuSysteme(int idSysteme)
+{
+    uintptr_t sys = SystemeParId(idSysteme), arr = 0;
+    if (!sys || !SafeRead((void*)(sys + 0x2078), &arr, 8)) return 0;
+    return arr;
+}
+
+static void PartieOublier(const char* raison)
+{
+    if (g_partiePrete) printf("[PARTIE] references oubliees : %s\n", raison);
+    Res_OublierContextes();      // self et definitions de ressources changent
+    g_partiePrete = false;
+    g_partieSelection = 0;
+    g_partieListeSites = 0;
+}
+
+static bool PartieInit()
+{
+    DWORD t0 = GetTickCount();
+    static uintptr_t bufBat[1024], bufMsgEnt[2048];
+    int nBat = GabaritsBatCaptures(bufBat, 1024);
+    int nMsgEnt = EntreesMessageCaptures(bufMsgEnt, 2048);
+
+    // --- systemes : global fixe, verifie par la classe et un champ plausible ---
+    uintptr_t scnSys = SystemeParId(IdSysteme::Scenario);
+    if (scnSys && !ClasseExacte(scnSys, "FrostpunkScenarioSystem")) scnSys = 0;
+    if (scnSys) {
+        uintptr_t s = 0;
+        if (!SafeRead((void*)(scnSys + 0x68), &s, 8)) scnSys = 0;
+    }
+
+    uintptr_t difSys = SystemeParId(IdSysteme::Difficulty);
+    if (difSys && !ClasseExacte(difSys, "FrostpunkDifficultySystem")) difSys = 0;
+    if (difSys) {
+        uintptr_t a = 0; uint32_t c = 0;
+        if (!SafeRead((void*)(difSys + 0x30), &a, 8) ||
+            !SafeRead((void*)(difSys + 0x38), &c, 4) ||
+            a <= 0x10000 || c == 0 || c > 64) difSys = 0;
+    }
+
+    uintptr_t selSys = SystemeParId(IdSysteme::Selection);
+    if (selSys && !ClasseExacte(selSys, "FrostpunkSelectionSystem")) selSys = 0;
+    if (selSys) {
+        uintptr_t arr = 0; uint32_t cnt = 0;
+        if (!SafeRead((void*)(selSys + 0x2250), &arr, 8) ||
+            !SafeRead((void*)(selSys + 0x2258), &cnt, 4) || cnt > 64) selSys = 0;
+    }
+
+    uintptr_t msgSys = SystemeParId(IdSysteme::MessageProducer);
+    if (msgSys && !ClasseExacte(msgSys, "FrostpunkMessageProducerSystem")) msgSys = 0;
+
+    printf("[PARTIE] scn=%d dif=%d sel=%d msgSys=%d bat=%d msgEnt=%d (%lu ms)\n",
+        scnSys ? 1 : 0, difSys ? 1 : 0, selSys ? 1 : 0, msgSys ? 1 : 0,
+        nBat, nMsgEnt, GetTickCount() - t0);
+
+    ScenarioSetCaches(scnSys, difSys);
+
+    // --- gabarits de batiment et technos Archipelago ---
+    RemplirCacheGabarits(bufBat, nBat);
+    ResoudreTechnosAP();
+
+    // --- messages : references de fabrication ---
+    uintptr_t producteurs[1] = { msgSys };
+    MessageSetReferences(producteurs, msgSys ? 1 : 0, bufMsgEnt, nMsgEnt);
+
+    // --- ressources : self et GUID de chacune, depuis le conteneur ---
+    Res_InitDepuisEconomie();
+
+    // Manques non bloquants, mais qui privent d'une fonctionnalite.
+    if (!difSys) printf("  [PARTIE] systeme de difficulte absent ou tableau +0x30 implausible\n");
+    if (!selSys) printf("  [PARTIE] systeme de selection absent : pas de survol des scouts\n");
+    if (!msgSys) printf("  [PARTIE] producteur de messages absent : pas de notifications\n");
+    if (!nBat)   printf("  [PARTIE] aucun gabarit de batiment capture (hook +1916F90) : pas d'icones de batiment\n");
+    if (!MessageEntreeRef())
+        printf("  [PARTIE] entree CitizensDied absente parmi %d entree(s) capturee(s) (hook +19E68B0)\n", nMsgEnt);
+
+    g_partieSelection = selSys;
+    g_partieListeSites = ListeDuSysteme(IdSysteme::ExpeditionSite);
+
+    // Le systeme de scenario porte g_run et le GameId (cle de persistance) :
+    // sans lui, rien ne peut fonctionner.
+    g_partiePrete = (scnSys != 0);
+    if (g_partiePrete) {
+        g_partieGeneration++;
+        printf("[PARTIE] prete (generation %u)\n", g_partieGeneration);
+    }
+    else {
+        printf("[PARTIE] init incomplete : systeme de scenario absent (global +0x%llX) -- nouvel essai dans 5 s\n",
+            (unsigned long long)(GameOffsets::SystemesGlobaux + IdSysteme::Scenario * GameOffsets::SystemesPas));
+    }
+    return g_partiePrete;
+}
+
+void PartieTick()
+{
+    // --- changement de partie : economie ou systeme de technos recrees ---
+    if (PartieRechargee()) PartieOublier("chargement detecte");
+
+    // --- garde-fou : tant que le chargement n'est pas detecte, les pointeurs
+    //     des modules peuvent viser des objets detruits (vu le 2026-10-15).
+    //     La liste des sites est reallouee a chaque partie, mais pas en cours
+    //     de partie (contrairement a celle d'envoi). ---
+    if (g_partiePrete) {
+        uintptr_t sites = ListeDuSysteme(IdSysteme::ExpeditionSite);
+        if (sites != g_partieListeSites) {
+            printf("[PARTIE] liste des sites changee (0x%llX -> 0x%llX) -- objets perimes\n",
+                (unsigned long long)g_partieListeSites, (unsigned long long)sites);
+            PartieOublier("liste des sites changee");
+        }
+    }
+    if (g_partiePrete) return;
+
+    // --- init : 5 s apres que l'economie soit apparue et restee presente ---
+    static DWORD stableDepuis = 0;
+    if (!EconomiePresente()) { stableDepuis = 0; return; }
+    if (stableDepuis == 0) { stableDepuis = GetTickCount(); return; }
+    if (GetTickCount() - stableDepuis < 5000) return;
+    stableDepuis = 0;
+    if (!PartieInit()) stableDepuis = GetTickCount();
+}
+
+// ============================================================================
+//  Diagnostic F8 : recherche d'ancrages fixes pour remplacer le balayage
+// ============================================================================
+// La table de la scene (+0x2C31B20) donne {nom, id} et non {nom, objet}. On
+// cherche le tableau "id -> systeme" a partir de systemes deja trouves par le
+// balayage, puis qui pointe sur ce tableau, puis ou les systemes d'expedition
+// rangent les sites et le composant d'envoi.
+
+static void AfficherConteneur(uintptr_t adr)
+{
+    uintptr_t debut = 0; char cls[128] = { 0 };
+    if (DebutObjet(adr, 0x800, &debut, cls, sizeof(cls)))
+        printf("      0x%llX  dans %s +0x%llX\n", (unsigned long long)adr, cls,
+            (unsigned long long)(adr - debut));
+    else
+        printf("      0x%llX  (objet englobant inconnu)\n", (unsigned long long)adr);
+}
+
+// Cherche dans 'sys' (0x4000 octets) un pointeur direct vers chaque cible, ou
+// un pointeur vers un tableau (512 premiers mots) qui la contient.
+// 'trouves[c]' est incremente a chaque trace de la cible c.
+static void ChercherDansSysteme(uintptr_t sys, const char* nomSys,
+    const uintptr_t* cibles, const char* const* noms, int nCibles, int* trouves)
+{
+    if (sys <= 0x10000) { printf("   %s : global vide\n", nomSys); return; }
+    static uintptr_t bloc[0x4000 / 8];
+    memset(bloc, 0, sizeof(bloc));
+    if (!SafeRead((void*)sys, bloc, sizeof(bloc))) {
+        // Objet plus court que 0x4000 : on se contente de 0x800.
+        memset(bloc, 0, sizeof(bloc));
+        if (!SafeRead((void*)sys, bloc, 0x800)) return;
+    }
+    static uintptr_t tab[512];
+    for (int i = 0; i < (int)(sizeof(bloc) / 8); ++i) {
+        uintptr_t v = bloc[i];
+        bool direct = false;
+        for (int c = 0; c < nCibles; ++c) {
+            if (cibles[c] <= 0x10000 || v != cibles[c]) continue;
+            printf("   %s +0x%04X = %s (direct)\n", nomSys, i * 8, noms[c]);
+            trouves[c]++;
+            direct = true;
+        }
+        if (direct || v <= 0x10000 || (v & 7)) continue;
+        if (!SafeRead((void*)v, tab, sizeof(tab))) {
+            if (!SafeRead((void*)v, tab, 64 * 8)) continue;
+            for (int k = 64; k < 512; ++k) tab[k] = 0;
+        }
+        for (int c = 0; c < nCibles; ++c) {
+            if (cibles[c] <= 0x10000) continue;
+            for (int k = 0; k < 512; ++k) {
+                if (tab[k] != cibles[c]) continue;
+                uint32_t cnt = 0;
+                SafeRead((void*)(sys + i * 8 + 8), &cnt, 4);
+                printf("   %s +0x%04X -> [%d] = %s (tableau, mot suivant = %u)\n",
+                    nomSys, i * 8, k, noms[c], cnt);
+                trouves[c]++;
+                break;
+            }
+        }
+    }
+}
+
+// Qui, dans le tas, pointe sur 'cible' (16 premiers), avec l'objet englobant
+// et les deux dwords qui suivent (compte / capacite d'un tableau dynamique).
+// borne : taille max des regions parcourues (0 = toutes).
+static void QuiPointeSur(uintptr_t cible, const char* nomCible, SIZE_T borne = 0x1000000)
+{
+    if (cible <= 0x10000) { printf("[ANCRE] %s : inconnu\n", nomCible); return; }
+    static uintptr_t hits[16];
+    DWORD t0 = GetTickCount();
+    int n = ChercherValeurDansTas(cible, hits, 16, borne);
+    printf("[ANCRE] %s = 0x%llX : %d emplacement(s) du tas pointent dessus (%lu ms, borne %s)\n",
+        nomCible, (unsigned long long)cible, n, GetTickCount() - t0,
+        borne ? "16 Mo" : "aucune");
+    for (int h = 0; h < n; ++h) {
+        uint32_t suite[2] = {};
+        SafeRead((void*)(hits[h] + 8), suite, 8);
+        AfficherConteneur(hits[h]);
+        printf("         dwords suivants : %u, %u\n", suite[0], suite[1]);
+    }
+    FindStaticPointersTo(cible);
+}
+
+// Liste {entite, composant} d'un systeme : tableau a +0x2078 (pas de 0x10),
+// nombre a +0x2080. Affiche le nombre, les 3 premieres paires et verifie que
+// tous les composants sont de la meme classe.
+static void DecrireListeSysteme(int id, const char* nomSys, const char* attendu)
+{
+    uintptr_t sys = SystemeParId(id);
+    if (!sys) { printf("   %s : global vide\n", nomSys); return; }
+    uintptr_t arr = 0; uint32_t cnt = 0, cnt2060 = 0;
+    SafeRead((void*)(sys + 0x2078), &arr, 8);
+    SafeRead((void*)(sys + 0x2080), &cnt, 4);
+    SafeRead((void*)(sys + 0x2068), &cnt2060, 4);
+    printf("   %-22s +0x2078 : %u paire(s) (+0x2068 : %u) -- attendu %s\n",
+        nomSys, cnt, cnt2060, attendu);
+    if (arr <= 0x10000 || cnt == 0 || cnt > 4096) return;
+
+    char ref[128] = { 0 };
+    int memeClasse = 0;
+    for (uint32_t k = 0; k < cnt; ++k) {
+        uintptr_t paire[2] = {};
+        if (!SafeRead((void*)(arr + (uintptr_t)k * 0x10), paire, 16)) continue;
+        char clsComp[128] = { 0 }, clsEnt[128] = { 0 };
+        if (!GetClassNameFP(paire[1], clsComp, sizeof(clsComp))) strcpy_s(clsComp, "?");
+        if (!GetClassNameFP(paire[0], clsEnt, sizeof(clsEnt))) strcpy_s(clsEnt, "?");
+        if (k == 0) strcpy_s(ref, clsComp);
+        if (StrEq(clsComp, ref)) memeClasse++;
+        if (k < 3)
+            printf("      [%u] entite 0x%llX (%s)  comp 0x%llX (%s)\n", k,
+                (unsigned long long)paire[0], clsEnt, (unsigned long long)paire[1], clsComp);
+    }
+    printf("      %d/%u composant(s) de classe %s\n", memeClasse, cnt, ref);
+}
+
+// Decrit les pointeurs des 0x80 premiers octets d'un objet, l'objet qui
+// l'englobe eventuellement, et qui pointe sur cet englobant.
+static void DecrireEtRemonter(uintptr_t obj, const char* nom)
+{
+    if (obj <= 0x10000) { printf("[ANCRE] %s : inconnu\n", nom); return; }
+    char cls[128] = { 0 };
+    if (!GetClassNameFP(obj, cls, sizeof(cls))) strcpy_s(cls, "?");
+    printf("\n[ANCRE] %s = 0x%llX (%s)\n", nom, (unsigned long long)obj, cls);
+
+    uintptr_t mots[0x80 / 8] = {};
+    SafeRead((void*)obj, mots, sizeof(mots));
+    for (int i = 1; i < (int)(sizeof(mots) / 8); ++i) {
+        uintptr_t v = mots[i];
+        if (v <= 0x10000 || (v & 7)) continue;
+        char c[128] = { 0 };
+        if (GetClassNameFP(v, c, sizeof(c))) {
+            printf("   +0x%02X -> 0x%llX  %s\n", i * 8, (unsigned long long)v, c);
+            continue;
+        }
+        char s[64] = { 0 };
+        if (!SafeRead((void*)v, s, sizeof(s) - 1)) continue;
+        int len = 0;
+        while (len < 63 && s[len] >= 0x20 && s[len] < 0x7F) len++;
+        if (len >= 3 && s[len] == 0)
+            printf("   +0x%02X -> 0x%llX  \"%s\"\n", i * 8, (unsigned long long)v, s);
+    }
+
+    uintptr_t debut = 0; char c2[128] = { 0 };
+    if (DebutObjet(obj - 8, 0x2000, &debut, c2, sizeof(c2))) {
+        printf("   englobe par %s a 0x%llX (objet a +0x%llX dedans)\n", c2,
+            (unsigned long long)debut, (unsigned long long)(obj - debut));
+        QuiPointeSur(debut, "englobant");
+    }
+    else {
+        printf("   pas d'englobant RTTI dans les 0x2000 octets precedents\n");
+    }
+}
+
+// Diagnostic F8 : les gabarits de batiment et les entrees de message
+// existent-ils des le menu principal, et gardent-ils leur adresse d'une
+// partie a l'autre ? Chaque appui balaye ces deux classes seulement et
+// compare au releve de l'appui precedent.
+void DiagGabaritsPrecoces()
+{
+    static const char* noms[2] = {
+        "FrostpunkBuildingComponentTemplate",
+        "FrostpunkMessageEntry",
+    };
+    static uintptr_t gab[1024], ent[1024];          // releve courant
+    static uintptr_t gabAvant[1024], entAvant[1024]; // releve precedent
+    static int nGabAvant = -1, nEntAvant = 0, passe = 0;
+    passe++;
+
+    uintptr_t* sorties[2] = { gab, ent };
+    int compteurs[2] = {};
+    DWORD t0 = GetTickCount();
+    CollectObjectsByClasses(noms, 2, sorties, compteurs, 1024);
+    DWORD dt = GetTickCount() - t0;
+
+    printf("\n[GABARIT] passe %d (%s) : %d gabarit(s) de batiment, %d entree(s) de message en %lu ms\n",
+        passe, EconomiePresente() ? "en partie" : "hors partie (menu ?)",
+        compteurs[0], compteurs[1], dt);
+
+    if (PartiePrete()) {
+        int dansCache = 0;
+        for (int i = 0; i < compteurs[0]; ++i) if (GabaritBatEnCache(gab[i])) dansCache++;
+        bool entreeVue = false;
+        for (int i = 0; i < compteurs[1]; ++i) if (ent[i] == MessageEntreeRef()) { entreeVue = true; break; }
+        printf("[GABARIT] compare a l'init de la partie : %d/%d gabarit(s) du cache retrouve(s), "
+            "entree CitizensDied %s\n", dansCache, NombreGabaritsBat(), entreeVue ? "retrouvee" : "ABSENTE");
+    }
+
+    if (nGabAvant >= 0) {
+        int gOk = 0, eOk = 0;
+        for (int i = 0; i < nGabAvant; ++i)
+            for (int j = 0; j < compteurs[0]; ++j) if (gabAvant[i] == gab[j]) { gOk++; break; }
+        for (int i = 0; i < nEntAvant; ++i)
+            for (int j = 0; j < compteurs[1]; ++j) if (entAvant[i] == ent[j]) { eOk++; break; }
+        printf("[GABARIT] compare a la passe %d : gabarits %d/%d a la meme adresse, entrees %d/%d\n",
+            passe - 1, gOk, nGabAvant, eOk, nEntAvant);
+    }
+
+    for (int i = 0; i < compteurs[0]; ++i) gabAvant[i] = gab[i];
+    for (int i = 0; i < compteurs[1]; ++i) entAvant[i] = ent[i];
+    nGabAvant = compteurs[0];
+    nEntAvant = compteurs[1];
+}
+
+void DiagAncrages()
+{
+    if (!PartiePrete()) { printf("[ANCRE] init pas terminee\n"); return; }
+
+    // Les listes {entite, composant} a +0x2078 et la regle des globaux sont
+    // confirmees (2026-10-15, voir CLAUDE.md). Reste : gabarits et entrees.
+
+    // --- A. composant de batiment -> gabarit ? ---
+    printf("\n[ANCRE] ===== A. gabarits atteignables par les batiments =====\n");
+    uintptr_t bsys = SystemeParId(IdSysteme::Building), barr = 0;
+    uint32_t bcnt = 0;
+    if (bsys) {
+        SafeRead((void*)(bsys + 0x2078), &barr, 8);
+        SafeRead((void*)(bsys + 0x2080), &bcnt, 4);
+    }
+    if (barr > 0x10000 && bcnt > 0 && bcnt <= 4096) {
+        uintptr_t comp0 = 0;
+        SafeRead((void*)(barr + 8), &comp0, 8);
+        DecrireEtRemonter(comp0, "BuildingComponent[0]");
+
+        // Pour chaque composant : premier pointeur (0x100 octets) vers un
+        // FrostpunkBuildingComponentTemplate. On compte les gabarits distincts.
+        static uintptr_t distincts[512];
+        int nDist = 0, enCache = 0, offTrouve = -1;
+        for (uint32_t k = 0; k < bcnt; ++k) {
+            uintptr_t comp = 0;
+            if (!SafeRead((void*)(barr + (uintptr_t)k * 0x10 + 8), &comp, 8)) continue;
+            uintptr_t mots[0x100 / 8] = {};
+            if (!SafeRead((void*)comp, mots, sizeof(mots))) continue;
+            for (int i = 1; i < (int)(sizeof(mots) / 8); ++i) {
+                if (mots[i] <= 0x10000 || (mots[i] & 7)) continue;
+                if (!ClasseExacte(mots[i], "FrostpunkBuildingComponentTemplate")) continue;
+                if (offTrouve < 0) offTrouve = i * 8;
+                bool deja = false;
+                for (int d = 0; d < nDist; ++d) if (distincts[d] == mots[i]) { deja = true; break; }
+                if (!deja && nDist < 512) {
+                    distincts[nDist++] = mots[i];
+                    if (GabaritBatEnCache(mots[i])) enCache++;
+                }
+                break;
+            }
+        }
+        printf("[ANCRE] gabarit lu a +0x%X du composant : %d gabarit(s) distinct(s) pour %u batiment(s), "
+            "%d dans le cache du scan (%d)\n",
+            offTrouve, nDist, bcnt, enCache, NombreGabaritsBat());
+    }
+    else {
+        printf("[ANCRE] liste des batiments illisible\n");
+    }
+
+    // --- B. tableau des entrees de message (pas de 0xE0) ---
+    printf("\n[ANCRE] ===== B. tableau des entrees de message =====\n");
+    uintptr_t entree = MessageEntreeRef();
+    if (entree) {
+        const uintptr_t PAS = 0xE0;
+        uintptr_t debut = entree;
+        while (ClasseExacte(debut - PAS, "FrostpunkMessageEntry")) debut -= PAS;
+        int n = 0;
+        while (ClasseExacte(debut + (uintptr_t)n * PAS, "FrostpunkMessageEntry")) n++;
+        printf("[ANCRE] tableau contigu : debut 0x%llX, %d entree(s), CitizensDied a l'indice %d\n",
+            (unsigned long long)debut, n, (int)((entree - debut) / PAS));
+        QuiPointeSur(debut, "debut du tableau d'entrees", 0);
+
+        const uintptr_t cibles[] = { debut };
+        const char* const noms[] = { "debut tableau entrees" };
+        int trouves[1] = {};
+        ChercherDansSysteme(SystemeParId(IdSysteme::MessageProducer), "MessageProducerSystem",
+            cibles, noms, 1, trouves);
+        ChercherDansSysteme(SystemeParId(IdSysteme::MessageSystem), "MessageSystem",
+            cibles, noms, 1, trouves);
+        if (!trouves[0]) printf("   debut du tableau : aucune trace dans les 2 systemes de message\n");
+    }
+    else {
+        printf("[ANCRE] entree CitizensDied inconnue\n");
+    }
+
+    // --- C. gabarit : references dans TOUT le tas (sans borne de region) ---
+    printf("\n[ANCRE] ===== C. gabarit bat[0], tas complet =====\n");
+    QuiPointeSur(PremierGabaritBat(), "gabarit bat[0]", 0);
+
+    printf("[ANCRE] ===== fin =====\n");
+}
+
+// Champs non nuls des 'longueur' premiers octets d'un objet : pointeur vers
+// objet RTTI (classe), pointeur vers chaine ASCII, sinon valeur brute avec
+// ses deux int32 et le float du dword bas.
+void DecrireChamps(uintptr_t obj, int longueur, const char* nom)
+{
+    char cls[128] = { 0 };
+    if (obj <= 0x10000 || !GetClassNameFP(obj, cls, sizeof(cls))) strcpy_s(cls, "?");
+    printf("\n[GROUPE] %s = 0x%llX (%s), 0x%X premiers octets :\n",
+        nom, (unsigned long long)obj, cls, longueur);
+    if (obj <= 0x10000) return;
+
+    static uint8_t bloc[0x400];
+    if (longueur > (int)sizeof(bloc)) longueur = (int)sizeof(bloc);
+    memset(bloc, 0, sizeof(bloc));
+    if (!SafeRead((void*)obj, bloc, longueur)) { printf("   illisible\n"); return; }
+
+    for (int off = 8; off + 8 <= longueur; off += 8) {
+        uint64_t v = *(uint64_t*)(bloc + off);
+        if (!v) continue;
+        char c[128] = { 0 }, s[64] = { 0 };
+        if (v > 0x10000 && !(v & 7) && GetClassNameFP((uintptr_t)v, c, sizeof(c))) {
+            printf("   +0x%03X  0x%llX  -> %s\n", off, (unsigned long long)v, c);
+            continue;
+        }
+        if (v > 0x10000 && SafeRead((void*)v, s, sizeof(s) - 1)) {
+            int len = 0;
+            while (len < 63 && s[len] >= 0x20 && s[len] < 0x7F) len++;
+            if (len >= 3 && s[len] == 0) {
+                printf("   +0x%03X  0x%llX  -> \"%s\"\n", off, (unsigned long long)v, s);
+                continue;
+            }
+        }
+        int32_t bas = (int32_t)(v & 0xFFFFFFFF), haut = (int32_t)(v >> 32);
+        float f = 0; memcpy(&f, bloc + off, 4);
+        printf("   +0x%03X  0x%016llX  (i32 %d / %d, f %.3g)\n",
+            off, (unsigned long long)v, bas, haut, f);
+    }
+}
+
+// Diagnostic F9 (2026-10-28) : comment le jeu represente les groupes de
+// survivants / refugies qui marchent vers la ville ? Liste les systemes
+// candidats (liste {entite, composant} a +0x2078) et detaille le premier
+// composant et la premiere entite de chacun. A lancer pendant qu'un groupe
+// est visible sur la carte (scenario Refugees, par exemple).
+void DiagSystemesGroupes()
+{
+    if (!PartiePrete()) { printf("[GROUPE] partie pas prete\n"); return; }
+
+    struct Candidat { int id; const char* nom; };
+    const Candidat candidats[] = {
+        { 0x6D, "SurvivorGroupSystem" },   { 0x6C, "SettlementSystem" },
+        { 0x6A, "OutpostSystem" },         { 0x6B, "OutpostTransportSystem" },
+        { 0x69, "ExpeditionHostSystem" },  { 0x68, "ExpeditionSystem" },
+        { 0xB7, "AbsentCitizenSystem" },   { 0x61, "WorldMapMarkerSystem" },
+    };
+    printf("\n[GROUPE] ===== systemes candidats =====\n");
+    for (int i = 0; i < (int)(sizeof(candidats) / sizeof(candidats[0])); ++i) {
+        uintptr_t sys = SystemeParId(candidats[i].id);
+        char cls[128] = { 0 };
+        if (!sys || !GetClassNameFP(sys, cls, sizeof(cls))) strcpy_s(cls, "?");
+        printf("[GROUPE] id 0x%02X %-24s = 0x%llX (%s)\n", candidats[i].id, candidats[i].nom,
+            (unsigned long long)sys, cls);
+        DecrireListeSysteme(candidats[i].id, candidats[i].nom, "-");
+    }
+
+    // Detail : premier composant et premiere entite des systemes de groupes.
+    const int detail[] = { 0x6D, 0x6C, 0x6B };
+    for (int i = 0; i < (int)(sizeof(detail) / sizeof(detail[0])); ++i) {
+        uintptr_t sys = SystemeParId(detail[i]), arr = 0; uint32_t cnt = 0;
+        if (!sys) continue;
+        SafeRead((void*)(sys + 0x2078), &arr, 8);
+        SafeRead((void*)(sys + 0x2080), &cnt, 4);
+        if (arr <= 0x10000 || cnt == 0 || cnt > 4096) continue;
+        uintptr_t paire[2] = {};
+        SafeRead((void*)arr, paire, 16);
+        char nom[64];
+        sprintf_s(nom, "systeme 0x%02X : composant[0]", detail[i]);
+        DecrireChamps(paire[1], 0x200, nom);
+        sprintf_s(nom, "systeme 0x%02X : entite[0]", detail[i]);
+        DecrireChamps(paire[0], 0x100, nom);
+    }
+
+    // --- Groupe de survivants : template du composant, puis noms et offsets
+    //     des proprietes (systeme de reflexion du jeu). Lent (parcours de la
+    //     memoire), une seule fois par appui. ---
+    uintptr_t sysGr = SystemeParId(0x6D), arrGr = 0;
+    uint32_t cntGr = 0;
+    if (sysGr) {
+        SafeRead((void*)(sysGr + 0x2078), &arrGr, 8);
+        SafeRead((void*)(sysGr + 0x2080), &cntGr, 4);
+    }
+    if (arrGr > 0x10000 && cntGr > 0 && cntGr <= 4096) {
+        uintptr_t comp0 = 0, tpl = 0;
+        SafeRead((void*)(arrGr + 8), &comp0, 8);
+        SafeRead((void*)(comp0 + 0x20), &tpl, 8);
+        DecrireChamps(tpl, 0x200, "template du groupe[0] (composant +0x20)");
+    }
+
+    // Proprietes du template obtenues le 2026-10-28 (FindClassRecord, 81 s) :
+    // consignees dans CLAUDE.md, recherche retiree.
+
+    // --- vtables des classes liees aux groupes (et aux expeditions, creees
+    //     en cours de partie : leur constructeur mene a la creation
+    //     d'entites sur la carte). Pour chacune : premieres methodes
+    //     virtuelles et fonctions qui chargent la vtable (constructeurs /
+    //     destructeurs), adresses a ouvrir dans Ghidra. ---
+    const char* classes[] = {
+        "FrostpunkSurvivorGroupComponent",
+        "FrostpunkMakeSurvivorGroupKnownEffect",
+        "FrostpunkSurvivorGroupReachedCityEventTrigger",
+        "FrostpunkSurvivorGroupSystem",
+        "FrostpunkSurvivorsEntry",
+        "FrostpunkExpeditionComponent",
+    };
+    uintptr_t modBase = (uintptr_t)GetModuleHandleW(NULL);
+    for (int i = 0; i < (int)(sizeof(classes) / sizeof(classes[0])); ++i) {
+        uintptr_t vt[4] = {};
+        int nvt = VtablesParNomDeClasse(classes[i], vt, 4);
+        printf("\n[GROUPE] %s : %d vtable(s)\n", classes[i], nvt);
+        for (int v = 0; v < nvt; ++v) {
+            printf("   vtable Frostpunk.exe+%llX (Ghidra 0x%llX), methodes :\n",
+                (unsigned long long)(vt[v] - modBase), (unsigned long long)(vt[v] - modBase + 0x140000000ULL));
+            for (int m = 0; m < 12; ++m) {
+                uintptr_t f = 0;
+                if (!SafeRead((void*)(vt[v] + (uintptr_t)m * 8), &f, 8)) break;
+                if (f < modBase || f >= modBase + 0x10000000) break;   // fin de la vtable
+                printf("      [%2d] Frostpunk.exe+%llX\n", m, (unsigned long long)(f - modBase));
+            }
+            ChercherReferencesVtable(vt[v], classes[i]);
+        }
+    }
+    printf("[GROUPE] ===== fin =====\n");
+}
+
+// --- Trace de la chaine de creation des entites de la carte -----------------
+// Les constructeurs des composants (expedition +0x19E9560, groupe de
+// survivants +0x1A0EB70) ne sont appeles que par leur fabrique de reflexion
+// et par un clonage : la fonction generique "template -> entite" est plus
+// haut dans la pile. A chaque construction, on balaye la pile a la recherche
+// d'adresses de retour dans l'image (precedees d'un call direct E8 ou d'un
+// call indirect FF /2), qu'on journalise avec leur adresse Ghidra et le debut
+// de la fonction qui les contient (.pdata). _ReturnAddress() est inutilisable
+// sous MinHook, d'ou le balayage.
+typedef uintptr_t(*CtorComposant_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
+static CtorComposant_t oCtorExpedition = nullptr;
+static CtorComposant_t oCtorGroupe     = nullptr;
+static volatile long   g_traceExpedition = 0;
+static volatile long   g_traceGroupe     = 0;
+static const long      TRACE_MAX_APPELS  = 12;   // par constructeur
+
+// Vrai si 'ret' suit une instruction call (E8 rel32, FF 15 [rip], FF /2 reg
+// ou memoire avec deplacement 0/8/32 bits).
+static bool SuitUnCall(uintptr_t ret)
+{
+    unsigned char o[7] = {};
+    if (!SafeRead((void*)(ret - 7), o, 7)) return false;
+    // o[6] = ret-1, o[5] = ret-2, ..., o[0] = ret-7
+    if (o[2] == 0xE8) return true;                                       // E8 rel32
+    if (o[1] == 0xFF && o[2] == 0x15) return true;                       // FF 15 disp32
+    if (o[5] == 0xFF && (o[6] & 0x38) == 0x10 && (o[6] >> 6) == 3) return true;   // FF D0+r
+    if (o[5] == 0xFF && (o[6] & 0x38) == 0x10 && (o[6] >> 6) == 0) return true;   // FF 10+r
+    if (o[4] == 0xFF && (o[5] & 0x38) == 0x10 && (o[5] >> 6) == 1) return true;   // FF 50+r d8
+    if (o[3] == 0xFF && (o[4] & 0x38) == 0x10 && (o[4] >> 6) == 1) return true;   // avec SIB
+    if (o[1] == 0xFF && (o[2] & 0x38) == 0x10 && (o[2] >> 6) == 2) return true;   // FF 90+r d32
+    if (o[0] == 0xFF && (o[1] & 0x38) == 0x10 && (o[1] >> 6) == 2) return true;   // avec SIB
+    return false;
+}
+
+void TracerPile(const char* qui, uintptr_t obj, long numero)
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)(base + ((PIMAGE_DOS_HEADER)base)->e_lfanew);
+    uintptr_t fin = base + nt->OptionalHeader.SizeOfImage;
+
+    printf("[TRACE] %s #%ld : objet 0x%llX, thread %lu\n", qui, numero,
+        (unsigned long long)obj, GetCurrentThreadId());
+
+    // Pile exacte par deroulage (.pdata) : le balayage brut ci-dessous ramasse
+    // aussi des adresses de retour perimees (vu le 2026-10-28 : zlib et flux
+    // de fichier au-dessus du vrai appelant).
+    void* cadres[24] = {};
+    USHORT nc = RtlCaptureStackBackTrace(0, 24, cadres, nullptr);
+    int dansImage = 0;
+    for (USHORT k = 0; k < nc; ++k) {
+        uintptr_t v = (uintptr_t)cadres[k];
+        if (v <= base || v >= fin) continue;
+        DWORD64 imageBase = 0;
+        PRUNTIME_FUNCTION f = RtlLookupFunctionEntry(v, &imageBase, nullptr);
+        printf("   cadre %2u  retour Ghidra 0x%llX  dans FUN_%llx\n", k,
+            (unsigned long long)(v - base + 0x140000000ULL),
+            (unsigned long long)((f ? f->BeginAddress : 0) + 0x140000000ULL));
+        ++dansImage;
+    }
+    if (dansImage > 0) return;
+    printf("   (deroulage sans resultat : balayage brut)\n");
+
+    volatile uintptr_t ancre = 0;
+    uintptr_t* p = (uintptr_t*)&ancre;
+    int trouves = 0;
+    for (int i = 0; i < 1024 && trouves < 16; ++i) {
+        uintptr_t v = 0;
+        if (!SafeRead(p + i, &v, 8)) break;
+        if (v <= base + 0x1000 || v >= fin) continue;
+        if (!SuitUnCall(v)) continue;
+        DWORD64 imageBase = 0;
+        PRUNTIME_FUNCTION f = RtlLookupFunctionEntry(v, &imageBase, nullptr);
+        if (f)
+            printf("   pile+0x%03X  retour Ghidra 0x%llX  dans FUN_%llx\n", i * 8,
+                (unsigned long long)(v - base + 0x140000000ULL),
+                (unsigned long long)(f->BeginAddress + 0x140000000ULL));
+        else
+            printf("   pile+0x%03X  retour Ghidra 0x%llX  (fonction inconnue)\n", i * 8,
+                (unsigned long long)(v - base + 0x140000000ULL));
+        ++trouves;
+    }
+}
+
+static uintptr_t hkCtorExpedition(uintptr_t a, uintptr_t b, uintptr_t c, uintptr_t d)
+{
+    uintptr_t r = oCtorExpedition(a, b, c, d);
+    long n = InterlockedIncrement(&g_traceExpedition);
+    if (n <= TRACE_MAX_APPELS) TracerPile("ExpeditionComponent", a, n);
+    return r;
+}
+
+static uintptr_t hkCtorGroupe(uintptr_t a, uintptr_t b, uintptr_t c, uintptr_t d)
+{
+    uintptr_t r = oCtorGroupe(a, b, c, d);
+    long n = InterlockedIncrement(&g_traceGroupe);
+    if (n <= TRACE_MAX_APPELS) TracerPile("SurvivorGroupComponent", a, n);
+    return r;
+}
+
+void InstallTraceCreationEntites(uintptr_t modBase)
+{
+    void* p1 = (void*)(modBase + 0x19E9560);
+    void* p2 = (void*)(modBase + 0x1A0EB70);
+    if (MH_CreateHook(p1, (void*)&hkCtorExpedition, (void**)&oCtorExpedition) == MH_OK &&
+        MH_EnableHook(p1) == MH_OK) printf("[TRACE] hook +19E9560 (expedition) OK\n");
+    else printf("[TRACE] hook +19E9560 (expedition) KO\n");
+    if (MH_CreateHook(p2, (void*)&hkCtorGroupe, (void**)&oCtorGroupe) == MH_OK &&
+        MH_EnableHook(p2) == MH_OK) printf("[TRACE] hook +1A0EB70 (groupe) OK\n");
+    else printf("[TRACE] hook +1A0EB70 (groupe) KO\n");
+}

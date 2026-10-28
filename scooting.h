@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
-
+#include "MinHook.h"
+#include "MessageManager.h"
 // Nature du contenu d'un site : check envoye au serveur, ou item local.
 struct SitePayload {
     const char* scenario;
@@ -12,8 +13,8 @@ struct SitePayload {
 int ScootingListePortee(wchar_t* out, int maxChars);
 int ExpeditionSelectionnee();
 
-void ScootingInit();        // un seul scan ; appele automatiquement par le tick
-void ScootingTick();        // a appeler une fois par seconde
+void ScootingInit();        // objets du scouting ; appele par le tick a chaque nouvelle partie
+void ScootingTick();        // une fois par seconde, APRES PartieTick (mod_common)
 int  ScootingLocationPourCleSite(const char* cle);
 
 void ScootingAppliquerTresors();
@@ -28,3 +29,5 @@ bool EnJeu();
 extern volatile bool g_apDonneesActif;
 extern bool g_defEnregistree;
 extern volatile bool g_pret;
+void ScootingFournirContenuSites();
+int ExpeditionVisee();

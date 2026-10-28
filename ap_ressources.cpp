@@ -13,11 +13,6 @@ static bool        g_pret_ressources = false;
 
 volatile bool g_apPorteurActif = true;
 
-static bool StrEqLoc(const char* a, const char* b)
-{
-    for (int i = 0; ; ++i) { if (a[i] != b[i]) return false; if (a[i] == 0) return true; }
-}
-
 // Definition source : n'importe laquelle du conteneur fait l'affaire.
 static uintptr_t PremiereDefinition()
 {
@@ -98,13 +93,22 @@ uintptr_t ApPorteurDef()
     return g_pret_ressources ? (uintptr_t)g_def : 0;
 }
 
+// La cle passee au setter de ressources est soit la definition, soit son GUID
+// (definition + 8) : la convention exacte est deduite dans resources.cpp. On
+// reconnait notre porteur dans les deux cas : cle == notre definition, ou GUID
+// lu a la cle ou a cle + 8.
 bool ApPorteurEstNotreGuid(uintptr_t guidPtr)
 {
     if (guidPtr <= 0x10000) return false;
-    uint64_t a = 0, b = 0;
-    if (!SafeRead((void*)guidPtr, &a, 8)) return false;
-    if (!SafeRead((void*)(guidPtr + 8), &b, 8)) return false;
-    return a == AP_GUID0 && b == AP_GUID1;
+    if (g_pret_ressources && (guidPtr == (uintptr_t)g_def || guidPtr == (uintptr_t)g_def + 8))
+        return true;
+    for (int d = 0; d <= 8; d += 8) {
+        uint64_t a = 0, b = 0;
+        if (!SafeRead((void*)(guidPtr + d), &a, 8)) continue;
+        if (!SafeRead((void*)(guidPtr + d + 8), &b, 8)) continue;
+        if (a == AP_GUID0 && b == AP_GUID1) return true;
+    }
+    return false;
 }
 
 const char* ApPorteurNomInterne() { return AP_NOM; }

@@ -13,6 +13,5 @@ struct ApCheck {
 void            ApSetCheck(int id, const char* joueur, const char* description, int arbreTest = -1);
 const ApCheck* ApCheckById(int id);
 const wchar_t* ApDescriptionW(int id);   // version UTF-16 pour hkTranslate
-void            ApDumpChecks();
 void            ApChargerChecksDeTest();  // TEMPORAIRE, en attendant le serveur
 const wchar_t* ApJoueurW(int id);

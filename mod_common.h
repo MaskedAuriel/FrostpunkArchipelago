@@ -46,6 +46,7 @@ void FindPropertyByName(const char* filtre);
 void DumpDynarray(uintptr_t owner, int off, int elemSize, int maxShow);
 int CollectObjectsByClass(const char* filtre, uintptr_t* out, int maxOut);
 void InstallNtHooks();
+void InstallTraceArchives(uintptr_t modBase);   // [ARCH] noms cherches dans les .idx
 void DumpIOMappings();
 void DumpMappedRegions(SIZE_T tailleMin);
 void DumpResourceEntries();
@@ -67,13 +68,35 @@ bool ClasseExacte(uintptr_t obj, const char* ref);
 void SurveillerArbreTechno();
 void DumpNomsGabarits();
 bool StrEq(const char* a, const char* b);
+bool GetClassNameFP(uintptr_t obj, char* out, int maxlen);
+void TrouverDebutFonction(uintptr_t adresse);
+void ChercherReferencesVtable(uintptr_t vtable, const char* nom);
+// Debut (absolu) de chaque fonction qui charge 'vtable' (constructeurs...).
+int  FonctionsChargeantVtable(uintptr_t vtable, uintptr_t* debuts, int maxOut);
+// Dump annote (classes RTTI, chaines) des 'longueur' premiers octets.
+void DecrireChamps(uintptr_t obj, int longueur, const char* nom);
+// Adresses de retour de la pile courante (call E8 / FF /2), adresses Ghidra.
+void TracerPile(const char* qui, uintptr_t obj, long numero);
+// Nom de classe -> vtable(s), via RTTI, sans instance. Renvoie le nombre trouve.
+int  VtablesParNomDeClasse(const char* nom, uintptr_t* out, int maxOut);
+void InstallAllocHook(uintptr_t modBase);
+void InitAllocateur(uintptr_t modBase);
+void TesterAllocateur();
+bool StrEqLoc(const char* a, const char* b);
+bool ToucheAppuyee(int vk);
+// Ligne de journal ecrite tout de suite sur disque (survit a un crash du jeu).
+// Definie dans version.cpp.
+void JournalImmediat(const char* fmt, ...);
+int  ChercherValeurDansTas(uintptr_t valeur, uintptr_t* out, int maxOut, SIZE_T borne = 0x1000000);
+bool DebutObjet(uintptr_t adr, int reculMax, uintptr_t* debut, char* cls, int maxlen);
 
 
 extern volatile bool g_traceIO;
 extern volatile bool g_consolePrete;
 extern volatile bool g_siteApAffiche;
 extern volatile DWORD g_instantArbre;
-
+typedef uintptr_t(*Alloc_t)(size_t);
+extern Alloc_t MoteurAlloc;
 // --- Les "self" captures par les hooks --------------------------------------
 // g_selfRessource : renseigne par le hook du setter de ressources (0x173FE40)
 // g_selfTech      : renseigne par les hooks technos (0x1329610 / 0x1327120)
@@ -118,7 +141,74 @@ namespace GameOffsets {
     constexpr uintptr_t ResearchComplete= 0x1327120;  // completion (location check)
     constexpr uintptr_t CancelResearch  = 0x1326C80;  // annuler une recherche
     constexpr uintptr_t Translate       = 0x0FEB340;  // traduire(cle) -> valeur
+
+    // Chaque systeme du jeu a son global dans l'image : SystemesGlobaux +
+    // id * SystemesPas, ou id vient de l'annuaire des types (AnnuaireTypes,
+    // entrees {ptr nom, id} au pas de 0x10). Ex. Technology 0x41 -> +0x2C30A20.
+    constexpr uintptr_t SystemesGlobaux = 0x2C30200;
+    constexpr uintptr_t SystemesPas     = 0x20;
+    constexpr uintptr_t AnnuaireTypes   = 0x2C31B20;
 }
+
+// Ids des systemes dans l'annuaire des types (releves le 2026-10-15).
+namespace IdSysteme {
+    constexpr int Difficulty      = 0x03;
+    constexpr int Scenario        = 0x0C;
+    constexpr int MessageSystem   = 0x14;
+    constexpr int MessageProducer = 0x15;
+    constexpr int Economy         = 0x3F;
+    constexpr int Technology      = 0x41;
+    constexpr int Selection       = 0x4C;
+    constexpr int GameEntity      = 0x58;
+    constexpr int WorldMap        = 0x60;
+    constexpr int City            = 0x64;
+    constexpr int ExpeditionSite  = 0x65;
+    constexpr int Expedition      = 0x68;
+    constexpr int ExpeditionHost  = 0x69;
+    constexpr int Building        = 0x8B;
+}
+
+// Instance d'un systeme par son id (0 si le global est vide : hors partie).
+uintptr_t SystemeParId(int id);
+
+// Composants d'un systeme : liste {entite, composant} a +0x2078 (pas 0x10),
+// nombre a +0x2080. Ne garde que ceux de la classe 'classe'. Renvoie le nombre.
+int ComposantsDuSysteme(int idSysteme, const char* classe, uintptr_t* out, int maxOut);
+
+// --- Objets captures a leur construction (hook du constructeur) ------------
+// Ajout depuis le hook (thread du jeu), lecture depuis le tick : protege par
+// un verrou. Quand le tableau est plein, on retire les objets detruits
+// (classe RTTI changee) avant d'ajouter.
+struct ListeCaptures {
+    SRWLOCK     verrou;
+    uintptr_t*  objets;
+    int         capacite;
+    int         n;
+    const char* classe;
+    long        appels;      // nombre total d'appels du constructeur
+};
+void CaptureAjouter(ListeCaptures& l, uintptr_t obj);
+// Copie les objets encore vivants (bonne classe), sans doublon.
+int  CaptureLire(ListeCaptures& l, uintptr_t* out, int maxOut);
+
+// --- Cycle de vie de la partie ----------------------------------------------
+// PartieTick (une fois par seconde, avant les modules) detecte les chargements
+// et resout les references globales : systemes, gabarits, entrees de message,
+// technos Archipelago. Un module compare PartieGeneration() a la derniere
+// valeur vue pour savoir qu'il doit refaire sa propre init.
+void      PartieTick();
+bool      PartiePrete();
+unsigned  PartieGeneration();
+uintptr_t PartieSelection();      // FrostpunkSelectionSystem (0 si absent)
+bool      EconomiePresente();     // global de l'economie non nul : en partie
+
+// --- Diagnostics d'ancrage (F8 au besoin) -----------------------------------
+void DiagAncrages();              // gabarits / entrees : remontee de references
+void DiagGabaritsPrecoces();      // templates presents des le menu ?
+void DiagSystemesGroupes();       // F9 : groupes de survivants / refugies sur la carte
+// Hooks des constructeurs de composants de la carte (expedition, groupe) :
+// journalisent la pile d'appel des 12 premieres constructions de chacun.
+void InstallTraceCreationEntites(uintptr_t modBase);
 
 namespace SetupOffsets {
     constexpr uintptr_t SelectScenario = 0x1B2DCC0;  // lit l'index de scenario

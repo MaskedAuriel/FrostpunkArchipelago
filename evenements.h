@@ -1,0 +1,50 @@
+// evenements.h
+// ---------------------------------------------------------------------------
+// Evenements du jeu (FrostpunkGameEventSystem) : bulles en ville, dilemmes.
+// Etape 1 : journal de chaque evenement invoque ; pour ceux dont le contexte
+// est un groupe Archipelago arrive en ville (bulle gardee, decision de
+// l'auteur), releve detaille de la chaine d'effets jusqu'au dilemme.
+// ---------------------------------------------------------------------------
+#pragma once
+#include <cstdint>
+
+// Au demarrage : hook de l'invocation d'un evenement (FUN_1417b9b70).
+void InstallHooksEvenements(uintptr_t modBase);
+
+// Thread du jeu : les evenements invoques avec cette entite pour contexte
+// sont releves en detail (effets, dilemme, choix). 16 entites au plus.
+void EvenementsSuivreEntite(uintptr_t entite);
+
+// Thread du jeu : pendant un evenement dont le contexte est 'entite', la
+// creation du dilemme 'orig' cree 'remplacant' a la place (hook de
+// FUN_1417cde10). Une regle par entite (la derniere gagne).
+void EvenementsRemplacerDilemme(uintptr_t entite, uintptr_t orig, uintptr_t remplacant);
+
+// --- Dilemmes Archipelago (catalogue : dilemmes_ap.h) -----------------------
+// Bulle en ville (copie de "[Beacon]S: Survivors group", sans aucun effet du
+// jeu) dont chaque choix applique l'effet declare. Ignorer la bulle applique
+// le choix 'choixSiIgnore' : un piege est inevitable.
+struct DilemmeAP;
+
+// Thread du jeu uniquement (DilemmesPompe). Renvoie l'identifiant du dilemme
+// cree, ou -1.
+int DilemmeAPCreer(const DilemmeAP& def);
+
+// Textes des cles @AP/Dil/<slot>/T (titre), /X (texte), /C<i> (choix i),
+// /S (sous-titre d'arc), pour hkTranslate ; nullptr si le slot est libre.
+const char* DilemmePiegeTexte(int slot, char champ, int indice);
+
+// Tuile (UITextureTile, 0x18 octets) de l'icone 'icone' (nom de
+// ARCHIPELAGO_ICONS_TECH) dans l'atlas des bulles (UI\Tiles\Icons.dds,
+// entree 2350) : texture et nombre de cases repris du marqueur de
+// "Survivors group". false si indisponible.
+bool TuileAtlasBulles(const char* icone, uint8_t* tuile);
+
+// Dilemme du jeu par son lien (GUID de 16 octets), ou 0.
+uintptr_t DilemmeParGuid(const uint8_t* guid);
+
+// Copie d'un FrostpunkDilemmaEntry (et de ses choix) dont le titre
+// (+0xD8), la description (+0xE8) et le texte de chaque choix (+0xA8) sont
+// remplaces par les cles donnees (nullptr : champ d'origine garde).
+// Memoire du moteur, jamais liberee. 0 en cas d'echec.
+uintptr_t DilemmeCloner(uintptr_t orig, const char* cleTitre, const char* cleDescription, const char* cleChoix);

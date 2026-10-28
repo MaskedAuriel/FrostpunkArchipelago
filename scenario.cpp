@@ -441,6 +441,77 @@ void FindValueInObject(uintptr_t obj, int lenBytes, uintptr_t needle, const char
     if (!n) printf("   absent\n");
 }
 
+// Liste toute la table {nom, objet} de la scene (global +0x2C31B20), avec la
+// classe RTTI de chaque objet. Sert a savoir sous quel nom chaque systeme est
+// range, pour remplacer le balayage memoire par FindSceneSystem.
+void DumpSceneSystems()
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL), scene = 0;
+    if (!SafeRead((void*)(base + 0x2C31B20), &scene, 8) || scene <= 0x10000) {
+        printf("[SCENE] global +0x2C31B20 vide -- pas en partie ?\n");
+        return;
+    }
+    char cls[128] = { 0 };
+    if (!GetClassNameFP(scene, cls, sizeof(cls))) strcpy_s(cls, "?");
+    printf("\n[SCENE] scene = 0x%llX  classe = %s\n", (unsigned long long)scene, cls);
+
+    int n = 0;
+    for (int off = 0; off + 16 <= 0x4000; off += 8) {
+        uintptr_t p = 0;
+        if (!SafeRead((void*)(scene + off), &p, 8) || p <= 0x10000) continue;
+
+        // Le nom doit etre une chaine ASCII imprimable d'au moins 4 caracteres.
+        char nom[64] = { 0 };
+        if (!SafeRead((void*)p, nom, sizeof(nom) - 1)) continue;
+        int len = 0;
+        while (len < 63 && nom[len] >= 0x20 && nom[len] < 0x7F) len++;
+        if (len < 4 || nom[len] != 0) continue;
+
+        uintptr_t obj = 0;
+        SafeRead((void*)(scene + off + 8), &obj, 8);
+        cls[0] = 0;
+        if (obj <= 0x10000 || !GetClassNameFP(obj, cls, sizeof(cls))) strcpy_s(cls, "-");
+
+        printf("   +0x%04X  %-40s obj=0x%llX  %s\n",
+            off, nom, (unsigned long long)obj, cls);
+        n++;
+    }
+    printf("[SCENE] %d entree(s)\n", n);
+}
+
+// Verifie la regle "global = SystemesGlobaux + id * 0x20" sur TOUT l'annuaire :
+// pour chaque nom, la classe RTTI de l'objet au global doit etre ce nom.
+void VerifierSystemesParId()
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL), annuaire = 0;
+    if (!SafeRead((void*)(base + GameOffsets::AnnuaireTypes), &annuaire, 8) ||
+        annuaire <= 0x10000) {
+        printf("[SYS] annuaire des types vide -- pas en partie ?\n");
+        return;
+    }
+
+    int ok = 0, ko = 0, vides = 0;
+    for (int off = 0; off + 16 <= 0x4000; off += 0x10) {
+        uintptr_t p = 0;
+        if (!SafeRead((void*)(annuaire + off), &p, 8) || p <= 0x10000) continue;
+        char nom[64] = { 0 };
+        if (!SafeRead((void*)p, nom, sizeof(nom) - 1)) continue;
+        if (!StrContains(nom, "System") && !StrContains(nom, "Frostpunk")) continue;
+
+        uint32_t id = 0;
+        SafeRead((void*)(annuaire + off + 8), &id, 4);
+        uintptr_t sys = SystemeParId((int)id);
+        if (!sys) { vides++; continue; }
+
+        char cls[128] = { 0 };
+        if (GetClassNameFP(sys, cls, sizeof(cls)) && StrEq(cls, nom)) { ok++; continue; }
+        ko++;
+        printf("   [KO] id 0x%02X %-40s -> 0x%llX classe %s\n", id, nom,
+            (unsigned long long)sys, cls[0] ? cls : "?");
+    }
+    printf("[SYS] regle global+id*0x20 : %d ok, %d ko, %d global(aux) vide(s)\n", ok, ko, vides);
+}
+
 // Offset du NOM d'un systeme dans la scene (-1 si absent).
 int SceneNameOffset(uintptr_t scene, const char* name)
 {
@@ -485,34 +556,6 @@ static void hkSetScenario(uintptr_t self, uintptr_t scenario, bool flag)
     oSetScenario(self, scenario, flag);
 }
 
-bool GetClassNameFP(uintptr_t obj, char* out, int maxlen)
-{
-    if (obj <= 0x10000 || maxlen < 4) return false;
-
-    uintptr_t vptr = 0;
-    if (!SafeRead((void*)obj, &vptr, 8) || vptr <= 0x10000) return false;
-
-    uintptr_t col = 0;                       // CompleteObjectLocator
-    if (!SafeRead((void*)(vptr - 8), &col, 8) || col <= 0x10000) return false;
-
-    uint32_t sig = 0xFFFFFFFF, tdRva = 0;
-    SafeRead((void*)col, &sig, 4);
-    if (sig != 1) return false;              // 1 = format x64
-    if (!SafeRead((void*)(col + 0x0C), &tdRva, 4) || !tdRva) return false;
-
-    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
-    char raw[160] = { 0 };
-    if (!SafeRead((void*)(base + tdRva + 0x10), raw, sizeof(raw) - 1)) return false;
-
-    // ".?AVFrostpunkTruc@@" -> "FrostpunkTruc"
-    const char* s = raw;
-    if (s[0] == '.' && s[1] == '?' && s[2] == 'A' && (s[3] == 'V' || s[3] == 'U'))
-        s += 4;
-    int j = 0;
-    for (; s[j] && s[j] != '@' && j < maxlen - 1; ++j) out[j] = s[j];
-    out[j] = 0;
-    return j > 0;
-}
 
 void DumpIconTile()
 {
@@ -872,9 +915,7 @@ bool ScenarioJustWon()
     return vic != 0;
 }
 
-// Instance valide du systeme de difficulte, avec cache et temporisation :
-// le scan complet est couteux et risque pendant un chargement, on n'en tente
-// qu'un toutes les 5 secondes tant qu'on ne trouve rien.
+// Instance valide du systeme de difficulte, avec cache revalide.
 uintptr_t FindDifficultySystem()
 {
     // Revalidation du cache : le tableau +0x30 doit rester plausible.
@@ -887,18 +928,13 @@ uintptr_t FindDifficultySystem()
     }
     if (g_difSysCache) return g_difSysCache;
 
-    static DWORD prochainScan = 0;
-    if (GetTickCount() < prochainScan) return 0;
-    prochainScan = GetTickCount() + 5000;
-
-    static uintptr_t objs[64];
-    int n = CollectObjectsByClass("FrostpunkDifficultySystem", objs, 64);
-    for (int i = 0; i < n; ++i) {
-        uintptr_t a = 0; uint32_t c = 0;
-        if (!SafeRead((void*)(objs[i] + 0x30), &a, 8)) continue;
-        if (!SafeRead((void*)(objs[i] + 0x38), &c, 4)) continue;
-        if (a > 0x10000 && c > 0 && c <= 64) { g_difSysCache = objs[i]; break; }
-    }
+    // Plus de balayage : global fixe du systeme (SystemeParId).
+    uintptr_t sys = SystemeParId(IdSysteme::Difficulty);
+    if (!sys || !ClasseExacte(sys, "FrostpunkDifficultySystem")) return 0;
+    uintptr_t a = 0; uint32_t c = 0;
+    if (!SafeRead((void*)(sys + 0x30), &a, 8)) return 0;
+    if (!SafeRead((void*)(sys + 0x38), &c, 4)) return 0;
+    if (a > 0x10000 && c > 0 && c <= 64) g_difSysCache = sys;
     return g_difSysCache;
 }
 
@@ -1017,6 +1053,12 @@ uintptr_t FindScenarioSystem()
         return objs[i];
     }
     return 0;
+}
+
+void ScenarioLireCaches(uintptr_t* scenarioSys, uintptr_t* difficultySys)
+{
+    *scenarioSys = g_scnSysCache;
+    *difficultySys = g_difSysCache;
 }
 
 void ScenarioSetCaches(uintptr_t scenarioSys, uintptr_t difficultySys)

@@ -34,4 +34,6 @@ void AP_LocationText(uint64_t hash, char* out, int maxlen);
 // Etat de la progression, pour verifier apres plusieurs tirages.
 void ReceiveRandomProgressive();
 void DumpProgression(); 
-bool OnProgressiveReceived(int tree);
+// Debloque la techno suivante de l'arbre. nomTech (optionnel) recoit son nom.
+bool OnProgressiveReceived(int tree, const char** nomTech = nullptr);
+int  ArbreProgressifAuHasard();   // -1 si tous les arbres sont epuises

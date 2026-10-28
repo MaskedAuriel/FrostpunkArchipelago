@@ -9,6 +9,9 @@
 // ---------------------------------------------------------------------------
 #pragma once
 #include "mod_common.h"
+#include "MessageManager.h"
+
+extern uintptr_t g_modeleChars;
 
 void InstallLocHooks(uintptr_t modBase);
 void OpenKeyLogWindow(int ms);
@@ -24,9 +27,12 @@ static bool SeenAdd(const char* k);
 extern volatile bool g_apTexteActif;
 void DumpClesDilemme(const char* k, uintptr_t ret);
 wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot);
+bool ViderTexteChoixDilemme(const char* k, uintptr_t ret);
+uintptr_t ApLocNotif(int slot, const char* texte);
+uintptr_t ApLocGroupe(int slot, const char* texte);
+uintptr_t ApLocDilemme(int slot, const char* texte);
 
 bool TexteDescriptionSite(const char* k, uintptr_t ret);
 static void DumpClesLandmark(const char* k, uintptr_t ret);
-
 
 bool TexteArbreTechno(const char* k);

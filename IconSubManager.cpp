@@ -243,6 +243,55 @@ void ApChargerTechnosDeTest()
 
 
 
+// --- Capture des gabarits de batiment a leur construction -------------------
+// +0x1916F90 : constructeur de FrostpunkBuildingComponentTemplate (seule
+// fonction qui charge sa vtable +0x20E6710 ; valide le 2026-10-15 : 124/124).
+// Remplace le balayage memoire : ScootingInit lit ces captures.
+typedef uintptr_t(*CtorGabarit_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
+static CtorGabarit_t oCtorGabarit = nullptr;
+static uintptr_t     g_gabObjets[1024];
+static ListeCaptures g_capGab = { SRWLOCK_INIT, g_gabObjets, 1024, 0,
+                                  "FrostpunkBuildingComponentTemplate", 0 };
+
+static uintptr_t hkCtorGabarit(uintptr_t a, uintptr_t b, uintptr_t c, uintptr_t d)
+{
+    uintptr_t r = oCtorGabarit(a, b, c, d);
+    CaptureAjouter(g_capGab, a);
+    return r;
+}
+
+void InstallCaptureGabarits(uintptr_t modBase)
+{
+    void* p = (void*)(modBase + 0x1916F90);
+    if (MH_CreateHook(p, (void*)&hkCtorGabarit, (void**)&oCtorGabarit) == MH_OK &&
+        MH_EnableHook(p) == MH_OK) printf("[CAPGAB] hook +1916F90 OK\n");
+    else printf("[CAPGAB] hook +1916F90 KO\n");
+}
+
+int GabaritsBatCaptures(uintptr_t* out, int maxOut)
+{
+    return CaptureLire(g_capGab, out, maxOut);
+}
+
+void RapportCapturesGabarits()
+{
+    static uintptr_t vivants[1024];
+    int n = CaptureLire(g_capGab, vivants, 1024);
+    int enCache = 0;
+    for (int i = 0; i < n; ++i) if (GabaritBatEnCache(vivants[i])) enCache++;
+    printf("[CAPGAB] %ld appel(s) du constructeur, %d en liste, %d vivant(s), %d/%d dans le cache\n",
+        g_capGab.appels, g_capGab.n, n, enCache, g_nGabaritsBat);
+}
+
+uintptr_t PremierGabaritBat() { return g_nGabaritsBat > 0 ? g_gabaritsBat[0].tpl : 0; }
+int NombreGabaritsBat() { return g_nGabaritsBat; }
+bool GabaritBatEnCache(uintptr_t tpl)
+{
+    for (int i = 0; i < g_nGabaritsBat; ++i)
+        if (g_gabaritsBat[i].tpl == tpl) return true;
+    return false;
+}
+
 void RemplirCacheGabarits(uintptr_t* objs, int n)
 {
     g_nGabaritsBat = 0;
@@ -422,3 +471,4 @@ void RafraichirToutesLesIcones()
 {
     for (int i = 0; i < g_nTechnosAP; ++i) RafraichirIconeTechno(g_technosAP[i]);
 }
+

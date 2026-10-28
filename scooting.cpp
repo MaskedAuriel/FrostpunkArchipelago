@@ -4,6 +4,8 @@
 #include "tech_brain.h"     // OnProgressiveReceived
 #include "ap_data.h"
 #include "ap_ressources.h"
+#include "archipelago.h"
+#include <intrin.h>
 
 // ============================================================================
 //  Etat interne
@@ -32,9 +34,14 @@ struct SiteCache {
 
 static ExpCache  g_exps[16];
 static int       g_nExps = 0;
-static SiteCache g_sites[64];
+// Le nombre de sites depend du scenario (42 dans celui de test, davantage
+// ailleurs) : marge large.
+static const int MAX_SITES = 256;
+static SiteCache g_sites[MAX_SITES];
 static int       g_nSites = 0;
-static uintptr_t g_sending = 0;      // FrostpunkExpeditionSendingComponent
+// Compte de la liste du systeme Expedition (+0x2080) lors de la derniere
+// relecture : s'il change, une expedition est apparue ou a disparu.
+static uint32_t g_compteListeExp = 0;
 static uintptr_t g_blocVille = 0;
 volatile bool      g_pret = false;
 
@@ -105,6 +112,8 @@ static bool NomDeSite(const char* chemin, char* out, int maxlen)
     return k > 0;
 }
 
+typedef uintptr_t(*Infobulle_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
+static Infobulle_t oInfobulle = nullptr;
 
 // La cle "Generated/Templates/.../ExpeditionSites/Refugees/[ref]Builder_Camp/..."
 // designe-t-elle un site configure ? Renvoie sa location, ou -1.
@@ -192,15 +201,63 @@ static void ViderCargaison(uintptr_t comp)
 static void SurveillerSites()
 {
     if (!g_apDonneesActif) return;
+
+    uintptr_t defAP = ApPorteurDef();
+
     for (int i = 0; i < g_nSites; ++i) {
+        const SitePayload* p = PayloadDuSite(g_sites[i].nom);
+
+        // --- contenu : le jeu cree le tableau Resources a la generation du
+        //     site, donc apres notre init. On le corrige des qu'il apparait,
+        //     et le test sur la definition fait que l'ecriture n'a lieu
+        //     qu'une seule fois par site.
+        if (p && defAP) {
+            uintptr_t arr = 0; uint32_t cnt = 0, cap = 0;
+            if (SafeRead((void*)(g_sites[i].comp + 0x48), &arr, 8) &&
+                SafeRead((void*)(g_sites[i].comp + 0x48 + 8), &cnt, 4) &&
+                SafeRead((void*)(g_sites[i].comp + 0x48 + 12), &cap, 4)) {
+
+                if (arr > 0x10000 && cnt > 0) {
+                    uintptr_t def0 = 0;
+                    SafeRead((void*)arr, &def0, 8);
+                    if (def0 != defAP) {
+                        int64_t un64 = 1; uint32_t un = 1;
+                        SafeWrite((void*)arr, &defAP, 8);
+                        SafeWrite((void*)(arr + 8), &un64, 8);
+                        SafeWrite((void*)(g_sites[i].comp + 0x48 + 8), &un, 4);
+                        printf("[SITE] %s : contenu substitue\n", g_sites[i].nom);
+                    }
+                }
+                else if (arr <= 0x10000 && MoteurAlloc) {
+                    // Site sans tableau : on en fournit un, alloue par le
+                    // moteur pour qu'il puisse le liberer lui-meme.
+                    uintptr_t bloc = MoteurAlloc(4 * 0x10);
+                    if (bloc) {
+                        uint64_t vide = 0;
+                        for (int z = 0; z < 8; ++z)
+                            SafeWrite((void*)(bloc + z * 8), &vide, 8);
+                        int64_t un64 = 1;
+                        SafeWrite((void*)bloc, &defAP, 8);
+                        SafeWrite((void*)(bloc + 8), &un64, 8);
+
+                        uint32_t un = 1, quatre = 4;
+                        SafeWrite((void*)(g_sites[i].comp + 0x48), &bloc, 8);
+                        SafeWrite((void*)(g_sites[i].comp + 0x48 + 8), &un, 4);
+                        SafeWrite((void*)(g_sites[i].comp + 0x48 + 12), &quatre, 4);
+                        printf("[SITE] %s : tableau fourni a 0x%llX\n",
+                            g_sites[i].nom, (unsigned long long)bloc);
+                    }
+                }
+            }
+        }
+
+        // --- exploration : passage de l'etat 0 a un etat visite ---
         int32_t etat = -1;
         if (!SafeRead((void*)(g_sites[i].comp + 0x34), &etat, 4)) continue;
 
         int32_t avant = g_sites[i].dernierEtat;
         g_sites[i].dernierEtat = etat;
         if (avant != 0 || etat == 0) continue;
-
-        const SitePayload* p = PayloadDuSite(g_sites[i].nom);
         if (!p) continue;
 
         printf("[SCOUT] site %s explore (etat %d -> %d)\n",
@@ -229,8 +286,7 @@ static void SurveillerSites()
                 ac ? ac->description : "contenu inconnu du serveur",
                 g_exps[e].nEnAttente);
 
-            uintptr_t def = ApPorteurDef();
-            if (def && InjecterPorteur(g_exps[e].comp, def, g_exps[e].nEnAttente))
+            if (defAP && InjecterPorteur(g_exps[e].comp, defAP, g_exps[e].nEnAttente))
                 g_exps[e].derniereCargo = (uint32_t)g_exps[e].nEnAttente;
 
             ScootingSauverEnAttente();
@@ -241,10 +297,11 @@ static void SurveillerSites()
 static void RecenserSites()
 {
     g_nSites = 0;
-    static uintptr_t objs[256];
-    int n = CollectObjectsByClass("FrostpunkExpeditionSiteComponent", objs, 256);
+    static uintptr_t objs[512];
+    int n = ComposantsDuSysteme(IdSysteme::ExpeditionSite,
+        "FrostpunkExpeditionSiteComponent", objs, 512);
 
-    for (int i = 0; i < n && g_nSites < 64; ++i) {
+    for (int i = 0; i < n && g_nSites < MAX_SITES; ++i) {
         if (!EstSiteComponent(objs[i])) continue;
 
         uintptr_t ent = 0, bloc = 0;
@@ -278,7 +335,6 @@ static const char* NomDuBloc(uintptr_t bloc)
         printf("[SCOUT] lieu inconnu 0x%llX -- recensement\n", (unsigned long long)bloc);
         RecenserSites();
         ScootingAppliquerTresors();
-        ScootingSubstituerContenuSites();
         for (int i = 0; i < g_nSites; ++i)
             if (g_sites[i].bloc == bloc) return g_sites[i].nom;
     }
@@ -364,7 +420,8 @@ static bool ExpValide(uintptr_t comp)
 static void RescanExpeditions()
 {
     static uintptr_t objs[128];
-    int n = CollectObjectsByClass("FrostpunkExpeditionComponent", objs, 128);
+    int n = ComposantsDuSysteme(IdSysteme::Expedition,
+        "FrostpunkExpeditionComponent", objs, 128);
 
     ExpCache anciens[16];
     int nAnciens = g_nExps;
@@ -401,58 +458,46 @@ static void RescanExpeditions()
 
 
 
+// Nombre d'entrees de la liste {entite, composant} d'un systeme (+0x2080).
+// Pour Expedition : toutes les expeditions, quel que soit le batiment qui
+// les a envoyees. 0 si le systeme est absent.
+static uint32_t CompteDuSysteme(int idSysteme)
+{
+    uintptr_t sys = SystemeParId(idSysteme);
+    uint32_t cnt = 0;
+    if (!sys || !SafeRead((void*)(sys + 0x2080), &cnt, 4) || cnt > 4096) return 0;
+    return cnt;
+}
+
 void ScootingInit()
 {
-    g_nSites = 0; g_sending = 0; g_pret = false; g_blocVille = 0; g_selSys = 0;
+    g_nSites = 0; g_pret = false; g_blocVille = 0; g_selSys = 0;
 
     if (!ApPorteurInit()) {
         printf("[SCOUT] porteur non fabrique -- init reportee\n");
         return;
     }
 
-    static uintptr_t bufSites[256], bufSend[256], bufCity[256],
-        bufSel[256], bufExp[256], bufScn[256],
-        bufDif[256], bufBat[512];
+    // Les references globales (systemes, gabarits, entrees de message, technos)
+    // sont resolues par PartieTick (mod_common). Ici, seulement les objets du
+    // scouting, lus dans les listes {entite, composant} des systemes (+0x2078).
+    DWORD t0 = GetTickCount();
+    const int MAX_COMP = 512;
+    static uintptr_t bufSites[MAX_COMP], bufCity[MAX_COMP], bufExp[MAX_COMP];
 
-    static const char* noms[8] = {
-        "FrostpunkExpeditionSiteComponent",
-        "FrostpunkExpeditionSendingComponent",
-        "FrostpunkCityComponent",
-        "FrostpunkSelectionSystem",
-        "FrostpunkExpeditionComponent",
-        "FrostpunkScenarioSystem",
-        "FrostpunkDifficultySystem",
-        "FrostpunkBuildingComponentTemplate",
-    };
-    uintptr_t* sorties[8] = { bufSites, bufSend, bufCity, bufSel,
-                              bufExp,   bufScn,  bufDif,  bufBat };
-    int compteurs[8] = {};
+    int nSites = ComposantsDuSysteme(IdSysteme::ExpeditionSite,
+        "FrostpunkExpeditionSiteComponent", bufSites, MAX_COMP);
+    int nCity = ComposantsDuSysteme(IdSysteme::City,
+        "FrostpunkCityComponent", bufCity, MAX_COMP);
+    int nExp = ComposantsDuSysteme(IdSysteme::Expedition,
+        "FrostpunkExpeditionComponent", bufExp, MAX_COMP);
+    g_selSys = PartieSelection();
 
-    CHRONO(CollectObjectsByClasses(noms, 8, sorties, compteurs, 256));
-    printf("[SCAN] sites=%d send=%d city=%d sel=%d exp=%d scn=%d dif=%d bat=%d\n",
-        compteurs[0], compteurs[1], compteurs[2], compteurs[3],
-        compteurs[4], compteurs[5], compteurs[6], compteurs[7]);
-
-    // --- systemes scenario et difficulte ---
-    uintptr_t scnSys = 0, difSys = 0;
-    for (int i = 0; i < compteurs[5] && !scnSys; ++i) {
-        uintptr_t s = 0;
-        if (SafeRead((void*)(bufScn[i] + 0x68), &s, 8)) scnSys = bufScn[i];
-    }
-    for (int i = 0; i < compteurs[6] && !difSys; ++i) {
-        uintptr_t a = 0; uint32_t c = 0;
-        if (SafeRead((void*)(bufDif[i] + 0x30), &a, 8) &&
-            SafeRead((void*)(bufDif[i] + 0x38), &c, 4) &&
-            a > 0x10000 && c > 0 && c <= 64) difSys = bufDif[i];
-    }
-    ScenarioSetCaches(scnSys, difSys);
-
-    // --- gabarits de batiment, depuis le balayage : plus de scan dedie ---
-    RemplirCacheGabarits(bufBat, compteurs[7]);
-    ResoudreTechnosAP();
+    printf("[SCOUT] ancres : sites=%d city=%d exp=%d sel=%d (%lu ms)\n",
+        nSites, nCity, nExp, g_selSys ? 1 : 0, GetTickCount() - t0);
 
     // --- sites ---
-    for (int i = 0; i < compteurs[0] && g_nSites < 64; ++i) {
+    for (int i = 0; i < nSites && g_nSites < MAX_SITES; ++i) {
         uintptr_t ent = 0, bloc = 0;
         if (!SafeRead((void*)(bufSites[i] + 0x18), &ent, 8) || ent <= 0x10000) continue;
         if (!SafeRead((void*)(ent + 0x08), &bloc, 8) || bloc <= 0x10000) continue;
@@ -465,17 +510,11 @@ void ScootingInit()
         NomDuGabarit(tpl, s.nom, sizeof(s.nom));
         g_nSites++;
     }
-
-    // --- composant d'envoi ---
-    for (int i = 0; i < compteurs[1]; ++i) {
-        uintptr_t arr = 0; uint32_t cnt = 0;
-        if (!SafeRead((void*)(bufSend[i] + 0x60), &arr, 8)) continue;
-        if (!SafeRead((void*)(bufSend[i] + 0x68), &cnt, 4)) continue;
-        if (arr > 0x10000 && cnt <= 32) { g_sending = bufSend[i]; break; }
-    }
+    if (nSites > MAX_SITES)
+        printf("[SCOUT] ATTENTION : %d sites, seuls %d sont suivis (MAX_SITES)\n", nSites, MAX_SITES);
 
     // --- ville ---
-    for (int i = 0; i < compteurs[2]; ++i) {
+    for (int i = 0; i < nCity; ++i) {
         uintptr_t ent = 0, bloc = 0;
         if (!SafeRead((void*)(bufCity[i] + 0x18), &ent, 8) || ent <= 0x10000) continue;
         if (!SafeRead((void*)(ent + 0x08), &bloc, 8) || bloc <= 0x10000) continue;
@@ -483,17 +522,9 @@ void ScootingInit()
         break;
     }
 
-    // --- systeme de selection ---
-    for (int i = 0; i < compteurs[3]; ++i) {
-        uintptr_t arr = 0; uint32_t cnt = 0;
-        if (!SafeRead((void*)(bufSel[i] + 0x2250), &arr, 8)) continue;
-        if (!SafeRead((void*)(bufSel[i] + 0x2258), &cnt, 4)) continue;
-        if (cnt <= 64) { g_selSys = bufSel[i]; break; }
-    }
-
     // --- expeditions ---
     g_nExps = 0;
-    for (int i = 0; i < compteurs[4] && g_nExps < 16; ++i) {
+    for (int i = 0; i < nExp && g_nExps < 16; ++i) {
         if (!ExpValide(bufExp[i])) continue;
         ExpCache& e = g_exps[g_nExps];
         e.comp = bufExp[i];
@@ -503,42 +534,73 @@ void ScootingInit()
         e.derniereCargo = 0; e.nEnAttente = 0; e.valide = true;
         g_nExps++;
     }
+    g_compteListeExp = CompteDuSysteme(IdSysteme::Expedition);
 
-    g_pret = (g_nSites > 0 && g_sending != 0);
-    printf("[SCOUT] init : %d site(s), ville=0x%llX, %d expedition(s) -> %s\n",
-        g_nSites, (unsigned long long)g_blocVille, g_nExps,
-        g_pret ? "pret" : "incomplet");
+    // Seuls les sites sont indispensables. Les expeditions viennent de la
+    // liste du systeme Expedition, vide tant qu'aucune n'existe (vu le
+    // 2026-10-24 sur un autre scenario : exp=0) ; le tick suit son compte.
+    g_pret = (g_nSites > 0);
 
-    CHRONO(ScootingAppliquerTresors());
-    CHRONO(ScootingSubstituerContenuSites());
     if (g_pret) {
+        printf("[SCOUT] init : %d site(s), ville=0x%llX, %d expedition(s) -> pret\n",
+            g_nSites, (unsigned long long)g_blocVille, g_nExps);
         CHRONO(ScootingReparerCargaisons());
         g_persistChargee = false;
+        return;
     }
+
+    // Diagnostic : sans ces objets le mod ne peut rien faire, autant dire
+    // precisement ce qui manque plutot que de repeter "incomplet".
+    static int tentatives = 0;
+    tentatives++;
+    printf("\n[SCOUT] ===== INIT INCOMPLETE (tentative %d) =====\n", tentatives);
+    uintptr_t sysSite = SystemeParId(IdSysteme::ExpeditionSite);
+    if (g_nSites == 0) {
+        if (!sysSite)
+            printf("  AUCUN site : global de FrostpunkExpeditionSiteSystem (id 0x%02X) vide\n",
+                IdSysteme::ExpeditionSite);
+        else if (nSites == 0)
+            printf("  AUCUN site : liste +0x2078 de FrostpunkExpeditionSiteSystem vide ou d'une autre classe\n");
+        else
+            printf("  AUCUN site : %d composant(s) lu(s) mais aucun avec entite (+0x18) et bloc (+0x08) valides\n",
+                nSites);
+    }
+    if (g_nExps == 0)
+        printf("  aucune expedition active (normal en debut de partie) -- %d composant(s) dans la liste\n", nExp);
+    if (g_blocVille == 0)
+        printf("  ville introuvable : %d FrostpunkCityComponent dans la liste de FrostpunkCitySystem\n", nCity);
+    printf("[SCOUT] ============================================\n\n");
 }
+static void OublierPartie()
+{
+    g_pret = false;
+    g_blocVille = 0;
+    g_nExps = 0;
+    g_nSites = 0;
+    g_compteListeExp = 0;
+    g_persistChargee = false;
+}
+
 void ScootingTick()
 {
-    // --- changement de partie : l'economie est recreee a chaque chargement ---
-    if (PartieRechargee()) {
-        g_pret = false;
-        g_blocVille = 0;
-        g_nExps = 0;
-        g_nSites = 0;
-        g_persistChargee = false;
+    // --- cycle de vie : PartieTick (mod_common) detecte les chargements et
+    //     resout les references globales. Tant que la partie n'est pas prete,
+    //     nos pointeurs peuvent viser des objets detruits : on n'y touche pas.
+    //     Une nouvelle generation de partie = refaire notre init. ---
+    static unsigned generationVue = 0;
+    if (!PartiePrete()) {
+        if (g_pret) OublierPartie();
+        return;
     }
-
-    // --- initialisation : declenchee par la presence de l'economie, PAS par
-    //     g_run.valid, qui depend lui-meme des caches poses ici ---
+    if (generationVue != PartieGeneration()) {
+        OublierPartie();
+        generationVue = PartieGeneration();
+    }
     if (!g_pret) {
-        if (!EnJeu()) return;
-
-        static DWORD stableDepuis = 0;
-        if (stableDepuis == 0) { stableDepuis = GetTickCount(); return; }
-        if (GetTickCount() - stableDepuis < 1500) return;
-        stableDepuis = 0;
-
+        static DWORD prochainEssai = 0;
+        if (GetTickCount() < prochainEssai) return;
         ScootingInit();
-        if (!g_pret) { stableDepuis = GetTickCount(); return; }
+        if (!g_pret) { prochainEssai = GetTickCount() + 5000; return; }
     }
 
     // Au-dela, on a besoin du scenario courant : il arrive au tick suivant,
@@ -553,16 +615,21 @@ void ScootingTick()
         CHRONO(ScootingChargerEnAttente());
     }
 
-    uint32_t declarees = 0;
-    if (!SafeRead((void*)(g_sending + 0x68), &declarees, 4)) return;
-    if (declarees > 16) return;
-
-    int valides = 0;
+    // --- expeditions : la liste du systeme Expedition les contient toutes,
+    //     quel que soit le batiment d'envoi. On relit nos expeditions quand
+    //     son compte change, ou quand l'une des notres n'est plus valide.
+    //     (Comparer au compte, pas au nombre de valides : une expedition
+    //     refusee par ExpValide relancerait sinon la relecture chaque tick.) ---
+    uint32_t compte = CompteDuSysteme(IdSysteme::Expedition);
+    bool perdue = false;
     for (int i = 0; i < g_nExps; ++i) {
         g_exps[i].valide = ExpValide(g_exps[i].comp);
-        if (g_exps[i].valide) valides++;
+        if (!g_exps[i].valide) perdue = true;
     }
-    if (valides != (int)declarees) {
+    if (compte != g_compteListeExp || perdue) {
+        printf("[SCOUT] expeditions : %u dans la liste du jeu (avant %u)%s -- relecture\n",
+            compte, g_compteListeExp, perdue ? ", une des notres invalide" : "");
+        g_compteListeExp = compte;
         RescanExpeditions();
         ScootingReparerCargaisons();
         ScootingChargerEnAttente();
@@ -631,13 +698,9 @@ void ScootingTick()
 
         bool enVille = (loc && g_blocVille && loc == g_blocVille);
         if (enVille && g_exps[i].nEnAttente > 0) {
-            for (int k = 0; k < g_exps[i].nEnAttente; ++k) {
-                const SitePayload* p = g_exps[i].enAttente[k];
-                const ApCheck* ac = ApCheckById(p->locationId);
-                printf("[AP CHECK] location %d -> %s\n", p->locationId,
-                    ac ? ac->description : "(inconnue)");
-                if (ac && ac->arbreTest >= 0) OnProgressiveReceived(ac->arbreTest);
-            }
+            // Point de sortie unique vers Archipelago : archipelago.cpp.
+            for (int k = 0; k < g_exps[i].nEnAttente; ++k)
+                SendLocationCheck(g_exps[i].enAttente[k]->locationId);
             g_exps[i].nEnAttente = 0;
             g_exps[i].dernierSite = 0;
             ViderCargaison(c);
@@ -866,7 +929,7 @@ void ScootingChargerEnAttente()
             printf("[PERSIST] Restaured this check : %s \n", ApCheckById(idLoc)->description);
         }
 
-        //Ce bloc charge dans l'expédition les location dans l'inventaire du scout.
+        //Ce bloc charge dans l'expï¿½dition les location dans l'inventaire du scout.
         for (int i = 0; i < g_nExps; ++i) {
             if (!g_exps[i].valide || g_exps[i].id != idExp) continue;
 
@@ -927,7 +990,7 @@ static void MettreAJourListePortee()
     g_listePortee[0] = 0;
     g_nListePortee = 0;
 
-    int cible = ExpeditionSelectionnee();
+    int cible = ExpeditionVisee();
     if (cible < 0 || !g_exps[cible].valide || g_exps[cible].nEnAttente <= 0) return;
 
     int pos = 0;
@@ -1006,3 +1069,86 @@ bool EnJeu()
     if (!SafeRead((void*)(modBase + 0x40916D0), &eco, 8)) return false;
     return eco > 0x10000;
 }
+
+void ScootingFournirContenuSites()
+{
+    uintptr_t defAP = ApPorteurDef();
+    if (!defAP) { printf("[SITE] porteur non fabrique\n"); return; }
+    if (!MoteurAlloc) { printf("[SITE] allocateur non initialise\n"); return; }
+
+    int fournis = 0, deja = 0, nonConfig = 0;
+    for (int i = 0; i < g_nSites; ++i) {
+        if (!PayloadDuSite(g_sites[i].nom)) { nonConfig++; continue; }
+
+        uintptr_t arr = 0; uint32_t cnt = 0, cap = 0;
+        SafeRead((void*)(g_sites[i].comp + 0x48), &arr, 8);
+        SafeRead((void*)(g_sites[i].comp + 0x48 + 8), &cnt, 4);
+        SafeRead((void*)(g_sites[i].comp + 0x48 + 12), &cap, 4);
+
+        printf("[SITE] %-30s arr=0x%llX cnt=%u cap=%u\n",
+            g_sites[i].nom, (unsigned long long)arr, cnt, cap);
+
+        if (arr > 0x10000 && cap >= 1) { deja++; continue; }
+
+        uintptr_t bloc = MoteurAlloc(4 * 0x10);
+        if (!bloc) { printf("[SITE] allocation refusee\n"); continue; }
+
+        uint64_t vide = 0;
+        for (int z = 0; z < 8; ++z) SafeWrite((void*)(bloc + z * 8), &vide, 8);
+
+        int64_t un64 = 1;
+        SafeWrite((void*)bloc, &defAP, 8);
+        SafeWrite((void*)(bloc + 8), &un64, 8);
+
+        uint32_t un = 1, quatre = 4;
+        if (SafeWrite((void*)(g_sites[i].comp + 0x48), &bloc, 8) &&
+            SafeWrite((void*)(g_sites[i].comp + 0x48 + 8), &un, 4) &&
+            SafeWrite((void*)(g_sites[i].comp + 0x48 + 12), &quatre, 4)) {
+            printf("[SITE] %s : tableau alloue a 0x%llX\n",
+                g_sites[i].nom, (unsigned long long)bloc);
+            fournis++;
+        }
+    }
+    printf("[SITE] %d fourni(s), %d deja pourvu(s), %d non configure(s), %d site(s)\n",
+        fournis, deja, nonConfig, g_nSites);
+}
+
+static int ExpeditionVisee()
+{
+    if (!g_selSys) return -1;
+
+    // 1) survol
+    uintptr_t hov = 0;
+    if (SafeRead((void*)(g_selSys + 0x2298), &hov, 8) && hov > 0x10000) {
+        for (int i = 0; i < g_nExps; ++i) {
+            if (!g_exps[i].valide) continue;
+            uintptr_t e = 0;
+            if (!SafeRead((void*)(g_exps[i].comp + 0x18), &e, 8)) continue;
+            if (e == hov) return i;
+        }
+    }
+
+    // 2) repli sur la selection
+    uintptr_t arr = 0; uint32_t cnt = 0;
+    if (!SafeRead((void*)(g_selSys + 0x2250), &arr, 8)) return -1;
+    if (!SafeRead((void*)(g_selSys + 0x2258), &cnt, 4)) return -1;
+    if (arr <= 0x10000 || cnt == 0 || cnt > 64) return -1;
+
+    for (uint32_t k = 0; k < cnt; ++k) {
+        uintptr_t ent = 0;
+        if (!SafeRead((void*)(arr + (uintptr_t)k * 0x10), &ent, 8)) continue;
+        if (ent <= 0x10000) continue;
+        for (int i = 0; i < g_nExps; ++i) {
+            if (!g_exps[i].valide) continue;
+            uintptr_t e = 0;
+            if (!SafeRead((void*)(g_exps[i].comp + 0x18), &e, 8)) continue;
+            if (e == ent) return i;
+        }
+    }
+    return -1;
+}
+
+
+
+
+

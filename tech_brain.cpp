@@ -3,7 +3,8 @@
 #include "tech_state.h"
 #include "known_techs.h"
 #include "scenario.h"
-#include <cstdlib> 
+#include "archipelago.h"
+#include <cstdlib>
 
 bool g_showApInfo = true;
 static const int BONUS_TREE = 36;   // arbre debloque par palier
@@ -27,8 +28,8 @@ void SyncGameState(TechRuntime* r)
 
 void AP_SendCheck(uint64_t hash)
 {
-    printf("[AP CHECK] %016llX (%s)\n", (unsigned long long)hash, NameOfHash(hash));
-    // TODO reseau : envoyer le location check au serveur Archipelago.
+    // Point de sortie unique vers Archipelago : archipelago.cpp.
+    SendResearchCheck(hash);
 }
 
 void OnResearchComplete(uint64_t hash)
@@ -68,9 +69,9 @@ void AP_LocationText(uint64_t hash, char* out, int maxlen)
     // TODO reseau : remplacer par l'objet reel et le joueur destinataire,
     // fournis par le serveur pour cette location.
     _snprintf_s(out, maxlen, _TRUNCATE,
-        "[AP] Envoi : %s%s",
-        t ? t->name : "location inconnue",
-        (r && r->researched) ? " (deja envoye)" : "");
+        "[AP] Sending: %s%s",
+        t ? t->name : "unknown location",
+        (r && r->researched) ? " (already sent)" : "");
 }
 static const int MAX_TREES = 79;
 static int g_progressive[MAX_TREES];      // nb de progressives recues par arbre
@@ -101,8 +102,9 @@ static int TreeSize(int tree)
     return n;
 }
 
-bool OnProgressiveReceived(int tree)
+bool OnProgressiveReceived(int tree, const char** nomTech)
 {
+    if (nomTech) *nomTech = nullptr;
     if (tree < 0 || tree >= MAX_TREES) {
         printf("[AP] arbre %d hors bornes (0..%d)\n", tree, MAX_TREES - 1);
         return false;
@@ -113,6 +115,7 @@ bool OnProgressiveReceived(int tree)
 
     g_progressive[tree] = pos + 1;
     OnItemReceived(t->hash);
+    if (nomTech) *nomTech = t->name;
 
     printf("[AP] arbre %2d position %d (%d/%d) -> %s\n",
         tree, pos, pos + 1, TreeSize(tree), t->name);
@@ -123,20 +126,25 @@ bool OnProgressiveReceived(int tree)
     return true;
 }
 
-void ReceiveRandomProgressive()
+// Un arbre progressif non epuise du scenario courant, au hasard (-1 si aucun).
+int ArbreProgressifAuHasard()
 {
     static bool seeded = false;
     if (!seeded) { srand(GetTickCount()); seeded = true; }
 
-    int dispo[MAX_TREES], n = 0; 
+    int dispo[MAX_TREES], n = 0;
     for (int t = 0; t < MAX_TREES; ++t) {
         if (t == BONUS_TREE) continue;
         if (TechAtTreePosition(t, g_progressive[t])) dispo[n++] = t;
     }
+    return n ? dispo[rand() % n] : -1;
+}
 
-    if (!n) { printf("[AP] tous les arbres sont epuises\n"); return; }
-
-    OnProgressiveReceived(dispo[rand() % n]);
+void ReceiveRandomProgressive()
+{
+    int t = ArbreProgressifAuHasard();
+    if (t < 0) { printf("[AP] tous les arbres sont epuises\n"); return; }
+    OnProgressiveReceived(t);
 }
 
 // Etat de la progression, pour verifier apres plusieurs tirages.

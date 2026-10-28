@@ -13,9 +13,10 @@ void DumpGlobalBlock(uintptr_t from, uintptr_t to);
 void ProbeForScenario(uintptr_t obj, int lenBytes);
 uintptr_t FindSceneSystem(const char* name);
 int SceneNameOffset(uintptr_t scene, const char* name);
+void DumpSceneSystems();
+void VerifierSystemesParId();
 void FindValueInObject(uintptr_t obj, int lenBytes, uintptr_t needle, const char* label);
 static void hkSetScenario(uintptr_t self, uintptr_t scenario, bool flag);
-bool GetClassNameFP(uintptr_t obj, char* out, int maxlen);
 static uintptr_t hkCtor(uintptr_t self);
 void DumpDifficultes(uintptr_t meta);
 void LireDifficultes();
@@ -30,9 +31,8 @@ bool FindSettingName(const uint64_t* guid, char* out, int maxlen);
 void LireDifficultesRuntime();
 uintptr_t FindScenarioSystem();
 void ScenarioSetCaches(uintptr_t scenarioSys, uintptr_t difficultySys);
+void ScenarioLireCaches(uintptr_t* scenarioSys, uintptr_t* difficultySys);
 void DumpIconTile();
-
-
 struct RunState {
     bool     valid;             // une partie est en cours et lisible
     char     scenario[64];      // nom interne : "REFUGEES", ...

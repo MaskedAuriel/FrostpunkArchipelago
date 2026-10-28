@@ -7,6 +7,8 @@
 #include "scenario.h"
 #include "scooting.h"
 #include "ap_data.h"
+#include "groupes.h"
+#include "evenements.h"
 
 
 static volatile bool     g_logAll = false;
@@ -170,7 +172,7 @@ static const wchar_t* ApTexteParDefaut()
     static wchar_t buf[64];
     static bool pret = false;
     if (!pret) {
-        const char* s = "Objet Archipelago";
+        const char* s = "Archipelago Item";
         int i = 0;
         for (; s[i] && i < 63; ++i) buf[i] = (wchar_t)(unsigned char)s[i];
         buf[i] = 0;
@@ -241,10 +243,7 @@ static void LogKey2(const char* key)
     printf("[K2] %s\n", k);
 }
 
-static bool StrEqLoc(const char* a, const char* b)
-{
-    for (int i = 0; ; ++i) { if (a[i] != b[i]) return false; if (a[i] == 0) return true; }
-}
+
 
 // Detourne les textes d'expedition :
 //  - la cle de nom d'un site nous dit lequel est affiche
@@ -259,29 +258,25 @@ static bool TexteExpedition(const char* k, uintptr_t ret)
         g_instantSite = GetTickCount();
         return false;
     }
+
     if (!StrEqLoc(k, "Expeditions/EffectBaseResources")) return false;
     if (g_locationAffichee < 0) return false;
-    const ApCheck* ac = ApCheckById(g_locationAffichee);
-    if (!ac) return false;
 
-    // Sans le marqueur {baseResources}, le formateur n'a plus d'emplacement
-    // ou inserer l'enumeration : le logo et la quantite disparaissent.
-    wchar_t tmp[256];
-    int n = 0;
-    for (int i = 0; ac->description[i] && n < 255; ++i)
-        tmp[n++] = (wchar_t)(unsigned char)ac->description[i];
-    tmp[n] = 0;
+    // Chaine vide : sans le marqueur {baseResources}, le formateur n'a plus
+    // d'emplacement ou inserer l'enumeration, et rien ne s'affiche.
+    // L'information est deja donnee ailleurs (nom de l'item, survol de
+    // l'inventaire), ce texte fait doublon.
+    static const wchar_t vide[2] = { L' ', 0 };
 
     uintptr_t chars = 0;
     if (!SafeRead((void*)ret, &chars, 8) || chars <= 0x10000) return false;
 
-    wchar_t* nouvelle = ApChaine(tmp, chars,0);
+    wchar_t* nouvelle = ApChaine(vide, chars, 0);
     if (!nouvelle) return false;
 
     uintptr_t p = (uintptr_t)nouvelle;
     return SafeWrite((void*)ret, &p, 8);
 }
-
 
 // --- BISSECTION : remettre a true un bloc a la fois ---
 static const bool BLOC_LOGKEY = true;
@@ -307,34 +302,89 @@ static void TracerCleEnumeration(const char* k)
 static uintptr_t hkTranslate(uintptr_t loc, const char* key,
     uintptr_t p3, uintptr_t p4)
 {
-    if (BLOC_LOGKEY) LogKey(key);
-
+    NoterThread("Translate");
+    LogKey(key);
     uintptr_t ret = oTranslate(loc, key, p3, p4);
     if (!key) return ret;
 
     char k[256] = { 0 };
     if (!SafeRead((void*)key, k, sizeof(k) - 1)) return ret;
-
     const char* kp = (k[0] == '@') ? k + 1 : k;
-    TracerCleEnumeration(k);
 
-    if (BLOC_APITEM && StrEqLoc(kp, "Resources/Names/AP_Item")) {
+    // --- Cles de nos notifications : "AP/Notif/<id>/T" ou ".../D" ----------
+    {
+        const char* pre = "AP/Notif/";
+        int i = 0;
+        while (pre[i] && kp[i] == pre[i]) i++;
+        if (!pre[i]) {
+            int id = 0;
+            const char* q = kp + i;
+            while (*q >= '0' && *q <= '9') { id = id * 10 + (*q - '0'); ++q; }
+            bool titre = (q[0] == '/' && q[1] == 'T');
+            const char* t = ApNotifTexte(id, titre);
+            if (t) {
+                uintptr_t o = ApLocNotif((id * 2 + (titre ? 0 : 1)) % 16, t);
+                if (o) return o;
+            }
+            return ret;
+        }
+    }
+
+    // --- Cles de nos dilemmes pieges : "AP/Dil/<slot>/T", "/X", "/C<i>", "/S"
+    //     (7 objets de traduction par slot : titre, texte, 4 choix, sous-titre).
+    {
+        const char* pre = "AP/Dil/";
+        int i = 0;
+        while (pre[i] && kp[i] == pre[i]) i++;
+        if (!pre[i]) {
+            int slot = 0;
+            const char* q = kp + i;
+            while (*q >= '0' && *q <= '9') { slot = slot * 10 + (*q - '0'); ++q; }
+            char champ = (q[0] == '/') ? q[1] : 0;
+            int indice = (champ == 'C' && q[2] >= '0' && q[2] <= '9') ? q[2] - '0' : 0;
+            const char* t = DilemmePiegeTexte(slot, champ, indice);
+            if (t) {
+                int n = champ == 'T' ? 0 : champ == 'X' ? 1 : champ == 'S' ? 6 : 2 + indice;
+                uintptr_t o = ApLocDilemme(slot * 7 + n, t);
+                if (o) return o;
+            }
+            return ret;
+        }
+    }
+    // --- Cles de nos groupes de survivants : "AP/Groupe/<slot>/<champ>",
+    //     champ N nom, D description, T / X / C titre, texte, choix du
+    //     dilemme d'arrivee (5 objets de traduction par slot).
+    {
+        const char* pre = "AP/Groupe/";
+        int i = 0;
+        while (pre[i] && kp[i] == pre[i]) i++;
+        if (!pre[i]) {
+            int slot = 0;
+            const char* q = kp + i;
+            while (*q >= '0' && *q <= '9') { slot = slot * 10 + (*q - '0'); ++q; }
+            char champ = (q[0] == '/') ? q[1] : 0;
+            int indice = champ == 'N' ? 0 : champ == 'D' ? 1 : champ == 'T' ? 2 : champ == 'X' ? 3 : 4;
+            const char* t = GroupeTexte(slot, champ);
+            if (t) {
+                uintptr_t o = ApLocGroupe(slot * 5 + indice, t);
+                if (o) return o;
+            }
+            return ret;
+        }
+    }
+    // --- Notre item : liste des checks portes, ou description du site -----
+    if (StrEqLoc(kp, "Resources/Names/AP_Item")) {
         if (!g_apLocPret || !g_modeleChars) return ret;
 
         static wchar_t liste[512];
         int nItems = ScootingListePortee(liste, 512);
-
         const wchar_t* t = nullptr;
 
-        // Une expedition selectionnee porte des items -> c'est son inventaire.
         if (nItems > 0) t = liste;
-
-        // Sinon, un site est affiche -> on montre ce que contient la location.
         if (!t && g_locationAffichee >= 0) {
             const wchar_t* d = ApDescriptionW(g_locationAffichee);
             if (d && d[0]) t = d;
         }
-
         if (!t) {
             static wchar_t fixe[64];
             static bool pret = false;
@@ -350,40 +400,34 @@ static uintptr_t hkTranslate(uintptr_t loc, const char* key,
 
         wchar_t* chaine = ApChaine(t, g_modeleChars, 1);
         if (!chaine) return ret;
-
         uintptr_t p = (uintptr_t)chaine;
         memcpy(g_apLoc, &p, 8);
         return (uintptr_t)g_apLoc;
     }
 
-    if (BLOC_MODELE) ApLocCapturerModele(ret);
-    //DumpClesLandmark(k, ret);
-    if (g_dumpDilemmes) DumpClesDilemme(k, ret);
+    ApLocCapturerModele(ret);
     if (ret <= 0x10000) return ret;
-    TexteArbreTechno(k);
-    if (BLOC_OVERRIDE && ApplyOverride(k, ret)) return ret;
-    if (BLOC_SITE && TexteExpedition(k, ret)) return ret;  
-    //if (TexteDescriptionSite(k, ret))  return ret;
 
-    if (BLOC_TECHNO) {
-        uint64_t th = 0; int slot = -1;
-        if (LookupLocKey(k, &th, &slot)) {
-            uintptr_t origChars = 0;
-            if (!SafeRead((void*)ret, &origChars, 8) || origChars <= 0x10000) return ret;
+    if (ApplyOverride(k, ret)) return ret;
+    if (TexteExpedition(k, ret)) return ret;
 
-            if (slot == 0) {
-                TechRuntime* r = RT_Get(th);
-                if (r && r->researched) {
-                    wchar_t* nn = GetResearchedName(k, origChars);
-                    if (nn) { uintptr_t p = (uintptr_t)nn; SafeWrite((void*)ret, &p, 8); }
-                }
+    uint64_t th = 0; int slot = -1;
+    if (LookupLocKey(k, &th, &slot)) {
+        uintptr_t origChars = 0;
+        if (!SafeRead((void*)ret, &origChars, 8) || origChars <= 0x10000) return ret;
+
+        if (slot == 0) {
+            TechRuntime* r = RT_Get(th);
+            if (r && r->researched) {
+                wchar_t* nn = GetResearchedName(k, origChars);
+                if (nn) { uintptr_t p = (uintptr_t)nn; SafeWrite((void*)ret, &p, 8); }
             }
-            else if (g_showApInfo) {
-                wchar_t* nb = ApDescBuffer(k, th);
-                if (nb) { uintptr_t p = (uintptr_t)nb; SafeWrite((void*)ret, &p, 8); }
-            }
-            return ret;
         }
+        else if (g_showApInfo) {
+            wchar_t* nb = ApDescBuffer(k, th);
+            if (nb) { uintptr_t p = (uintptr_t)nb; SafeWrite((void*)ret, &p, 8); }
+        }
+        return ret;
     }
 
     return ret;
@@ -554,7 +598,7 @@ void DumpClesDilemme(const char* k, uintptr_t ret)
 
 static const int AP_SLOTS = 4;
 
-static wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot)
+wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot)
 {
     static uint8_t blocs[AP_SLOTS][0x14 + 512 * 2];
     static bool    prets[AP_SLOTS] = {};
@@ -590,78 +634,86 @@ static wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot)
     return dst;
 }
 
-
-bool TexteDescriptionSite(const char* k, uintptr_t ret)
-{
-    if (g_locationAffichee < 0) return false;
-
-    // La cle doit finir par "description" (Unvisited/Explored/Depleted inclus)
-    int len = 0;
-    while (len < 255 && k[len]) len++;
-    const char* suf = "description";
-    int ls = 11;
-    if (len < ls) return false;
-    for (int i = 0; i < ls; ++i) {
-        char c = k[len - ls + i];
-        if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
-        if (c != suf[i]) return false;
-    }
-
-    const ApCheck* ac = ApCheckById(g_locationAffichee);
-    if (!ac) return false;
-
-    uintptr_t chars = 0;
-    if (!SafeRead((void*)ret, &chars, 8) || chars <= 0x10000) return false;
-
-    // Deja prefixee ? (le hook peut repasser plusieurs fois)
-    wchar_t orig[400] = {};
-    if (!SafeRead((void*)chars, orig, sizeof(orig) - 2)) return false;
-    if (orig[0] == L'[') return false;
-
-    wchar_t tmp[512];
-    int n = 0;
-    for (int i = 0; ac->description[i] && n < 200; ++i)
-        tmp[n++] = (wchar_t)(unsigned char)ac->description[i];
-    tmp[n++] = L'\n';
-    tmp[n++] = L'\n';
-    for (int i = 0; orig[i] && n < 511; ++i) tmp[n++] = orig[i];
-    tmp[n] = 0;
-
-    wchar_t* nouvelle = ApChaine(tmp, chars, 2);
-    if (!nouvelle) return false;
-
-    uintptr_t p = (uintptr_t)nouvelle;
-    return SafeWrite((void*)ret, &p, 8);
-}
-
-static void DumpClesLandmark(const char* k, uintptr_t ret)
-{
-    static const char* cles[] = {
-        "Expeditions/GenericSiteDescription",
-        "Expeditions/LandmarkName",
-        "Expeditions/LandmarkSubtitle",
-        "Expeditions/LandmarkDescription",
-        "Expeditions/LandmarkCarryOn",
-        "Expeditions/LandmarkTooltip",
-        "Expeditions/LandsmarkArcSubtitle",
-        "Expeditions/GenericSiteDepletedDescription",
-    };
-    static const int N = 8;
-    static bool vues[N] = {};
-
-    for (int i = 0; i < N; ++i) {
-        if (vues[i]) continue;
-        if (!StrEqLoc(k, cles[i])) continue;
-        vues[i] = true;
-        DumpWide(k, ret);
-        return;
-    }
-}
-
 bool TexteArbreTechno(const char* k)
 {
     const char* pref = "UI/OtherPanels/TechnologyHUD/";
     for (int i = 0; pref[i]; ++i) if (k[i] != pref[i]) return false;
     g_instantArbre = GetTickCount();
     return false;                       // on ne modifie rien, on observe
+}
+
+static uint8_t g_notifLoc[16][0x40];
+static uint8_t g_notifChaine[16][0x14 + 512 * 2];
+
+uintptr_t ApLocNotif(int slot, const char* texte)
+{
+    if (slot < 0 || slot >= 16 || !g_apLocPret || !g_modeleChars) return 0;
+
+    uint8_t* bloc = g_notifChaine[slot];
+    if (!SafeRead((void*)(g_modeleChars - 0x14), bloc, 0x14)) return 0;
+    uintptr_t debut = (uintptr_t)bloc;
+    memcpy(bloc + 0x08, &debut, 8);
+    uint32_t refs = 0x40000000;
+    memcpy(bloc + 0x10, &refs, 4);
+
+    wchar_t* w = (wchar_t*)(bloc + 0x14);
+    int i = 0; for (; texte[i] && i < 511; ++i) w[i] = (wchar_t)(unsigned char)texte[i];
+    w[i] = 0;
+
+    memcpy(g_notifLoc[slot], g_apLoc, 0x40);
+    uintptr_t p = (uintptr_t)w;
+    memcpy(g_notifLoc[slot], &p, 8);
+    return (uintptr_t)g_notifLoc[slot];
+}
+
+// Objets de traduction des groupes de survivants (5 par groupe : nom,
+// description, titre / texte / choix du dilemme d'arrivee ; 16 groupes).
+static uint8_t g_groupeLoc[80][0x40];
+static uint8_t g_groupeChaine[80][0x14 + 1024 * 2];
+
+uintptr_t ApLocGroupe(int slot, const char* texte)
+{
+    if (slot < 0 || slot >= 80 || !g_apLocPret || !g_modeleChars) return 0;
+
+    uint8_t* bloc = g_groupeChaine[slot];
+    if (!SafeRead((void*)(g_modeleChars - 0x14), bloc, 0x14)) return 0;
+    uintptr_t debut = (uintptr_t)bloc;
+    memcpy(bloc + 0x08, &debut, 8);
+    uint32_t refs = 0x40000000;
+    memcpy(bloc + 0x10, &refs, 4);
+
+    wchar_t* w = (wchar_t*)(bloc + 0x14);
+    int i = 0; for (; texte[i] && i < 1023; ++i) w[i] = (wchar_t)(unsigned char)texte[i];
+    w[i] = 0;
+
+    memcpy(g_groupeLoc[slot], g_apLoc, 0x40);
+    uintptr_t p = (uintptr_t)w;
+    memcpy(g_groupeLoc[slot], &p, 8);
+    return (uintptr_t)g_groupeLoc[slot];
+}
+
+// Objets de traduction des dilemmes pieges (7 par slot : titre, texte,
+// 4 choix, sous-titre ; 8 slots).
+static uint8_t g_dilemmeLoc[56][0x40];
+static uint8_t g_dilemmeChaine[56][0x14 + 1024 * 2];
+
+uintptr_t ApLocDilemme(int slot, const char* texte)
+{
+    if (slot < 0 || slot >= 56 || !g_apLocPret || !g_modeleChars) return 0;
+
+    uint8_t* bloc = g_dilemmeChaine[slot];
+    if (!SafeRead((void*)(g_modeleChars - 0x14), bloc, 0x14)) return 0;
+    uintptr_t debut = (uintptr_t)bloc;
+    memcpy(bloc + 0x08, &debut, 8);
+    uint32_t refs = 0x40000000;
+    memcpy(bloc + 0x10, &refs, 4);
+
+    wchar_t* w = (wchar_t*)(bloc + 0x14);
+    int i = 0; for (; texte[i] && i < 1023; ++i) w[i] = (wchar_t)(unsigned char)texte[i];
+    w[i] = 0;
+
+    memcpy(g_dilemmeLoc[slot], g_apLoc, 0x40);
+    uintptr_t p = (uintptr_t)w;
+    memcpy(g_dilemmeLoc[slot], &p, 8);
+    return (uintptr_t)g_dilemmeLoc[slot];
 }
