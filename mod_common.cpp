@@ -1761,41 +1761,15 @@ bool GetClassNameFP(uintptr_t obj, char* out, int maxlen)
 
 
 
+// Ancienne pose des icones AP a l'ouverture de l'arbre : la detection
+// (g_instantArbre, pose par TexteArbreTechno) ne s'est jamais declenchee,
+// TexteArbreTechno n'etant appelee nulle part. Remplacee le 2026-11-01 par
+// la pose pendant la construction de l'interface (InstallHooksIconesTechnos,
+// IconSubManager), sans aucune ecriture permanente. Il ne reste qu'a rendre
+// d'eventuelles icones de batiment encore sauvegardees.
 void SurveillerArbreTechno()
 {
-    static bool  ouvertAvant = false;
-    static DWORD debutSignal = 0;
-
-    bool signal = (g_instantArbre != 0) &&
-        (GetTickCount() - g_instantArbre < 2000);
-
-    if (signal && debutSignal == 0) debutSignal = GetTickCount();
-    if (!signal) debutSignal = 0;
-
-    // Ouvert = signal present depuis plus d'une seconde
-    bool ouvert = signal && (GetTickCount() - debutSignal > 1000);
-
-    if (!g_pret) { ouvertAvant = false; return; }   // pas encore en partie
-
-    if (ouvert && !ouvertAvant) {
-        for (int i = 0; i < g_nTechnosAP; ++i) {
-            TechnoAP& t = g_technosAP[i];
-            if (!t.entree) continue;
-            if (t.miniature) {
-                if (t.batiment[0])
-                    AppliquerIconeBatiment(t.batiment, t.icone->batCol, t.icone->batRow);
-            }
-            else {
-                int32_t cr[2] = { t.icone->techCol, t.icone->techRow };
-                SafeWrite((void*)(t.entree + 0x80), cr, 8);
-            }
-        }
-    }
-    else if (!ouvert && ouvertAvant) {
-        printf("[ARBRE] ferme\n");
-        RestaurerIconesBatiments();
-    }
-    ouvertAvant = ouvert;
+    RestaurerIconesBatiments();
 }
 
 // Cherche dans le code de l'image les "lea reg, [rip+disp32]" qui chargent

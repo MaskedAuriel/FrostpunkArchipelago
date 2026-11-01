@@ -34,14 +34,21 @@ void AP_SendCheck(uint64_t hash)
     SendResearchCheck(hash);
 }
 
+// Test de l'auteur (2026-11-01) : recherche terminee, puis chargement d'une
+// sauvegarde faite PENDANT cette recherche, puis recherche terminee a
+// nouveau -> le check partait une 2e fois. La sauvegarde locale etant
+// cumulative, la techno est deja "researched" a ce moment : plus d'envoi.
 void OnResearchComplete(uint64_t hash)
 {
     TechRuntime* r = RT_Get(hash);
     if (!r) return;
+    bool dejaEnvoye = r->researched;
     r->researched = true;
     SyncGameState(r);          // received ? 2 : 0 -> une techno recue RESTE a 2
-    printf("[AP] recherche terminee : %s (recu=%d) -> etat %d\n",
-           NameOfHash(hash), r->received, r->received ? 2 : 0);
+    printf("[AP] recherche terminee : %s (recu=%d) -> etat %d%s\n",
+           NameOfHash(hash), r->received, r->received ? 2 : 0,
+           dejaEnvoye ? " ; check deja envoye dans cette partie, pas de renvoi" : "");
+    if (dejaEnvoye) return;
     TechSauver();
     AP_SendCheck(hash);
 }
@@ -62,19 +69,24 @@ void ReceiveAll()
 
         // declarer  extern bool g_showApInfo;  dans le .h
 
+// Nom du check porte par cette techno (ce que le joueur enverra).
+// TODO reseau : l'objet reel fourni par le serveur pour cette location ;
+// en attendant, le nom interne de la techno.
+void AP_NomDuCheck(uint64_t hash, char* out, int maxlen)
+{
+    const TechInfo* t = TechByHash(hash);
+    _snprintf_s(out, maxlen, _TRUNCATE, "%s", t ? t->name : "unknown location");
+}
+
 // Texte Archipelago associe a cette techno (= a ce location check).
 // Tant que le reseau n'existe pas, on affiche ce qu'on sait localement.
 void AP_LocationText(uint64_t hash, char* out, int maxlen)
 {
     TechRuntime* r = RT_Get(hash);
-    const TechInfo* t = TechByHash(hash);
-
-    // TODO reseau : remplacer par l'objet reel et le joueur destinataire,
-    // fournis par le serveur pour cette location.
+    char nom[128];
+    AP_NomDuCheck(hash, nom, sizeof(nom));
     _snprintf_s(out, maxlen, _TRUNCATE,
-        "[AP] Sending: %s%s",
-        t ? t->name : "unknown location",
-        (r && r->researched) ? " (already sent)" : "");
+        "[AP] Sending: %s%s", nom, (r && r->researched) ? " (already sent)" : "");
 }
 static const int MAX_TREES = 79;
 static int g_progressive[MAX_TREES];      // nb de progressives recues par arbre
@@ -269,7 +281,8 @@ void DumpProgression()
     printf("\n[PROG] arbres entames :\n");
     for (int t = 0; t < MAX_TREES; ++t) {
         if (!g_progressive[t]) continue;
-        bool reste = (TechAtTreePosition(t, g_progressive[t] + 1) != nullptr);
+        // Positions a partir de 0 : la prochaine a recevoir est g_progressive[t].
+        bool reste = (TechAtTreePosition(t, g_progressive[t]) != nullptr);
         printf("   arbre %2d : %d recue(s)%s\n",
             t, g_progressive[t], reste ? "" : "  [epuise]");
         printf("   arbre %2d : %d/%d\n", t, g_progressive[t], TreeSize(t));

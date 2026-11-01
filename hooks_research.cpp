@@ -83,19 +83,14 @@ static void hkResearchComplete(uintptr_t self)
     if (SafeRead((void*)(self + TECH_ACTIVE_OFF), &tech, 8))
         hash = HashOfTechPtr(tech);
 
-    OpenKeyLogWindow(10000);        // <-- AVANT, pas apres
     oResearchComplete(self);
 
-    if (hash)
-    {
+    // Icone "icon_done" et [Researched] : posees sur le noeud de l'arbre deja
+    // construit (sinon seulement a sa prochaine reconstruction).
+    if (hash) {
         OnResearchComplete(hash);
-        for (int i = 0; i < g_nTechnosAP; ++i) {
-            if (g_technosAP[i].hash != hash) continue;
-            RafraichirIconeTechno(g_technosAP[i]);
-            break;
-        }
+        IconesTechnoRafraichirNoeud(tech);
     }
-
 }
 
 // ---------------------------------------------------------------------------
@@ -131,4 +126,5 @@ void InstallResearchHooks(uintptr_t modBase)
         if (MH_CreateHook(target, h.detour, h.orig) != MH_OK || MH_EnableHook(target) != MH_OK)
             printf("[!] hook %s KO\n", h.name);
     }
+    InstallHooksIconesTechnos(modBase);
 }

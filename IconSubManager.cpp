@@ -1,5 +1,7 @@
 #include "IconSubManager.h"
 #include "tech_runtime.h"
+#include "lois_ap.h"        // IconeCheckDeTest
+#include "tech_brain.h"     // AP_NomDuCheck
 
 struct GabaritBat { uintptr_t tpl; char nom[64]; };
 static GabaritBat g_gabaritsBat[256];
@@ -148,7 +150,14 @@ void AppliquerIconeBatiment(const char* nomBat, int32_t col, int32_t row)
         int32_t avant[2] = {};
         if (!SafeRead((void*)(g_gabaritsBat[i].tpl + 0x178), avant, 8)) continue;
 
-        if (g_nIconesSauvees < 64) {
+        // Une seule sauvegarde par gabarit : une 2e application (ouverture de
+        // l'arbre puis recherche terminee) relirait notre propre case, et la
+        // restauration la rendrait au menu de construction pour de bon.
+        bool dejaSauve = false;
+        for (int s = 0; s < g_nIconesSauvees; ++s)
+            if (g_iconesSauvees[s].tpl == g_gabaritsBat[i].tpl) { dejaSauve = true; break; }
+
+        if (!dejaSauve && g_nIconesSauvees < 64) {
             g_iconesSauvees[g_nIconesSauvees].tpl = g_gabaritsBat[i].tpl;
             g_iconesSauvees[g_nIconesSauvees].col = avant[0];
             g_iconesSauvees[g_nIconesSauvees].row = avant[1];
@@ -237,7 +246,23 @@ void ApChargerTechnosDeTest()
     ApAjouterTechno(0x87856A059CE65971ULL, "icon_trap");         // Steel Mine
     ApAjouterTechno(0x884E0D684DAAB02DULL, "icon_filler");       // Adv Steel Mine
     ApAjouterTechno(0xA9AC3601AE5EA23CULL, "icon_important");    // Steam Steel Mine
-    printf("[ICON] %d techno(s) Archipelago chargee(s)\n", g_nTechnosAP);
+    int explicites = g_nTechnosAP;
+
+    // Toutes les autres technos connues : type de check TEMPORAIRE tire par un
+    // hachage stable de leur nom (IconeCheckDeTest, comme les lois et les
+    // sites), en attendant le serveur. Une techno partagee par plusieurs
+    // scenarios n'est ajoutee qu'une fois (meme hash).
+    for (int g = 0; g < KNOWN_TECH_GROUP_COUNT; ++g) {
+        const TechGroup& grp = KNOWN_TECH_GROUPS[g];
+        for (int i = 0; i < grp.count; ++i) {
+            bool connue = false;
+            for (int k = 0; k < g_nTechnosAP; ++k)
+                if (g_technosAP[k].hash == grp.items[i].hash) { connue = true; break; }
+            if (!connue) ApAjouterTechno(grp.items[i].hash, IconeCheckDeTest(grp.items[i].name, 0));
+        }
+    }
+    printf("[ICON] %d techno(s) Archipelago chargee(s) (%d de test, %d par hachage du nom)\n",
+        g_nTechnosAP, explicites, g_nTechnosAP - explicites);
 }
 
 
@@ -451,6 +476,8 @@ static const TechIcons* IconeEffective(const TechnoAP& t)
 
 // Applique l'icone courante d'une techno. Appelable a tout moment :
 // a l'ouverture de l'arbre, ou juste apres l'envoi d'un check.
+// N'est plus appelee par l'arbre (voir InstallHooksIconesTechnos) : ecriture
+// permanente, a reserver aux diagnostics.
 void RafraichirIconeTechno(TechnoAP& t)
 {
     if (!t.entree) return;
@@ -470,5 +497,244 @@ void RafraichirIconeTechno(TechnoAP& t)
 void RafraichirToutesLesIcones()
 {
     for (int i = 0; i < g_nTechnosAP; ++i) RafraichirIconeTechno(g_technosAP[i]);
+}
+
+// --- Icones AP posees pendant la construction de l'interface (2026-11-01) ----
+// L'ancienne pose (ecriture permanente de techno +0x80 et du gabarit de
+// batiment +0x178 a l'ouverture de l'arbre) dependait d'une detection
+// d'ouverture qui n'a jamais fonctionne (TexteArbreTechno n'etait appelee
+// nulle part), et une ecriture dans le gabarit de batiment s'affiche aussi au
+// menu de construction. Decompiles du 2026-11-01 : l'image d'une techno est
+// posee par
+//   - FUN_141bc5810(panneau, techno, sortie, p4) : noeud de l'arbre (appele
+//     par FUN_141bc3eb0 pour chaque techno a la construction de l'arbre) ;
+//   - FUN_141be67f0(panneau) : recherche en cours, techno =
+//     *(*(base + 0x4062BA8) + 0x2260) ;
+//   - FUN_141bb2b60(panneau, techno) : autre panneau.
+// Chacune pose soit BUILDING_IMAGE (techno qui debloque un batiment : case
+// du gabarit +0x178, atlas des miniatures #3037), soit TECH_IMAGE (case de
+// techno +0x80, atlas #1179), par FUN_141bb2d30(image, case x|y<<32, nb).
+// On entoure ces trois fonctions : techno +0x80 = notre case de l'atlas des
+// technos le temps de l'appel (puis rendue), et dans FUN_141bb2d30 toute
+// autre case (= celle du batiment) devient notre case de l'atlas des
+// miniatures. Rien ne reste ecrit hors de ces appels.
+typedef uintptr_t(*Fonction4Ui_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
+typedef void(*PoserCaseUi_t)(uintptr_t, uint64_t, uint64_t);
+static Fonction4Ui_t oNoeudTechno = nullptr, oRechercheEnCours = nullptr, oPanneauTechno = nullptr;
+static PoserCaseUi_t oPoserCaseUi = nullptr;
+static Fonction4Ui_t oBatimentsDebloques = nullptr;
+static thread_local const TechIcons* t_iconeUi = nullptr;
+static thread_local uintptr_t t_techUi = 0;
+constexpr uintptr_t OFF_NOEUD_TECHNO = 0x1BC5810, OFF_RECHERCHE_EN_COURS = 0x1BE67F0,
+                    OFF_PANNEAU_TECHNO = 0x1BB2B60, OFF_POSER_CASE_UI = 0x1BB2D30,
+                    OFF_BATIMENTS_DEBLOQUES = 0x16A83B0, OFF_SYSTEME_TECHNOS_BIS = 0x4062BA8;
+
+static uint64_t CasePackee(int32_t col, int32_t lig) { return (uint32_t)col | ((uint64_t)(uint32_t)lig << 32); }
+
+static const TechIcons* IconeDeLaTechno(uintptr_t tech)
+{
+    uint64_t h = 0;
+    if (tech <= 0x10000 || !SafeRead((void*)(tech + 0x20), &h, 8) || !h) return nullptr;
+    for (int i = 0; i < g_nTechnosAP; ++i)
+        if (g_technosAP[i].hash == h) return IconeEffective(g_technosAP[i]);
+    return nullptr;
+}
+
+// Contexte d'une construction : techno +0x80 remplacee, icone notee pour le
+// hook de FUN_141bb2d30 ; rendu a la sortie (appels imbriques compris).
+struct ContexteIconeUi {
+    uintptr_t tech = 0;
+    int32_t avant[2] = {};
+    bool ecrit = false;
+    const TechIcons* precedente = nullptr;
+    uintptr_t techPrecedente = 0;
+
+    explicit ContexteIconeUi(uintptr_t t)
+    {
+        precedente = t_iconeUi;
+        techPrecedente = t_techUi;
+        const TechIcons* ic = IconeDeLaTechno(t);
+        t_iconeUi = ic;
+        t_techUi = ic ? t : 0;
+        if (!ic) return;
+        tech = t;
+        if (SafeRead((void*)(tech + 0x80), avant, 8)) {
+            int32_t cr[2] = { ic->techCol, ic->techRow };
+            ecrit = SafeWrite((void*)(tech + 0x80), cr, 8);
+        }
+    }
+    ~ContexteIconeUi()
+    {
+        if (ecrit) SafeWrite((void*)(tech + 0x80), avant, 8);
+        t_iconeUi = precedente;
+        t_techUi = techPrecedente;
+    }
+};
+
+// 1er test (2026-11-01, captures de l'auteur) : nos cases de l'atlas des
+// miniatures (#3037) sont DECENTREES dans BUILDING_IMAGE (Coal Thumper dans
+// l'arbre, Coal Mining dans l'atelier), alors que celles de l'atlas de l'arbre
+// (#1179, TECH_IMAGE) sont bien placees. Les trois fonctions choisissent
+// BUILDING_IMAGE si FUN_1416a83b0(DAT_14408ea70, techno) (recherche pure dans
+// la liste des batiments debloques) renvoie une liste non vide : pour NOTRE
+// techno, pendant la construction, on repond « aucun batiment » -> le jeu
+// prend TECH_IMAGE, avec notre case de techno +0x80.
+static uintptr_t hkBatimentsDebloques(uintptr_t sys, uintptr_t tech, uintptr_t p3, uintptr_t p4)
+{
+    if (t_techUi && tech == t_techUi) return 0;
+    return oBatimentsDebloques(sys, tech, p3, p4);
+}
+
+static void hkPoserCaseUi(uintptr_t image, uint64_t cas, uint64_t nb)
+{
+    const TechIcons* ic = t_iconeUi;
+    if (ic && cas != CasePackee(ic->techCol, ic->techRow))
+        cas = CasePackee(ic->batCol, ic->batRow);    // image du batiment
+    oPoserCaseUi(image, cas, nb);
+}
+
+static uintptr_t g_panneauTechnos = 0;   // panneau de l'arbre (vu au 1er noeud construit)
+
+// Nom affiche sur le noeud de l'arbre = nom du check que la techno enverra
+// (demande de l'auteur, 2026-11-01), suivi de " [Researched]" une fois
+// recherchee. Pose en texte brut sur TECH_NAME par FUN_14111bef0 (poignee
+// en sortie[1] de FUN_141bc5810, +0x18 d'un enregistrement de noeud) : seul
+// l'arbre change, le reste du jeu (atelier, messages) garde le nom de la
+// techno.
+typedef void(*PoserTexteBrut_t)(uintptr_t texte, const wchar_t* chaine, uintptr_t cfg, uintptr_t p4);
+constexpr uintptr_t OFF_POSER_TEXTE_BRUT = 0x111BEF0, OFF_FORMAT_TEXTE_BRUT = 0x2BFD628;
+
+static bool PoserNomDuCheck(uintptr_t texte, uintptr_t tech)
+{
+    uint64_t h = 0;
+    if (texte <= 0x10000 || !SafeRead((void*)(tech + 0x20), &h, 8) || !h) return false;
+    bool notre = false;
+    for (int i = 0; i < g_nTechnosAP && !notre; ++i) notre = g_technosAP[i].hash == h;
+    if (!notre) return false;
+    char nom[128];
+    AP_NomDuCheck(h, nom, sizeof(nom));
+    TechRuntime* r = RT_Get(h);
+    wchar_t w[160];
+    int j = 0;
+    for (; nom[j] && j < 120; ++j) w[j] = (wchar_t)(unsigned char)nom[j];
+    if (r && r->researched)
+        for (const wchar_t* s = L" [Researched]"; *s && j < 158; ++s) w[j++] = *s;
+    w[j] = 0;
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    ((PoserTexteBrut_t)(base + OFF_POSER_TEXTE_BRUT))(texte, w, base + OFF_FORMAT_TEXTE_BRUT, 0);
+    return true;
+}
+
+static void NomDuNoeudConstruit(uintptr_t tech, uintptr_t sortie)
+{
+    __try {
+        uintptr_t pTexte = 0, texte = 0;
+        if (sortie > 0x10000 && SafeRead((void*)(sortie + 8), &pTexte, 8) && pTexte > 0x10000 &&
+            SafeRead((void*)pTexte, &texte, 8))
+            PoserNomDuCheck(texte, tech);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        static int n = 0;
+        if (n++ < 5) printf("[ICON] EXCEPTION 0x%08lX a la pose du nom d'un noeud\n", GetExceptionCode());
+    }
+}
+
+static uintptr_t hkNoeudTechno(uintptr_t panneau, uintptr_t tech, uintptr_t sortie, uintptr_t p4)
+{
+    g_panneauTechnos = panneau;
+    uintptr_t r;
+    {
+        ContexteIconeUi c(tech);
+        r = oNoeudTechno(panneau, tech, sortie, p4);
+    }
+    NomDuNoeudConstruit(tech, sortie);
+    return r;
+}
+
+// Test du 2026-11-01 : une techno recherchee arbre deja construit gardait
+// l'icone de son check et son nom sans [Researched] : les noeuds ne sont
+// reconstruits qu'a la selection d'un onglet (FUN_141bc8440). On met donc a
+// jour le noeud nous-memes, comme FUN_141bc5810 le fait a la construction.
+// Noeuds du panneau (FUN_141bc3eb0 / FUN_141bbf450) : panneau +0x1A8, compte
+// +0x1B0, enregistrements de 0x80 : +0x00 cle 16 octets (= techno +0x20),
+// +0x10 poignee du noeud, +0x18 poignee du texte TECH_NAME, +0x20 poignee de
+// l'image affichee. Image : FUN_141107140(image, base + 0x4074548, 0, 0) puis
+// FUN_141bb2d30(image, case, *(base + 0x4074550)) ; nom :
+// FUN_14111bd70(texte, techno + 0x18, base + 0x2BFD628) (retraduit, donc
+// [Researched] par hkTranslate). Thread du jeu (fin de recherche).
+typedef void(*PoserTextureUi_t)(uintptr_t, uintptr_t, uintptr_t, uint32_t);
+typedef void(*PoserTexteCle_t)(uintptr_t, uintptr_t, uintptr_t);
+constexpr uintptr_t OFF_POSER_TEXTURE_UI = 0x1107140, OFF_TEXTURE_ARBRE = 0x4074548,
+                    OFF_CASES_ARBRE = 0x4074550, OFF_POSER_TEXTE_CLE = 0x111BD70,
+                    OFF_FORMAT_TEXTE = 0x2BFD628;
+
+void IconesTechnoRafraichirNoeud(uintptr_t tech)
+{
+    uintptr_t panneau = g_panneauTechnos, liste = 0;
+    int32_t n = 0;
+    if (!panneau || tech <= 0x10000 || !SafeRead((void*)(panneau + 0x1A8), &liste, 8) ||
+        !SafeRead((void*)(panneau + 0x1B0), &n, 4) || liste <= 0x10000 || n <= 0 || n > 1024) return;
+    uint64_t cle[2] = {};
+    if (!SafeRead((void*)(tech + 0x20), cle, 16)) return;
+    const TechIcons* ic = IconeDeLaTechno(tech);
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    __try {
+        for (int i = 0; i < n; ++i) {
+            uintptr_t rec = liste + (uintptr_t)i * 0x80;
+            uint64_t k[2] = {};
+            if (!SafeRead((void*)rec, k, 16) || k[0] != cle[0] || k[1] != cle[1]) continue;
+            uintptr_t pImage = 0, image = 0, pTexte = 0, texte = 0;
+            SafeRead((void*)(rec + 0x20), &pImage, 8);
+            SafeRead((void*)(rec + 0x18), &pTexte, 8);
+            if (pImage > 0x10000) SafeRead((void*)pImage, &image, 8);
+            if (pTexte > 0x10000) SafeRead((void*)pTexte, &texte, 8);
+            if (image > 0x10000 && ic) {
+                uint64_t nb = 0;
+                SafeRead((void*)(base + OFF_CASES_ARBRE), &nb, 8);
+                ((PoserTextureUi_t)(base + OFF_POSER_TEXTURE_UI))(image, base + OFF_TEXTURE_ARBRE, 0, 0);
+                oPoserCaseUi(image, CasePackee(ic->techCol, ic->techRow), nb);
+            }
+            if (texte > 0x10000 && !PoserNomDuCheck(texte, tech))
+                ((PoserTexteCle_t)(base + OFF_POSER_TEXTE_CLE))(texte, tech + 0x18, base + OFF_FORMAT_TEXTE);
+            printf("[ICON] noeud de l'arbre mis a jour apres recherche (icone \"%s\", image 0x%llX, nom 0x%llX)\n",
+                ic ? ic->nom : "-", (unsigned long long)image, (unsigned long long)texte);
+            return;
+        }
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        printf("[ICON] EXCEPTION 0x%08lX a la mise a jour d'un noeud de l'arbre\n", GetExceptionCode());
+    }
+}
+
+static uintptr_t hkPanneauTechno(uintptr_t panneau, uintptr_t tech, uintptr_t p3, uintptr_t p4)
+{
+    ContexteIconeUi c(tech);
+    return oPanneauTechno(panneau, tech, p3, p4);
+}
+
+static uintptr_t hkRechercheEnCours(uintptr_t panneau, uintptr_t p2, uintptr_t p3, uintptr_t p4)
+{
+    uintptr_t sys = 0, tech = 0;
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    if (SafeRead((void*)(base + OFF_SYSTEME_TECHNOS_BIS), &sys, 8) && sys > 0x10000)
+        SafeRead((void*)(sys + TECH_ACTIVE_OFF), &tech, 8);
+    ContexteIconeUi c(tech);
+    return oRechercheEnCours(panneau, p2, p3, p4);
+}
+
+void InstallHooksIconesTechnos(uintptr_t modBase)
+{
+    struct { uintptr_t off; void* hk; void** orig; const char* nom; } h[] = {
+        { OFF_POSER_CASE_UI, (void*)&hkPoserCaseUi, (void**)&oPoserCaseUi, "pose d'une case d'interface" },
+        { OFF_BATIMENTS_DEBLOQUES, (void*)&hkBatimentsDebloques, (void**)&oBatimentsDebloques, "batiments debloques par une techno" },
+        { OFF_NOEUD_TECHNO, (void*)&hkNoeudTechno, (void**)&oNoeudTechno, "noeud de l'arbre des technos" },
+        { OFF_RECHERCHE_EN_COURS, (void*)&hkRechercheEnCours, (void**)&oRechercheEnCours, "recherche en cours" },
+        { OFF_PANNEAU_TECHNO, (void*)&hkPanneauTechno, (void**)&oPanneauTechno, "panneau d'une techno" },
+    };
+    for (auto& x : h) {
+        void* p = (void*)(modBase + x.off);
+        bool ok = MH_CreateHook(p, x.hk, x.orig) == MH_OK && MH_EnableHook(p) == MH_OK;
+        printf("[ICON] hook %s (+%llX) %s\n", x.nom, (unsigned long long)x.off, ok ? "OK" : "KO");
+    }
 }
 

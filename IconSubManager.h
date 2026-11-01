@@ -25,13 +25,18 @@ struct TechIcons {
     int32_t bulleCol, bulleRow;
 };
 
+// Cases de l'atlas de l'arbre (#1179) verifiees le 2026-11-01 sur le blob
+// deploye (mods\ap_icons_recherche.gz) : (0,2) important, (0,3) filler,
+// (0,4) done (vert), (0,5) trap (orange), (0,6) progressive (violet),
+// (0,7) vanilla. Avant : progressive / trap / done en (0,5) / (0,4) / (0,6),
+// d'ou un « done » violet signale par l'auteur.
 static const TechIcons ARCHIPELAGO_ICONS_TECH[] = {
     { "icon_vanilla",     15, 3,  0, 7,   7, 1 },
     { "icon_filler",      15, 2,  0, 3,   8, 1 },
     { "icon_important",   15, 1,  0, 2,   9, 1 },
-    { "icon_progressive", 15, 4,  0, 5,  10, 1 },
-    { "icon_trap",        15, 5,  0, 4,  11, 1 },
-    { "icon_done",        15, 0,  0, 6,  12, 1 },
+    { "icon_progressive", 15, 4,  0, 6,  10, 1 },
+    { "icon_trap",        15, 5,  0, 5,  11, 1 },
+    { "icon_done",        15, 0,  0, 4,  12, 1 },
     // Variante pour l'icone des groupes (carte, liste a droite) : vanilla
     // reduite de 15 % (demande de l'auteur), case libre (8,4) de l'atlas des
     // bulles ; pas de case propre dans les autres atlas (celles de vanilla).
@@ -67,6 +72,12 @@ bool EstMiniature(uintptr_t te, char* batOut, int maxlen);
 static bool NomBatimentDepuisCle(const char* cle, char* out, int maxlen);
 void DiagnostiquerTechno(const char* nomCherche);
 void RafraichirToutesLesIcones();
+// Icones AP de l'arbre des technos, posees pendant la construction de
+// l'interface seulement (hooks +1BC5810, +1BE67F0, +1BB2B60, +1BB2D30).
+void InstallHooksIconesTechnos(uintptr_t modBase);
+// Fin de recherche (thread du jeu) : icone et nom du noeud de cette techno
+// dans l'arbre deja construit, sans attendre sa reconstruction.
+void IconesTechnoRafraichirNoeud(uintptr_t tech);
 
 extern TechnoAP g_technosAP[256];
 extern int      g_nTechnosAP;

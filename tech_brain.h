@@ -31,6 +31,8 @@ void AP_SendCheck(uint64_t hash);
 void ReceiveAll();
 
 void AP_LocationText(uint64_t hash, char* out, int maxlen);
+// Nom du check porte par cette techno (TEMPORAIRE : nom interne de la techno).
+void AP_NomDuCheck(uint64_t hash, char* out, int maxlen);
 // Etat de la progression, pour verifier apres plusieurs tirages.
 void ReceiveRandomProgressive();
 void DumpProgression(); 

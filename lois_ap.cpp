@@ -1240,6 +1240,71 @@ const TechIcons* IconeDePaire(int i, const Etats& e)
     return IconeDeLoi(i, e);
 }
 
+// Nom du noeud = nom du check (demande de l'auteur, 2026-11-01, comme
+// l'arbre des technos) : le nom de l'arbre, + " [Signed]" pour une loi
+// signee. Le rang du check n'est PAS affiche (decision de l'auteur,
+// 2026-11-01 : il ne pourra pas etre tenu a jour quand le check sera chez un
+// autre joueur). Meme nom pour toutes les lois d'un arbre et pour les deux
+// demi-ronds d'une paire. Pose en texte brut (FUN_14111bef0) sur l'enfant
+// "TECH_NAME" du noeud, apres la construction du livre.
+typedef void(*PoserTexteBrut_t)(uintptr_t texte, const wchar_t* chaine, uintptr_t cfg, uintptr_t p4);
+constexpr uintptr_t OFF_POSER_TEXTE_BRUT = 0x111BEF0, OFF_FORMAT_TEXTE_BRUT = 0x2BFD628;
+
+void PoserTexteNomCheck(uintptr_t texte, int i, const Etats& e)
+{
+    bool signee = e.etat[i] == ETAT_ACTIVE;
+    char nom[160];
+    sprintf_s(nom, "%s%s", g_arbres[g_lois[i].arbre].nom, signee ? " [Signed]" : "");
+    wchar_t w[160];
+    int j = 0;
+    for (; nom[j] && j < 159; ++j) w[j] = (wchar_t)(unsigned char)nom[j];
+    w[j] = 0;
+    ((PoserTexteBrut_t)(Base() + OFF_POSER_TEXTE_BRUT))(texte, w, Base() + OFF_FORMAT_TEXTE_BRUT, 0);
+}
+
+void PoserNomCheckLoi(uintptr_t elem, int i, const Etats& e)
+{
+    uintptr_t parent = 0, texte = 0;
+    if (!TrouverElement(elem, "TECH_NAME", parent, texte) || texte <= 0x10000) return;
+    PoserTexteNomCheck(texte, i, e);
+}
+
+// Panneau d'info d'une loi selectionnee (demande de l'auteur, 2026-11-01) :
+// FUN_141bc1440(livre) (appele par la selection FUN_141bc02f0, decompile le
+// 2026-11-01) pose le nom de la loi selectionnee (GUID en livre +0x1C8,
+// texte `loi +0x68`) sur TECH_NAME_TEXT (poignee livre +0x130) par
+// FUN_14111bef0. Apres l'original, meme nom que sur le noeud : le check, si
+// la loi est encore accessible.
+constexpr uintptr_t OFF_INFO_LOI = 0x1BC1440;
+constexpr int LIVRE_SELECTION = 0x1C8, LIVRE_NOM_INFO = 0x130;
+Fonction4_t oInfoLoi = nullptr;
+
+uintptr_t hkInfoLoi(uintptr_t livre, uintptr_t p2, uintptr_t p3, uintptr_t p4)
+{
+    uintptr_t r = oInfoLoi(livre, p2, p3, p4);
+    __try {
+        if (!g_bati) return r;
+        Guid g{};
+        if (!SafeRead((void*)(livre + LIVRE_SELECTION), &g, sizeof(g))) return r;
+        int i = IndexParGuid(g);
+        uintptr_t p = 0, texte = 0;
+        if (i < 0 || !SafeRead((void*)(livre + LIVRE_NOM_INFO), &p, 8) || p <= 0x10000 ||
+            !SafeRead((void*)p, &texte, 8) || texte <= 0x10000) return r;
+        Etats e;
+        if (!LireEtats(e)) return r;
+        Accessibilite acc;
+        acc.e = &e;
+        memset(acc.etat, 0, sizeof(acc.etat));
+        if (!Accessible(acc, i)) return r;
+        PoserTexteNomCheck(texte, i, e);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        static int n = 0;
+        if (n++ < 5) printf("[LOIUI] EXCEPTION 0x%08lX au nom du panneau d'info\n", GetExceptionCode());
+    }
+    return r;
+}
+
 void DiagNoeudsLivre(uintptr_t livre)
 {
     static int nAppels = 0;
@@ -1278,6 +1343,7 @@ void DiagNoeudsLivre(uintptr_t livre)
             ic = nullptr;
             if (journal) printf("[LOIUI]   noeud %d : \"%s\" inaccessible (branche exclue) : pas d'icone\n", k, nom);
         }
+        if (ic) PoserNomCheckLoi(elem, i, e);
         // 10e test (2026-10-31) : une fois la loi d'une paire signee, la plume
         // du jeu s'affiche exactement au centre du rond (sous notre icone).
         // Releve, une fois par cote, de l'arbre (avec translations et
@@ -1359,6 +1425,7 @@ void InstallHooksLoisAP(uintptr_t modBase)
         { OFF_EFFETS, (void*)&hkEffets, &oEffets, "effets d'une loi" },
         { OFF_EVALUER_PREREQUIS, (void*)&hkEvaluerPrerequis, &oEvaluer, "evaluation d'un prerequis" },
         { OFF_CONSTRUIRE_LIVRE, (void*)&hkConstruireLivre, &oConstruireLivre, "construction du livre (icones AP)" },
+        { OFF_INFO_LOI, (void*)&hkInfoLoi, &oInfoLoi, "panneau d'info d'une loi (nom du check)" },
     };
     for (auto& x : h) {
         void* p = (void*)(modBase + x.off);
