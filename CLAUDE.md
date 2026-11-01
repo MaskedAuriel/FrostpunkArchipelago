@@ -3274,6 +3274,28 @@ pas un simple « incomplet ».
   connexion). Item de départ simulé (TEMPORAIRE) :
   `ScenariosRecevoirItemsDeTest()` (version.cpp, au démarrage) reçoit
   **REFUGEES**. Non testé.
+- **Revue de la détection de la difficulté (2026-11-01)** : réflexions
+  `FUN_1412f9360` (`FrostpunkDifficultySystem`, 0x80 : `+0x30`
+  « Difficulty » = Map `{EntryPtr réglage, EntryPtr difficulté}` au pas de
+  0x10, compte `+0x38` ; `+0x48` IronmanMode), `FUN_1413dfe30`
+  (`FrostpunkDifficultySettingEntry`, 0x38 : `+0x00` nom, `+0x08` GUID,
+  `+0x18` Difficulties, compte `+0x20`), `FUN_1413dfbe0`
+  (`FrostpunkDifficultyEntry`, 0x38 : `+0x00` nom, `+0x08` GUID, `+0x18`
+  Default, `+0x20` Modifications) → `CaptureRunState` /
+  `LireDifficultesRuntime` **conformes**. `g_run.diff` n'est lu par
+  personne (seul le relevé F9 de la température lit le système). Menu :
+  `FUN_141b2dcc0` (« SelectScenario ») = bouton **Start** du panneau des
+  scénarios ; `FUN_141b2a9c0` (« ApplyConfig ») n'applique les curseurs
+  (`obj +0x314`) que si `panneau +0x1E0 == 0`, sinon la difficulté
+  prédéfinie `DAT_144062398` (mode ironman présumé). `LireDifficultes()` :
+  code mort (ancien balayage, mauvaise disposition).
+  **Bug corrigé** : `ScenarioUsesGroup` (groupes de technos du scénario,
+  utilisé par `TechAtTreePosition` à la réception d'une progressive) et
+  `ScenarioVictoryId` lisaient `g_scenario` (menu : « Start » ou
+  `SetScenario`), vide après « Continue » / « Load » et périmé après le
+  chargement d'une sauvegarde d'un autre scénario → lisent désormais
+  `g_run.scenario` (système de scénario), repli sur `g_scenario` hors
+  partie. Non testé.
 - **Réseau Archipelago** : à n'aborder que sur demande explicite. L'auteur
   prévoit « une classe spécifique pour toutes les interactions avec le serveur
   qui s'occupera de manager les notifications et leur véritable envoi ».

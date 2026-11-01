@@ -116,11 +116,24 @@ static bool StrEqual(const char* a, const char* b)
     for (int i = 0; ; ++i) { if (a[i] != b[i]) return false; if (a[i] == 0) return true; }
 }
 
+// Scenario courant : celui de la partie en cours (g_run, lu par CaptureRunState
+// sur le systeme de scenario, donc juste apres le chargement d'une sauvegarde),
+// sinon celui choisi au menu (g_scenario, rempli seulement par "Start" et
+// SetScenario : vide apres "Continue" / "Load", perime apres le chargement
+// d'une sauvegarde d'un autre scenario). nullptr si inconnu.
+static const char* ScenarioCourant()
+{
+    if (g_run.valid && g_run.scenario[0]) return g_run.scenario;
+    if (g_scenario.valid && g_scenario.name[0]) return g_scenario.name;
+    return nullptr;
+}
+
 bool ScenarioUsesGroup(const char* groupLabel)
 {
-    if (!g_scenario.valid) return true;        // scenario inconnu -> tout accepter
+    const char* scn = ScenarioCourant();
+    if (!scn) return true;                     // scenario inconnu -> tout accepter
     for (auto& s : SCENARIO_TECHS) {
-        if (!StrEqual(s.scenario, g_scenario.name)) continue;
+        if (!StrEqual(s.scenario, scn)) continue;
         for (int i = 0; i < 6 && s.groups[i]; ++i)
             if (StrEqual(s.groups[i], groupLabel)) return true;
         return false;                          // scenario connu, groupe absent
@@ -130,7 +143,8 @@ bool ScenarioUsesGroup(const char* groupLabel)
 
 const char* ScenarioVictoryId()
 {
-    return g_scenario.valid ? g_scenario.name : "";
+    const char* scn = ScenarioCourant();
+    return scn ? scn : "";
 }
 
 ScenarioConfig g_scenario = {};
