@@ -6,6 +6,10 @@
 #include "groupes.h"
 #include "evenements.h"
 #include "dilemmes_ap.h"
+#include "lois.h"         // LoisPompe (debug : pas de delai entre deux lois)
+#include "lois_ap.h"      // LoisAPPompe (effets des lois en attente d'item)
+#include "temperature.h"  // TemperaturePompe (montees de temperature AP)
+#include "quetes.h"       // QuetesPompe (releve F9)
 
 volatile bool g_traceRes = false;
 
@@ -363,6 +367,10 @@ static int32_t hkModifyResource(uintptr_t self, uintptr_t guidPtr,
             CarteAssurerAcces();     // avant : un groupe ne part qu'avec la carte deverrouillee
             GroupesPompe();
             DilemmesPompe();
+            LoisPompe();
+            LoisAPPompe();
+            TemperaturePompe();
+            QuetesPompe();
         }
     }
 
@@ -434,6 +442,14 @@ uintptr_t Res_Definition(const char* name)
     if (c && c->valid && c->resId > 0x10008) def = c->resId - 8;
     LeaveCriticalSection(&g_lock);
     return def;
+}
+
+bool Res_Guid(const char* name, uint8_t* out16)
+{
+    const KnownResource* k = name ? FindKnown(name) : nullptr;
+    if (!k) return false;
+    memcpy(out16, k->guid, 16);
+    return true;
 }
 
 // Oublie les contextes : apres un chargement, self et les definitions changent.

@@ -1,6 +1,7 @@
 #include "MessageManager.h"
 #include "evenements.h"   // TuileAtlasBulles
 #include "IconSubManager.h"   // ARCHIPELAGO_ICONS_TECH
+#include "groupes.h"          // CleMoteur (cles des messages)
 #include <cstring>
 #include <cmath>      // powf, fabsf
 #include <intrin.h>   // _ReturnAddress
@@ -150,15 +151,121 @@ static char* ApCle(const char* cle, uintptr_t modele, int slot)
 }
 
 // --- Textes des notifications, consultes par hkTranslate ----------------------
-struct NotifAP { bool actif; char titre[128]; char texte[256]; };
-static NotifAP g_notifs[8];
-static int     g_notifSuivante = 0;
+// Sauvegarde AP des messages (2026-10-29) : la sauvegarde du jeu garde un
+// message AP (ses cles "@AP/Notif/<id>/T|D" et son entree), mais nos textes
+// n'existaient qu'en memoire et l'id etait recycle sur 8 places. Desormais
+// l'id est UNIQUE et croissant, et chaque message est ecrit dans
+// mods\ap_messages.txt ("M <id>\t<icone>\t<titre>\t<texte>", jamais efface,
+// un fichier pour toutes les parties). Un id absent du cache est relu dans
+// le fichier (absence memorisee : pas d'acces disque a chaque traduction).
+struct NotifAP { bool actif; bool absent; int id; char icone[32]; char titre[128]; char texte[256]; };
+constexpr int NOTIFS_CACHE = 64;
+static NotifAP g_notifs[NOTIFS_CACHE];
+static int     g_notifSuivante = -1;   // -1 : pas encore lu dans le fichier
+
+static bool CheminFichierMessages(char* out, size_t taille)
+{
+    char base[MAX_PATH] = {};
+    if (!GetModuleFileNameA(nullptr, base, MAX_PATH)) return false;
+    for (int i = (int)strlen(base) - 1; i >= 0; --i)
+        if (base[i] == '\\') { base[i + 1] = 0; break; }
+    _snprintf_s(out, taille, _TRUNCATE, "%smods\\ap_messages.txt", base);
+    return true;
+}
+
+// Champ n (0 = le premier apres l'id) d'une ligne, dans out.
+static void ChampMessage(const char* ligne, int n, char* out, size_t taille)
+{
+    const char* p = strchr(ligne, '\t');
+    for (int i = 0; p && i < n; ++i) p = strchr(p + 1, '\t');
+    out[0] = 0;
+    if (!p) return;
+    ++p;
+    size_t k = 0;
+    while (p[k] && p[k] != '\t' && p[k] != '\n' && p[k] != '\r' && k + 1 < taille) { out[k] = p[k]; ++k; }
+    out[k] = 0;
+}
+
+// Parcourt le fichier : plus grand id (pour le suivant) et, si 'cherche'
+// >= 0, la ligne de cet id dans 'n'. true si trouvee.
+static bool ParcourirMessages(int cherche, NotifAP* n, int* idMax)
+{
+    char chemin[MAX_PATH];
+    FILE* f = nullptr;
+    if (idMax) *idMax = -1;
+    if (!CheminFichierMessages(chemin, sizeof(chemin)) || fopen_s(&f, chemin, "r") != 0 || !f) return false;
+    static char ligne[1024];
+    bool trouve = false;
+    while (fgets(ligne, sizeof(ligne), f)) {
+        if (ligne[0] != 'M' || ligne[1] != ' ') continue;
+        int id = atoi(ligne + 2);
+        if (idMax && id > *idMax) *idMax = id;
+        if (id == cherche && n) {
+            ChampMessage(ligne, 0, n->icone, sizeof(n->icone));
+            ChampMessage(ligne, 1, n->titre, sizeof(n->titre));
+            ChampMessage(ligne, 2, n->texte, sizeof(n->texte));
+            trouve = true;
+        }
+    }
+    fclose(f);
+    return trouve;
+}
+
+static void EcrireChampMessage(FILE* f, const char* t)
+{
+    fputc('\t', f);
+    for (; t && *t; ++t) fputc((*t == '\t' || *t == '\r' || *t == '\n') ? ' ' : *t, f);
+}
+
+static void SauverMessage(const NotifAP& n)
+{
+    char chemin[MAX_PATH];
+    FILE* f = nullptr;
+    if (!CheminFichierMessages(chemin, sizeof(chemin)) || fopen_s(&f, chemin, "a") != 0 || !f) {
+        printf("[MSG] ecriture de mods\\ap_messages.txt impossible\n");
+        return;
+    }
+    fprintf(f, "M %d", n.id);
+    EcrireChampMessage(f, n.icone);
+    EcrireChampMessage(f, n.titre);
+    EcrireChampMessage(f, n.texte);
+    fputc('\n', f);
+    fclose(f);
+}
+
+// Entree du cache pour un id (relue dans le fichier au besoin), ou nullptr.
+static const NotifAP* NotifParId(int id)
+{
+    if (id < 0) return nullptr;
+    NotifAP& n = g_notifs[id % NOTIFS_CACHE];
+    if (n.id == id && (n.actif || n.absent)) return n.actif ? &n : nullptr;
+    NotifAP lu = {};
+    lu.id = id;
+    if (ParcourirMessages(id, &lu, nullptr)) {
+        lu.actif = true;
+        printf("[MSG] message AP %d relu dans notre sauvegarde : \"%s\" (icone %s)\n", id, lu.titre, lu.icone);
+    }
+    else lu.absent = true;
+    n = lu;
+    return n.actif ? &n : nullptr;
+}
 
 // Texte associe a une de nos cles, ou nullptr.
 const char* ApNotifTexte(int id, bool titre)
 {
-    if (id < 0 || id >= 8 || !g_notifs[id].actif) return nullptr;
-    return titre ? g_notifs[id].titre : g_notifs[id].texte;
+    const NotifAP* n = NotifParId(id);
+    if (!n) return nullptr;
+    return titre ? n->titre : n->texte;
+}
+
+// Id d'un message AP d'apres sa cle de titre (message +0x98), -1 sinon.
+static int IdDeCleNotif(uintptr_t cle)
+{
+    char k[64] = "";
+    if (cle <= 0x10000 || !ReadAscii(cle, k, sizeof(k))) return -1;
+    const char* pre = "@AP/Notif/";
+    if (strncmp(k, pre, strlen(pre))) return -1;
+    return atoi(k + strlen(pre));
 }
 
 
@@ -325,6 +432,7 @@ constexpr uintptr_t UICONFIG_ICONE_DEFAUT = 0x40615C0 + 0x258;   // FrostpunkUIC
 static AjouterPopup_t oAjouterPopup = nullptr;
 
 static bool EstNotreEntree(uintptr_t e);
+static uintptr_t EntreeDeNotre(const char* icone);
 
 // Pose d'une tuile sur un enfant d'un controle : FUN_1410260c0(controle,
 // &nom, tuile, x, y, nx, ny) (le panneau l'appelle avec "ICON" et la tuile
@@ -399,9 +507,15 @@ static uintptr_t ControleDuMessage(uintptr_t panneau, uintptr_t notif)
 typedef void(*NomConstruire_t)(uintptr_t* nom, const char* texte);
 typedef void(*NomDetruire_t)(uintptr_t* nom);
 
+static void PoserIconeSurControle(uintptr_t ctrl, uintptr_t ent);
+
 static void PoserIconeCercle(uintptr_t panneau, uintptr_t notif, uintptr_t ent)
 {
-    uintptr_t ctrl = ControleDuMessage(panneau, notif);
+    PoserIconeSurControle(ControleDuMessage(panneau, notif), ent);
+}
+
+static void PoserIconeSurControle(uintptr_t ctrl, uintptr_t ent)
+{
     uintptr_t tex = 0;
     int32_t v[4] = {};
     if (!ctrl || !SafeRead((void*)(ent + ENT_ICONE), &tex, 8) || !tex ||
@@ -473,7 +587,9 @@ struct ControleColore {
     uintptr_t elem[N_COULEURS_AP] = {};
     ULONGLONG quand = 0;          // GetTickCount64 de l'ajout
     bool deriveVue = false;       // le preset a deja repris la main (log une fois)
+    uintptr_t entree = 0;         // notre copie d'entree (icone du cercle a reposer)
 };
+static bool g_iconesAReposer = false;   // apres un chargement : 1er passage de PompeNotifications
 static ControleColore g_ctrlColores[16];
 static SRWLOCK g_verrouCouleurs = SRWLOCK_INIT;
 
@@ -551,7 +667,7 @@ static void CouleurAvantAjoutJeu(uintptr_t panneau)
 }
 
 // APRES l'ajout d'un de NOS messages (thread du jeu).
-static void CouleurApresAjoutAP(uintptr_t panneau, uintptr_t notif)
+static void CouleurApresAjoutAP(uintptr_t panneau, uintptr_t notif, uintptr_t ent)
 {
     uintptr_t ctrl = ControleDuMessage(panneau, notif);
     uintptr_t cercle = ctrl ? ChercherElement(ctrl, "static_left_notification_circle", 0) : 0;
@@ -574,9 +690,33 @@ static void CouleurApresAjoutAP(uintptr_t panneau, uintptr_t notif)
     }
     cc->quand = GetTickCount64();
     cc->deriveVue = false;
+    cc->entree = ent;
     ReleaseSRWLockExclusive(&g_verrouCouleurs);
     printf("[POPUP]   couleur : %d/%d element(s) colore(s) a l'ajout (controle 0x%llX)\n", poses, N_COULEURS_AP,
         (unsigned long long)ctrl);
+}
+
+// Sauvegarde AP (2026-10-29) : les messages AP recharges sont ajoutes au
+// panneau PENDANT LoadGame (sous l'ecran de chargement) ; l'icone posee sur
+// "icon" y est perdue (les couleurs tiennent). On la repose, sur le thread du
+// jeu, a la sortie de LoadGame puis au 1er passage de PompeNotifications.
+// Un controle repris par un message du jeu a ete oublie (CouleurAvantAjoutJeu).
+static void ReposerIconesMessages(const char* quand)
+{
+    uintptr_t ctrls[16], ents[16];
+    int n = 0;
+    AcquireSRWLockExclusive(&g_verrouCouleurs);
+    for (ControleColore& c : g_ctrlColores)
+        if (c.ctrl && c.entree && n < 16) { ctrls[n] = c.ctrl; ents[n] = c.entree; ++n; }
+    ReleaseSRWLockExclusive(&g_verrouCouleurs);
+    if (n) printf("[POPUP] icones des messages AP reposees (%s) : %d\n", quand, n);
+    for (int i = 0; i < n; ++i) PoserIconeSurControle(ctrls[i], ents[i]);
+}
+
+void MessagesApresChargement()
+{
+    ReposerIconesMessages("sortie de LoadGame");
+    g_iconesAReposer = true;
 }
 
 // Boucle du mod (16 ms) : pendant 2 s apres l'ajout, repose nos couleurs par
@@ -642,6 +782,31 @@ static void hkAjouterPopup(uintptr_t panneau, uintptr_t notif, uintptr_t p3, uin
         SafeRead((void*)(msg + 0x80), &ent, 8);
         SafeRead((void*)(msg + 0x20), &propre, 1);
     }
+    // Sauvegarde AP (2026-10-29) : un message AP recharge pointe l'entree
+    // d'ORIGINE (CitizensDied : importante, icone du jeu ; notre copie n'est
+    // pas sauvegardee). On le reconnait a sa cle de titre (message +0x98,
+    // "@AP/Notif/<id>/T") et on lui rend, AVANT l'ajout, la copie de l'icone
+    // enregistree pour cet id : icone du cercle, couleurs et ouverture suivent.
+    if (msg > 0x10000 && ent > 0x10000 && !EstNotreEntree(ent)) {
+        uintptr_t cle = 0;
+        SafeRead((void*)(msg + 0x98), &cle, 8);
+        int id = IdDeCleNotif(cle);
+        if (id >= 0) {
+            char nomEnt[64] = "";
+            if (SafeRead((void*)(ent + 0x18), &pn, 8) && pn > 0x10000) ReadAscii(pn, nomEnt, sizeof(nomEnt));
+            if (!g_msgEntreeRef && !strcmp(nomEnt, "CitizensDied")) g_msgEntreeRef = ent;   // avant PartieTick
+            const NotifAP* n = NotifParId(id);
+            uintptr_t notre = EntreeDeNotre(n && n->icone[0] ? n->icone : "icon_vanilla");
+            if (notre && EstNotreEntree(notre)) {
+                SafeWrite((void*)(msg + 0x80), &notre, 8);
+                printf("[MSG] message AP %d recharge : entree 0x%llX \"%s\" -> notre copie 0x%llX (icone %s)\n", id,
+                    (unsigned long long)ent, nomEnt, (unsigned long long)notre, n ? n->icone : "?");
+                ent = notre;
+            }
+            else printf("[MSG] message AP %d recharge : copie d'entree indisponible (reference 0x%llX)\n", id,
+                (unsigned long long)g_msgEntreeRef);
+        }
+    }
     if (ent > 0x10000) {
         SafeRead((void*)(ent + ENT_IMPORTANTE), &imp, 1);
         if (SafeRead((void*)(ent + 0x18), &pn, 8) && pn > 0x10000) ReadAscii(pn, nom, sizeof(nom));
@@ -699,7 +864,7 @@ static void hkAjouterPopup(uintptr_t panneau, uintptr_t notif, uintptr_t p3, uin
     if (remplacee) SafeWrite((void*)(defaut + 8), caseOrigine, 8);
     if (EstNotreEntree(ent)) {
         PoserIconeCercle(panneau, notif, ent);
-        CouleurApresAjoutAP(panneau, notif);
+        CouleurApresAjoutAP(panneau, notif, ent);
     }
 }
 
@@ -883,6 +1048,10 @@ static uintptr_t EntreeDeNotre(const char* icone)
 // A appeler UNIQUEMENT depuis le thread du jeu, hors evenement en cours.
 void PompeNotifications()
 {
+    if (g_iconesAReposer) {
+        g_iconesAReposer = false;
+        ReposerIconesMessages("reprise du jeu apres chargement");
+    }
     for (;;) {
         PopupEnAttente p;
         AcquireSRWLockExclusive(&g_verrouPopups);
@@ -938,21 +1107,32 @@ static void EmettreNotificationMaintenant(const char* titre, const char* texte, 
         return;
     }
 
-    int id = g_notifSuivante % 8;
-    g_notifSuivante++;
-    NotifAP& n = g_notifs[id];
-    int i = 0; for (; titre[i] && i < 127; ++i) n.titre[i] = titre[i];
-    n.titre[i] = 0;
-    int j = 0; for (; texte[j] && j < 255; ++j) n.texte[j] = texte[j];
-    n.texte[j] = 0;
+    // Id unique (sauvegarde AP) : suite du plus grand id du fichier.
+    if (g_notifSuivante < 0) {
+        int idMax = -1;
+        ParcourirMessages(-1, nullptr, &idMax);
+        g_notifSuivante = idMax + 1;
+        printf("[MSG] ids des messages AP : a partir de %d\n", g_notifSuivante);
+    }
+    int id = g_notifSuivante++;
+    NotifAP& n = g_notifs[id % NOTIFS_CACHE];
+    memset(&n, 0, sizeof(n));
+    n.id = id;
+    strncpy_s(n.icone, icone ? icone : "icon_vanilla", _TRUNCATE);
+    strncpy_s(n.titre, titre, _TRUNCATE);
+    strncpy_s(n.texte, texte, _TRUNCATE);
     n.actif = true;
+    SauverMessage(n);
 
     char cleT[48], cleD[48];
     _snprintf_s(cleT, sizeof(cleT), _TRUNCATE, "@AP/Notif/%d/T", id);
     _snprintf_s(cleD, sizeof(cleD), _TRUNCATE, "@AP/Notif/%d/D", id);
 
-    char* ct = ApCle(cleT, modele, id * 2);
-    char* cd = ApCle(cleD, modele, id * 2 + 1);
+    // Une cle par message, allouee par le moteur et jamais liberee (CleMoteur,
+    // groupes.cpp) : les anciens blocs statiques recycles (ApCle, 8 paires)
+    // auraient reecrit la cle d'un message encore affiche... et sauvegarde.
+    char* ct = (char*)CleMoteur(cleT, modele);
+    char* cd = (char*)CleMoteur(cleD, modele);
     printf("[MSG] 3. cles pretes\n"); fflush(stdout);
 
     uintptr_t transfert = message;

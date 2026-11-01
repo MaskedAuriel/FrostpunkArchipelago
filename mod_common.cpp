@@ -3,6 +3,10 @@
 #include "scenario.h"
 #include "MessageManager.h"
 #include "resources.h"
+#include "groupes.h"   // GroupesApresChargement (sortie de LoadGame)
+#include "evenements.h" // DilemmesAPChargement
+#include "scooting.h"   // ScootingApresChargement
+#include "lois_ap.h"    // LoisAPApresChargement
 #include "MinHook.h"
 #include <psapi.h>
 
@@ -1393,6 +1397,81 @@ void InstallTraceArchives(uintptr_t modBase)
     printf("[ARCH] hook recherche dans les archives (+E51FA0) %s\n", ok ? "OK" : "KO");
 }
 
+// --- Trace du chargement d'une sauvegarde (2026-10-29) -----------------------
+// But : trouver un point, sur le thread du jeu, ou la sauvegarde est
+// entierement chargee (groupes et mouvements recrees) mais ou la partie n'a
+// pas encore tourne, pour y recoller nos donnees AP. Decompiles :
+//  - FUN_141265df0(jeu, nom) = FrostpunkGame::LoadGame (frostpunkgame.cpp,
+//    drapeau "LoadingGame" jeu +0x489) : FUN_141286840 (lecture), puis si
+//    succes FUN_141264b10(jeu, 1, ...) (etat "InFrostpunkGame") et
+//    FUN_141266390(jeu) ;
+//  - FUN_141286840(?, nom, p3) : "Loading game save..." / "...successfully
+//    loaded", lit le .save (FUN_141286580) et le deserialise
+//    (FUN_14101f110(gestionnaire d'entites, donnees, ...)) ;
+//  - FUN_14126c9f0(systeme de temps) : verification "The game should not be
+//    paused after load" (ecouteur d'un evenement de fin de chargement ?).
+// A chaque point : thread, nombre de groupes de survivants deja la, temps.
+typedef uintptr_t(*Fonction4_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
+static Fonction4_t oLoadGame = nullptr, oLectureSauvegarde = nullptr, oApresChargementTemps = nullptr;
+static bool g_lectureReussie = false;   // sauvegarde lue pendant ce LoadGame (thread du jeu)
+
+static void NoterPointChargement(const char* point)
+{
+    static ULONGLONG debut = 0;
+    ULONGLONG t = GetTickCount64();
+    if (!strcmp(point, "LoadGame : entree")) debut = t;
+    uintptr_t comps[32];
+    int n = ComposantsDuSysteme(0x6D, "FrostpunkSurvivorGroupComponent", comps, 32);
+    JournalImmediat("[CHARG] %-36s thread %lu, %d groupe(s) de survivants, t+%llu ms\n", point,
+        GetCurrentThreadId(), n, (unsigned long long)(debut ? t - debut : 0));
+}
+
+static uintptr_t hkLoadGame(uintptr_t jeu, uintptr_t nom, uintptr_t p3, uintptr_t p4)
+{
+    NoterPointChargement("LoadGame : entree");
+    GroupesAvantChargement();
+    DilemmesAPChargement(0);
+    uintptr_t r = oLoadGame(jeu, nom, p3, p4);
+    NoterPointChargement("LoadGame : sortie");
+    // Test du 2026-10-29 : chargement synchrone sur le thread du jeu, groupes
+    // deja inscrits dans leur systeme a ce point (4/4) : point de recollage.
+    GroupesApresChargement();
+    DilemmesAPChargement(2);
+    MessagesApresChargement();
+    if (g_lectureReussie) ScootingApresChargement();   // pas pour le 2e appel de LoadGame, a vide
+    if (g_lectureReussie) LoisAPApresChargement();     // date de la sauvegarde : effets des lois deja presents ?
+    g_lectureReussie = false;
+    return r;
+}
+
+static uintptr_t hkLectureSauvegarde(uintptr_t p1, uintptr_t nom, uintptr_t p3, uintptr_t p4)
+{
+    uintptr_t r = oLectureSauvegarde(p1, nom, p3, p4);
+    NoterPointChargement((r & 0xFF) ? "lecture de la sauvegarde : succes" : "lecture de la sauvegarde : ECHEC");
+    if (r & 0xFF) { g_lectureReussie = true; GroupesLectureFaite(); DilemmesAPChargement(1); }
+    return r;
+}
+
+static uintptr_t hkApresChargementTemps(uintptr_t sys, uintptr_t p2, uintptr_t p3, uintptr_t p4)
+{
+    NoterPointChargement("verification apres chargement");
+    return oApresChargementTemps(sys, p2, p3, p4);
+}
+
+void InstallTraceChargement(uintptr_t modBase)
+{
+    struct { uintptr_t off; void* hk; Fonction4_t* orig; const char* nom; } h[] = {
+        { 0x1265DF0, (void*)&hkLoadGame,             &oLoadGame,             "LoadGame" },
+        { 0x1286840, (void*)&hkLectureSauvegarde,    &oLectureSauvegarde,    "lecture de la sauvegarde" },
+        { 0x126C9F0, (void*)&hkApresChargementTemps, &oApresChargementTemps, "verification apres chargement" },
+    };
+    for (auto& x : h) {
+        void* p = (void*)(modBase + x.off);
+        bool ok = MH_CreateHook(p, x.hk, (void**)x.orig) == MH_OK && MH_EnableHook(p) == MH_OK;
+        printf("[CHARG] hook %s (+%llX) %s\n", x.nom, (unsigned long long)x.off, ok ? "OK" : "KO");
+    }
+}
+
 // Detecte un (re)chargement de partie. L'economie (+0x40916D0) seule ne
 // suffit pas : en passant a un autre scenario, elle a ete reallouee a la meme
 // adresse (2026-10-15). Le systeme de technologies (+0x2C30A20), lui, a
@@ -2607,6 +2686,7 @@ static uintptr_t hkCtorGroupe(uintptr_t a, uintptr_t b, uintptr_t c, uintptr_t d
     uintptr_t r = oCtorGroupe(a, b, c, d);
     long n = InterlockedIncrement(&g_traceGroupe);
     if (n <= TRACE_MAX_APPELS) TracerPile("SurvivorGroupComponent", a, n);
+    GroupesComposantConstruit(a);   // pendant LoadGame : groupes a recoller
     return r;
 }
 

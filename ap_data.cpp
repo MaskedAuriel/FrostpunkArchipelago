@@ -77,6 +77,7 @@ void ApChargerChecksDeTest()
     ApSetCheck(1001, "[Masked Frostpunk Item]", "[AP] Sending: Coal Mine Progressive", 28);
     ApSetCheck(1003, "[Masked Frostpunk Item]", "[AP] Sending: Generator Power Progressive", 12);
     ApSetCheck(1002, "Alice", "[AP] Sending: Smoke Bombs", -1);
+    ApSetCheck(1004, "Bob", "[AP] Sending: Heater Progressive", -1);   // Refugees, "Lone Boulder"
 }
 
 const wchar_t* ApJoueurW(int id)

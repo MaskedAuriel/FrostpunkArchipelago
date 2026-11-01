@@ -14,6 +14,7 @@ void AfficherNotificationAP(const char* titre, const char* texte, const char* ic
 void PompeNotifications();          // thread du jeu uniquement, hors evenement
 void InstallTracePopups(uintptr_t modBase);   // [POPUP] popups ajoutees au panneau
 void CouleursMessagesTick();   // boucle du mod : maintient la couleur de nos messages (2 s apres l'ajout)
+void MessagesApresChargement(); // thread du jeu, sortie de LoadGame : icones des messages AP a reposer
 void NoterThread(const char* qui);   // diagnostic : thread d'un hook (une fois par nom)
 void InitFabriqueMessage(uintptr_t modBase);
 void MessageSetReferences(uintptr_t* systemes, int nSys, uintptr_t* entrees, int nEnt);

@@ -59,6 +59,7 @@ static const SitePayload SITE_PAYLOADS[] = {
     { "REFUGEES", "[ref]Builder_Camp", 1001 },
     { "DEFAULT",  "Site_052_A3",       1002 },
     { "REFUGEES",  "[t-plain][landmark]site11",       1003 },
+    { "REFUGEES",  "[t-plain][landmark]site04",       1004 },   // "Lone Boulder" (tests a plusieurs items)
 };
 
 static const int SITE_PAYLOAD_COUNT =
@@ -766,23 +767,96 @@ void ScootingAppliquerTresors()
 }
 
 // Une adresse est-elle une definition de ressource legitime ?
-// Soit la notre, soit l'une des 11 du conteneur de la ville.
+// Soit la notre, soit l'une de celles du conteneur de l'economie.
+// Correction du 2026-10-29 : la comparaison se faisait sur l'economie
+// memorisee (g_selfRessource), qui peut etre celle de la partie PRECEDENTE
+// juste apres un chargement : la vraie definition du charbon d'une cargaison
+// du jeu etait alors jugee invalide et la cargaison videe (journal :
+// "[REPAIR] exp 1 : definition invalide 0x183AD5940D0"). On lit maintenant
+// l'economie actuelle sur son global (+0x40916D0), avec son vrai compte.
 static bool DefRessourceValide(uintptr_t def)
 {
     if (def <= 0x10000) return false;
     if (def == ApPorteurDef()) return true;
 
-    if (!EnsureResSelf()) return false;
-    uintptr_t cont = 0;
-    if (!SafeRead((void*)(g_selfRessource + RES_CONT_OFF), &cont, 8) || cont <= 0x10000)
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr), eco = 0, cont = 0;
+    uint32_t cnt = 0;
+    if (!SafeRead((void*)(base + 0x40916D0), &eco, 8) || eco <= 0x10000 ||
+        !SafeRead((void*)(eco + RES_CONT_OFF), &cont, 8) || cont <= 0x10000 ||
+        !SafeRead((void*)(eco + RES_CONT_OFF + 8), &cnt, 4) || cnt == 0 || cnt > 64)
         return false;
 
-    for (int i = 0; i < 12; ++i) {
+    for (uint32_t i = 0; i < cnt; ++i) {
         uintptr_t d = 0;
         if (!SafeRead((void*)(cont + (uintptr_t)i * 0x70), &d, 8)) continue;
         if (d == def) return true;
     }
     return false;
+}
+
+// Vide les cargaisons de ressources dont une definition est invalide (porteur
+// AP d'une session precedente). Renvoie le nombre de cargaisons videes.
+static int ReparerCargaisonsDe(const uintptr_t* comps, int n, const char* quand)
+{
+    int repares = 0;
+    for (int i = 0; i < n; ++i) {
+        uintptr_t c = comps[i], arr = 0;
+        uint32_t cnt = 0;
+        int32_t id = -1;
+        SafeRead((void*)(c + 0x30), &id, 4);
+        if (!SafeRead((void*)(c + 0x168), &arr, 8) || !SafeRead((void*)(c + 0x168 + 8), &cnt, 4)) continue;
+        if (arr <= 0x10000 || cnt == 0 || cnt > 64) continue;
+        for (uint32_t k = 0; k < cnt; ++k) {
+            uintptr_t def = 0;
+            if (SafeRead((void*)(arr + (uintptr_t)k * 0x10), &def, 8) && DefRessourceValide(def)) continue;
+            printf("[REPAIR] (%s) exp %d : definition invalide 0x%llX en position %u -- cargaison videe\n",
+                quand, id, (unsigned long long)def, k);
+            uint32_t zero = 0;
+            SafeWrite((void*)(c + 0x168 + 8), &zero, 4);
+            ++repares;
+            break;
+        }
+    }
+    return repares;
+}
+
+// Sortie de FrostpunkGame::LoadGame (hook de mod_common, thread du jeu) :
+// AVANT le premier tick de la partie chargee, plus aucune cargaison ne pointe
+// vers une definition morte (chantier "sauvegarde empoisonnee"). Si le
+// porteur AP existe deja (une partie a ete jouee dans cette session), les
+// items en attente de mods\ap_pending_<GameId>.txt sont reinjectes tout de
+// suite ; sinon le tick s'en charge apres l'init (ScootingChargerEnAttente).
+void ScootingApresChargement()
+{
+    uintptr_t comps[16];
+    int n = ComposantsDuSysteme(IdSysteme::Expedition, "FrostpunkExpeditionComponent", comps, 16);
+    int repares = ReparerCargaisonsDe(comps, n, "sortie de LoadGame");
+
+    uintptr_t def = ApPorteurDef(), scn = SystemeParId(IdSysteme::Scenario);
+    uint64_t gid[2] = {};
+    int reinjectes = 0;
+    if (def && scn && SafeRead((void*)(scn + 0x110), gid, sizeof(gid)) && (gid[0] || gid[1])) {
+        char base[MAX_PATH] = { 0 }, chemin[MAX_PATH];
+        GetModuleFileNameA(NULL, base, MAX_PATH);
+        for (int i = (int)strlen(base) - 1; i >= 0; --i) if (base[i] == '\\') { base[i + 1] = 0; break; }
+        _snprintf_s(chemin, sizeof(chemin), _TRUNCATE, "%smods\\ap_pending_%016llX%016llX.txt", base,
+            (unsigned long long)gid[1], (unsigned long long)gid[0]);
+        int parExp[16] = {};
+        FILE* f = nullptr;
+        if (fopen_s(&f, chemin, "r") == 0 && f) {
+            int idExp = 0, idLoc = 0;
+            while (fscanf_s(f, "%d %d", &idExp, &idLoc) == 2)
+                for (int i = 0; i < n; ++i) {
+                    int32_t id = -1;
+                    if (SafeRead((void*)(comps[i] + 0x30), &id, 4) && id == idExp) { parExp[i]++; break; }
+                }
+            fclose(f);
+        }
+        for (int i = 0; i < n; ++i)
+            if (parExp[i] > 0 && InjecterPorteur(comps[i], def, parExp[i])) ++reinjectes;
+    }
+    printf("[PERSIST] (sortie de LoadGame) %d expedition(s), %d cargaison(s) videe(s), %d scout(s) recharge(s)%s\n",
+        n, repares, reinjectes, def ? "" : " -- porteur AP pas encore cree : reinjection au tick");
 }
 
 // Apres un rechargement, la cargaison peut contenir des pointeurs invalides :
@@ -980,34 +1054,65 @@ uint32_t CargaisonTotale(uintptr_t comp)
     return total;
 }
 
-// Recalcule la liste. Appelee une fois par tick, jamais depuis hkTranslate.
-static void MettreAJourListePortee()
+// Liste des checks portes par l'expedition 'cible' (indice dans g_exps),
+// descriptions separees par un saut de ligne. Renvoie leur nombre.
+// Aucun acces memoire au jeu : seulement notre cache.
+static int ConstruireListePortee(int cible, wchar_t* out, int maxChars)
 {
-    // Le retour a la ligne n'est pas rendu par les infobulles : on separe
-    // par une barre verticale.
     static const wchar_t* SEPARATEUR = L"\n";
 
-    g_listePortee[0] = 0;
-    g_nListePortee = 0;
+    if (!out || maxChars < 2) return 0;
+    out[0] = 0;
+    if (cible < 0 || cible >= g_nExps || !g_exps[cible].valide || g_exps[cible].nEnAttente <= 0) return 0;
 
-    int cible = ExpeditionVisee();
-    if (cible < 0 || !g_exps[cible].valide || g_exps[cible].nEnAttente <= 0) return;
-
-    int pos = 0;
+    int pos = 0, n = 0;
     for (int k = 0; k < g_exps[cible].nEnAttente; ++k) {
         const ApCheck* ac = ApCheckById(g_exps[cible].enAttente[k]->locationId);
         const char* s = ac ? ac->description : "(inconnu)";
 
-        if (g_nListePortee > 0)
-            for (int j = 0; SEPARATEUR[j] && pos < 510; ++j)
-                g_listePortee[pos++] = SEPARATEUR[j];
+        if (n > 0)
+            for (int j = 0; SEPARATEUR[j] && pos < maxChars - 2; ++j)
+                out[pos++] = SEPARATEUR[j];
 
-        for (int j = 0; s[j] && pos < 511; ++j)
-            g_listePortee[pos++] = (wchar_t)(unsigned char)s[j];
+        for (int j = 0; s[j] && pos < maxChars - 1; ++j)
+            out[pos++] = (wchar_t)(unsigned char)s[j];
 
-        g_nListePortee++;
+        n++;
     }
-    g_listePortee[pos] = 0;
+    out[pos] = 0;
+    return n;
+}
+
+// Expedition dont la liste de droite remplit l'inventaire en ce moment
+// (hook de FUN_141c2b6e0, groupes.cpp, thread du jeu). La traduction de
+// "@Resources/Names/AP_Item" faite pendant ce remplissage donne le texte de
+// l'infobulle de la case : elle doit viser CETTE expedition, pas celle
+// survolee ou selectionnee sur la carte.
+static int g_expAffichee = -1;
+
+void ScootingExpeditionAffichee(uintptr_t comp)
+{
+    g_expAffichee = -1;
+    if (!comp) return;
+    for (int i = 0; i < g_nExps; ++i)
+        if (g_exps[i].valide && g_exps[i].comp == comp) { g_expAffichee = i; return; }
+}
+
+int ScootingListePourAffichage(wchar_t* out, int maxChars, int* exp)
+{
+    if (exp) *exp = -1;
+    if (g_expAffichee >= 0) {
+        int n = ConstruireListePortee(g_expAffichee, out, maxChars);
+        if (n > 0 && exp) *exp = g_expAffichee;
+        return n;
+    }
+    return ScootingListePortee(out, maxChars);
+}
+
+// Recalcule la liste. Appelee une fois par tick, jamais depuis hkTranslate.
+static void MettreAJourListePortee()
+{
+    g_nListePortee = ConstruireListePortee(ExpeditionVisee(), g_listePortee, 512);
 
     // Trace a chaque changement : les sauts de ligne deviennent des '/'
     // pour rester sur une seule ligne de console.
@@ -1148,7 +1253,61 @@ static int ExpeditionVisee()
     return -1;
 }
 
+// ---------------------------------------------------------------------------
+// DEBUG : trajets d'expedition courts (demande de l'auteur, 2026-11-01, pour
+// atteindre vite les Londoniens d'une partie neuve). FUN_1418a0a60(systeme,
+// entite, composant, cible) = envoyer une expedition vers une cible
+// (frostpunkexpeditionsystem.cpp ; aller et retour) : destination puis
+// FUN_1418853b0 -> FUN_141885250, qui pose dans le LinearMovementComponent
+// +0x50 la date de depart (= maintenant) et +0x58 la date d'arrivee. Apres
+// l'original, la date d'arrivee est ramenee a depart + EXPEDITIONS_DUREE_H
+// si le trajet est plus long. A REMETTRE a false hors debug.
+// ---------------------------------------------------------------------------
+static const bool   EXPEDITIONS_RAPIDES = true;
+static const double EXPEDITIONS_DUREE_H = 0.25;   // 15 minutes de jeu
 
+typedef void (*EnvoyerExpedition_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
+static EnvoyerExpedition_t oEnvoyerExpedition = nullptr;
 
+static void hkEnvoyerExpedition(uintptr_t sys, uintptr_t entite, uintptr_t comp, uintptr_t cible)
+{
+    oEnvoyerExpedition(sys, entite, comp, cible);
+    if (!EXPEDITIONS_RAPIDES || entite <= 0x10000) return;
 
+    typedef uintptr_t (*MouvementDe_t)(uintptr_t, uintptr_t);
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
+    MouvementDe_t mouvementDe = (MouvementDe_t)(base + 0x1884960);
+    uintptr_t sysMouv = 0;
+    int32_t secParHeure = 0;
+    if (!SafeRead((void*)(base + 0x409AC18), &sysMouv, 8) || sysMouv <= 0x10000) return;
+    if (!SafeRead((void*)(base + 0x2C38FF0), &secParHeure, 4) || secParHeure <= 0) return;
+
+    uintptr_t mouv = mouvementDe(sysMouv, entite);
+    int64_t depart = 0, arrivee = 0;
+    if (mouv <= 0x10000
+        || !SafeRead((void*)(mouv + 0x50), &depart, 8)
+        || !SafeRead((void*)(mouv + 0x58), &arrivee, 8)) {
+        printf("[EXP] debug : mouvement illisible (entite 0x%llX)\n", (unsigned long long)entite);
+        return;
+    }
+    const double ticksParHeure = (double)secParHeure * 2147483648.0;
+    int64_t courte = depart + (int64_t)(EXPEDITIONS_DUREE_H * ticksParHeure);
+    double heures = (double)(arrivee - depart) / ticksParHeure;
+    if (arrivee > courte) {
+        SafeWrite((void*)(mouv + 0x58), &courte, 8);
+        printf("[EXP] debug : trajet %.2f h -> %.2f h (cible 0x%llX)\n",
+               heures, EXPEDITIONS_DUREE_H, (unsigned long long)cible);
+    } else {
+        printf("[EXP] debug : trajet %.2f h garde (deja court)\n", heures);
+    }
+}
+
+void InstallHooksExpeditions(uintptr_t modBase)
+{
+    void* p = (void*)(modBase + 0x18A0A60);
+    bool ok = MH_CreateHook(p, (void*)&hkEnvoyerExpedition, (void**)&oEnvoyerExpedition) == MH_OK
+           && MH_EnableHook(p) == MH_OK;
+    printf("[EXP] hook envoi d'expedition (+18A0A60) %s%s\n", ok ? "OK" : "KO",
+           EXPEDITIONS_RAPIDES ? " - DEBUG trajets de 15 min" : "");
+}
 

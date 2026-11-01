@@ -29,6 +29,11 @@
 #include "groupes.h"
 #include "evenements.h"
 #include "dilemmes_ap.h"
+#include "lois.h"
+#include "lois_ap.h"
+#include "menu_ap.h"
+#include "temperature.h"
+#include "quetes.h"
 
 #include <io.h>
 #include <fcntl.h>
@@ -180,6 +185,12 @@ DWORD WINAPI PayloadThread(LPVOID)
 	InstallHooksEvenements(modBase);
 	InstallTraceArchives(modBase);
 	InstallTracePopups(modBase);
+	InstallTraceChargement(modBase);
+	InstallHooksLoisAP(modBase);
+	InstallHooksTemperature(modBase);   // montees de temperature Archipelago
+	InstallHooksQuetes(modBase);        // trace des demarrages de quete
+	InstallHooksExpeditions(modBase);   // DEBUG : trajets d'expedition de 15 min
+	InstallMenuAP(modBase);   // ecran de connexion Archipelago du menu principal
 
 
 	ApChargerChecksDeTest();
@@ -197,16 +208,21 @@ DWORD WINAPI PayloadThread(LPVOID)
 	while (true) {		
 		if (ToucheAppuyee(VK_F4) & 1) {
 			printf("[F4] appui detecte\n");
-			ResetSeenKeys();
+			// Releve des lois : arbres, prerequis, reglages des scenarios.
+			// (Remplace ResetSeenKeys, reste de l'ancienne fenetre de releve
+			// des cles.)
+			LoisDemanderReleve();   // execute sur le thread du jeu (hors pause)
 			printf("[F4] End\n");
 
 		}
 
 		if (ToucheAppuyee(VK_F5) & 1) {
 			printf("[F5] appui detecte\n");
-			BaselineKeys(10000);			
+			// Test des lois AP : un item progressif pour l'arbre de la loi
+			// en attente la plus ancienne (remplace BaselineKeys, reste de
+			// l'ancienne fenetre de releve des cles).
+			LoisAPDemanderTest();   // execute sur le thread du jeu (hors pause)
 			printf("[F5] End\n");
-			
 		}
 		if (ToucheAppuyee(VK_F6) & 1) {
 			printf("[F6] appui detecte\n");
@@ -228,15 +244,19 @@ DWORD WINAPI PayloadThread(LPVOID)
 
 		if (ToucheAppuyee(VK_F8) & 1) {
 			printf("[F8] appui detecte\n");
-			// Test : rapprocher le premier groupe de survivants de la ville
-			// (l'ancien bilan des captures, valide, a ete retire de F8).
-			GroupesDemanderRapprochement();
+			// Test : un item "Temperature rise" de 1 niveau (+10 degres).
+			// Remplace le rapprochement du premier groupe (valide), sur
+			// decision de l'auteur (2026-11-01).
+			ReceiveTemperatureRise(1, "Test F8");
 			printf("[F8] End\n");
 		}
 
 		if (ToucheAppuyee(VK_F9) & 1) {
 			printf("[F9] appui detecte\n");
-			DiagGroupes();
+			// Releve des quetes (repertoires, quetes, objectifs, effets,
+			// evenements), sur le thread du jeu. Le releve de temperature,
+			// exploite, n'est plus lie a une touche (2026-11-01).
+			QuetesDemanderReleve();
 			printf("[F9] End\n");
 		}
 
@@ -266,6 +286,7 @@ DWORD WINAPI PayloadThread(LPVOID)
 			CHRONO(EnsureResSelf());
 			CHRONO(PartieTick());          // chargements + references globales
 			CHRONO(CaptureRunState());
+			CHRONO(TechPersistanceTick()); // technos : sauvegarde locale de la partie
 			CHRONO(ScootingTick());
 			CHRONO(SurveillerArbreTechno());
 		}

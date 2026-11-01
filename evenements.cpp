@@ -318,6 +318,10 @@ void ReleverEvenement(uintptr_t entree)
     }
 }
 
+// Nom de l'evenement en cours d'execution (thread du jeu), pour les journaux
+// d'autres modules (ex. quete demarree par un evenement, quetes.cpp).
+char g_nomEvtEnCours[128] = "";
+
 void hkInvoquerEvenement(uintptr_t sys, uintptr_t entree, uintptr_t contexte, uintptr_t forcer)
 {
     char nom[128] = "?";
@@ -340,9 +344,15 @@ void hkInvoquerEvenement(uintptr_t sys, uintptr_t entree, uintptr_t contexte, ui
     // survivants secourus) : on retient l'entite de l'evenement exterieur.
     int avant = g_suivieEnCours;
     if (suivie) g_suivieEnCours = indice;
+    char nomAvant[128];
+    strcpy_s(nomAvant, g_nomEvtEnCours);
+    strcpy_s(g_nomEvtEnCours, nom);
     g_origInvoquer(sys, entree, contexte, forcer);
+    strcpy_s(g_nomEvtEnCours, nomAvant);
     g_suivieEnCours = avant;
 }
+
+void SauverBulleGroupe(int id, uintptr_t copie);   // sauvegarde AP des bulles (plus bas)
 
 // Hook de FUN_1417cde10(systeme des dilemmes, dilemme, contexte, p4) =
 // creer un dilemme (bulle). Renvoie l'identifiant du dilemme ou -1.
@@ -361,6 +371,9 @@ uintptr_t hkCreerDilemme(uintptr_t sys, uintptr_t dilemme, uintptr_t contexte, u
         titre, i >= 0 ? "oui" : "non");
     uintptr_t r = g_origCreerDilemme(sys, cree, contexte, p4);
     printf("[DIL]   -> %lld\n", (long long)(int32_t)r);
+    // Bulle d'arrivee d'un groupe AP : la sauvegarde du jeu la relirait comme
+    // l'original (meme GUID) ; on garde ses textes dans notre sauvegarde.
+    if (remplace && (int32_t)r >= 0) SauverBulleGroupe((int32_t)r, remplace);
     return r;
 }
 
@@ -407,7 +420,8 @@ const uint8_t GUID_SURVIVANTS[16] = {
 struct PiegeSuivi {
     bool  actif;
     int   id;                 // identifiant du dilemme dans le systeme (-2 : resolu)
-    const DilemmeAP* def;
+    const DilemmeAP* def;     // nullptr : bulle d'arrivee de groupe rechargee (pas d'effet AP)
+    uintptr_t clone;          // notre copie du dilemme
     char  titre[128];
     char  sousTitre[64];      // sous-titre d'arc (+0xE0), "New Arrivals" sinon
     char  texte[1024];
@@ -416,6 +430,92 @@ struct PiegeSuivi {
 };
 PiegeSuivi        g_pieges[MAX_PIEGES] = {};
 ResoudreDilemme_t g_origResoudre = nullptr;
+
+// --- Sauvegarde AP des bulles (2026-10-29) -----------------------------------
+// Une bulle AP en attente est sauvegardee par le jeu avec le GUID de
+// l'original ("Survivors group") : au chargement, c'est l'original qui
+// revient (textes et effets du jeu, plus de perte de piege). Decompile de
+// FUN_1417cde10 : dilemmes actifs en systeme +0x21A0 (compte +0x21A8),
+// enregistrements de 0x90 : +0x00 id (compteur du systeme +0x2198,
+// sauvegarde), +0x10 entree du dilemme, +0x20 contexte, +0x78 date
+// d'expiration, +0x80 marqueur. Le couple (id, expiration) identifie la bulle.
+// Fichier mods\ap_dilemmes.txt, jamais efface :
+//   P <id> <expiration 16 hex>\t<id du catalogue>            (piege)
+//   G <id> <expiration 16 hex>\t<titre>\t<texte>\t<choix>    (arrivee de groupe)
+constexpr int SYS_DIL_ACTIFS  = 0x21A0;
+constexpr int ENR_DIL_TAILLE  = 0x90;
+constexpr int ENR_DIL_ENTREE  = 0x10;
+constexpr int ENR_DIL_EXPIRE  = 0x78;
+
+bool CheminFichierBulles(char* out, size_t taille)
+{
+    char base[MAX_PATH] = {};
+    if (!GetModuleFileNameA(nullptr, base, MAX_PATH)) return false;
+    for (int i = (int)strlen(base) - 1; i >= 0; --i)
+        if (base[i] == '\\') { base[i + 1] = 0; break; }
+    _snprintf_s(out, taille, _TRUNCATE, "%smods\\ap_dilemmes.txt", base);
+    return true;
+}
+
+// Enregistrement du dilemme actif 'id', ou 0.
+uintptr_t EnregistrementDilemme(int id)
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    uintptr_t sys = 0, tab = 0;
+    int32_t n = 0;
+    if (!SafeRead((void*)(base + OFF_SYSTEME_DILEMMES), &sys, 8) || !sys ||
+        !SafeRead((void*)(sys + SYS_DIL_ACTIFS), &tab, 8) || !SafeRead((void*)(sys + SYS_DIL_ACTIFS + 8), &n, 4) ||
+        !tab || n <= 0 || n > 256) return 0;
+    for (int i = 0; i < n; ++i) {
+        int32_t v = 0;
+        if (SafeRead((void*)(tab + (uintptr_t)i * ENR_DIL_TAILLE), &v, 4) && v == id) return tab + (uintptr_t)i * ENR_DIL_TAILLE;
+    }
+    return 0;
+}
+
+void EcrireChampBulle(FILE* f, const char* t)
+{
+    fputc('\t', f);
+    for (; t && *t; ++t) fputc((*t == '\t' || *t == '\r' || *t == '\n') ? ' ' : *t, f);
+}
+
+// type 'P' : a = id du catalogue ; type 'G' : a = titre, b = texte, c = choix.
+void SauverBulle(char type, int id, const char* a, const char* b, const char* c)
+{
+    uintptr_t enr = EnregistrementDilemme(id);
+    int64_t expire = 0;
+    if (!enr || !SafeRead((void*)(enr + ENR_DIL_EXPIRE), &expire, 8)) {
+        printf("[DIL] sauvegarde de la bulle %d impossible (enregistrement 0x%llX)\n", id, (unsigned long long)enr);
+        return;
+    }
+    char chemin[MAX_PATH];
+    FILE* f = nullptr;
+    if (!CheminFichierBulles(chemin, sizeof(chemin)) || fopen_s(&f, chemin, "a") != 0 || !f) {
+        printf("[DIL] ecriture de mods\\ap_dilemmes.txt impossible\n");
+        return;
+    }
+    fprintf(f, "%c %d %016llX", type, id, (unsigned long long)expire);
+    EcrireChampBulle(f, a);
+    if (type == 'G') { EcrireChampBulle(f, b); EcrireChampBulle(f, c); }
+    fputc('\n', f);
+    fclose(f);
+    printf("[DIL] bulle %d (%c) enregistree, expiration 0x%llX\n", id, type, (unsigned long long)expire);
+}
+
+// Bulle d'arrivee d'un groupe AP : textes du slot du groupe, lus d'apres la
+// cle de titre de la copie ("@AP/Groupe/<slot>/T").
+void SauverBulleGroupe(int id, uintptr_t copie)
+{
+    uintptr_t cle = 0;
+    char k[64] = "";
+    if (!SafeRead((void*)(copie + DIL_TITRE), &cle, 8) || !TexteDe(cle, k, sizeof(k)) ||
+        strncmp(k, "@AP/Groupe/", 11)) return;
+    int slot = atoi(k + 11);
+    const char* t = GroupeTexte(slot, 'T');
+    const char* x = GroupeTexte(slot, 'X');
+    const char* ch = GroupeTexte(slot, 'C');
+    SauverBulle('G', id, t ? t : "", x ? x : "", ch ? ch : "");
+}
 
 // Tableau dynamique vide (ptr, compte, capacite a 0) : l'entree copiee
 // n'execute plus les effets de l'original.
@@ -579,6 +679,8 @@ int DilemmeAPCreer(const DilemmeAP& def)
     printf("[DIL] dilemme \"%s\" slot %d \"%s\" : dilemme id %d\n", def.id, slot, p.titre, id);
     if (id < 0) { p.actif = false; return -1; }
     p.id = id;
+    p.clone = d;
+    SauverBulle('P', id, def.id, nullptr, nullptr);
     return id;
 }
 
@@ -612,11 +714,233 @@ uintptr_t hkResoudreDilemme(uintptr_t sys, uintptr_t id, uintptr_t choix, uintpt
 
     PiegeSuivi& p = g_pieges[slot];
     bool ignore = c < 0 || c >= p.nChoix;
-    AppliquerChoixPiege(p, ignore ? p.choixSiIgnore : c, ignore);
+    if (p.def) AppliquerChoixPiege(p, ignore ? p.choixSiIgnore : c, ignore);
+    else printf("[DIL] bulle de groupe rechargee \"%s\" resolue (effets du jeu)\n", p.titre);
     // Le slot reste actif (le panneau peut encore traduire ses textes) mais
     // plus aucune resolution ne le vise ; il est reutilisable.
     p.id = -2;
     return r;
+}
+
+// --- Recollage des bulles AP au chargement (2026-10-29) -----------------------
+struct LigneBulle { char type; char a[1024]; char b[1024]; char c[128]; };
+bool g_bullesReinit = false;   // slots des pieges remis a zero pour ce chargement
+
+void ChampBulle(const char* ligne, int n, char* out, size_t taille)
+{
+    const char* p = strchr(ligne, '\t');
+    for (int i = 0; p && i < n; ++i) p = strchr(p + 1, '\t');
+    out[0] = 0;
+    if (!p) return;
+    ++p;
+    size_t k = 0;
+    while (p[k] && p[k] != '\t' && p[k] != '\n' && p[k] != '\r' && k + 1 < taille) { out[k] = p[k]; ++k; }
+    out[k] = 0;
+}
+
+// Ligne (la derniere) de la bulle (id, expiration) dans notre sauvegarde.
+bool ChercherBulle(int id, int64_t expire, LigneBulle& out)
+{
+    char chemin[MAX_PATH];
+    FILE* f = nullptr;
+    if (!CheminFichierBulles(chemin, sizeof(chemin)) || fopen_s(&f, chemin, "r") != 0 || !f) return false;
+    static char ligne[4096];
+    char suffixe[48];
+    _snprintf_s(suffixe, sizeof(suffixe), _TRUNCATE, " %d %016llX\t", id, (unsigned long long)expire);
+    bool ok = false;
+    while (fgets(ligne, sizeof(ligne), f)) {
+        if ((ligne[0] != 'P' && ligne[0] != 'G') || strncmp(ligne + 1, suffixe, strlen(suffixe))) continue;
+        out.type = ligne[0];
+        ChampBulle(ligne, 0, out.a, sizeof(out.a));
+        ChampBulle(ligne, 1, out.b, sizeof(out.b));
+        ChampBulle(ligne, 2, out.c, sizeof(out.c));
+        ok = true;
+    }
+    fclose(f);
+    return ok;
+}
+
+// Table des occurrences du systeme des dilemmes (+0x21B8 : hachage indexe par
+// l'ADRESSE de l'entree, elements de 0x38 = {entree, date, compte, ...}).
+// FUN_1417cde10 y inscrit l'entree creee ; FUN_1417d40c0 (resolution) l'y
+// cherche et prend l'element SANS verifier l'index (-1 -> lecture hors du
+// tableau). Test du 2026-10-29 : plantage au clic sur un choix d'un piege
+// recharge, car la table du chargement porte l'entree d'origine et non notre
+// copie. On inscrit donc la copie, comme le fait la creation :
+// FUN_1417cfc40(table, &entree) = chercher (-1 si absente),
+// FUN_1417d16d0(table, &valeur) = inserer, valeur = {entree, DAT_142c2fca8,
+// 0, 0, 0, 0}.
+typedef int(*ChercherOccurrence_t)(uintptr_t table, const uint64_t* cle);
+typedef int(*InsererOccurrence_t)(uintptr_t table, const uint64_t* valeur);
+constexpr uintptr_t OFF_CHERCHER_OCCURRENCE = 0x17CFC40;
+constexpr uintptr_t OFF_INSERER_OCCURRENCE  = 0x17D16D0;
+constexpr uintptr_t OFF_DATE_NULLE          = 0x2C2FCA8;
+constexpr int       SYS_DIL_OCCURRENCES     = 0x21B8;
+
+bool InscrireOccurrence(uintptr_t sys, uintptr_t entree)
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    uint64_t valeur[6] = { entree, 0, 0, 0, 0, 0 };
+    SafeRead((void*)(base + OFF_DATE_NULLE), &valeur[1], 8);
+    int trouve = -1, insere = -1;
+    __try {
+        trouve = ((ChercherOccurrence_t)(base + OFF_CHERCHER_OCCURRENCE))(sys + SYS_DIL_OCCURRENCES, valeur);
+        if (trouve < 0) insere = ((InsererOccurrence_t)(base + OFF_INSERER_OCCURRENCE))(sys + SYS_DIL_OCCURRENCES, valeur);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        JournalImmediat("[DIL] EXCEPTION 0x%08lX a l'inscription de l'entree 0x%llX\n", GetExceptionCode(),
+            (unsigned long long)entree);
+        return false;
+    }
+    printf("[DIL]   table des occurrences : entree 0x%llX %s (index %d)\n", (unsigned long long)entree,
+        trouve >= 0 ? "deja inscrite" : "inscrite", trouve >= 0 ? trouve : insere);
+    return trouve >= 0 || insere >= 0;
+}
+
+// Pour chaque dilemme actif present dans notre sauvegarde : un slot, notre
+// copie (piege : reconstruite depuis le catalogue ; arrivee de groupe :
+// copie de "Survivors group" avec ses textes), posee dans l'enregistrement
+// (+0x10) a la place de l'original. Thread du jeu.
+void RecollerBulles(const char* quand)
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    uintptr_t sys = 0, tab = 0;
+    int32_t n = 0;
+    if (!SafeRead((void*)(base + OFF_SYSTEME_DILEMMES), &sys, 8) || !sys ||
+        !SafeRead((void*)(sys + SYS_DIL_ACTIFS), &tab, 8) || !SafeRead((void*)(sys + SYS_DIL_ACTIFS + 8), &n, 4) ||
+        !tab || n <= 0 || n > 256) return;
+    if (!g_bullesReinit) { memset(g_pieges, 0, sizeof(g_pieges)); g_bullesReinit = true; }
+    int recollees = 0;
+    for (int i = 0; i < n; ++i) {
+        uintptr_t enr = tab + (uintptr_t)i * ENR_DIL_TAILLE, entree = 0;
+        int32_t id = 0;
+        int64_t expire = 0;
+        if (!SafeRead((void*)enr, &id, 4) || !SafeRead((void*)(enr + ENR_DIL_ENTREE), &entree, 8) ||
+            !SafeRead((void*)(enr + ENR_DIL_EXPIRE), &expire, 8)) continue;
+        bool deja = false;
+        for (const PiegeSuivi& p : g_pieges) if (p.actif && p.clone && p.clone == entree) deja = true;
+        LigneBulle L = {};
+        if (deja || !ChercherBulle(id, expire, L)) continue;
+
+        int slot = -1;
+        for (int s = 0; s < MAX_PIEGES && slot < 0; ++s) if (!g_pieges[s].actif || g_pieges[s].id == -2) slot = s;
+        if (slot < 0) { printf("[DIL] (%s) plus de slot pour la bulle %d\n", quand, id); break; }
+        PiegeSuivi& p = g_pieges[slot];
+        memset(&p, 0, sizeof(p));
+        uintptr_t d = 0;
+        if (L.type == 'P') {
+            const DilemmeAP* def = DilemmeAPParId(L.a);
+            if (!def) { printf("[DIL] (%s) bulle %d : \"%s\" absent du catalogue\n", quand, id, L.a); continue; }
+            int nChoix = 0;
+            while (nChoix < MAX_CHOIX_DILEMME_AP && def->choix[nChoix].texte) ++nChoix;
+            p.def = def;
+            strncpy_s(p.titre, def->titre ? def->titre : "", _TRUNCATE);
+            strncpy_s(p.texte, def->texte ? def->texte : "", _TRUNCATE);
+            strncpy_s(p.sousTitre, def->sousTitre ? def->sousTitre : "Archipelago", _TRUNCATE);
+            p.nChoix = nChoix;
+            p.choixSiIgnore = (def->choixSiIgnore >= 0 && def->choixSiIgnore < nChoix) ? def->choixSiIgnore : 0;
+            for (int c = 0; c < nChoix; ++c) strncpy_s(p.choix[c], def->choix[c].texte, _TRUNCATE);
+            p.actif = true;
+            d = ConstruirePiege(slot, nChoix, def->icone);
+        }
+        else {
+            strncpy_s(p.titre, L.a, _TRUNCATE);
+            strncpy_s(p.texte, L.b, _TRUNCATE);
+            strncpy_s(p.choix[0], L.c, _TRUNCATE);
+            p.nChoix = 1;
+            p.actif = true;
+            char kT[32], kX[32], kC[32];
+            snprintf(kT, sizeof(kT), "@AP/Dil/%d/T", slot);
+            snprintf(kX, sizeof(kX), "@AP/Dil/%d/X", slot);
+            snprintf(kC, sizeof(kC), "@AP/Dil/%d/C0", slot);
+            d = DilemmeCloner(DilemmeParGuid(GUID_SURVIVANTS), kT, kX, kC);
+        }
+        if (!d) { printf("[DIL] (%s) bulle %d : copie impossible\n", quand, id); memset(&p, 0, sizeof(p)); continue; }
+        // La copie doit etre connue de la table des occurrences AVANT d'etre
+        // posee : sinon la resolution lit hors du tableau.
+        if (!InscrireOccurrence(sys, d)) {
+            printf("[DIL] (%s) bulle %d : inscription impossible, bulle laissee au jeu\n", quand, id);
+            memset(&p, 0, sizeof(p));
+            continue;
+        }
+        SafeWrite((void*)(enr + ENR_DIL_ENTREE), &d, 8);
+        p.id = id;
+        p.clone = d;
+        ++recollees;
+        printf("[DIL] (%s) bulle %d recollee dans le slot %d : %s \"%s\" (entree 0x%llX -> 0x%llX)\n", quand, id, slot,
+            L.type == 'P' ? "piege" : "arrivee de groupe", p.titre, (unsigned long long)entree, (unsigned long long)d);
+    }
+    printf("[DIL] (%s) %d dilemme(s) actif(s), %d bulle(s) AP recollee(s)\n", quand, n, recollees);
+}
+
+// --- Icone de la bulle d'un piege recharge (2026-10-29) ----------------------
+// La bulle en ville est dessinee par FrostpunkUIDillemaTracker (vtable
+// 0x142217550). Sa mise a jour FUN_141c19460(tracker) ne pose l'icone QU'UNE
+// FOIS (drapeau tracker +0x80) : marqueur = *(tracker +0x28) -> indice du
+// dilemme FUN_1417cfbf0(systeme, marqueur) -> entree FUN_1417cfd70(systeme,
+// indice) -> tuile entree +0x238 (si drapeau +0x230) posee sur l'image
+// **(tracker +0x60) par FUN_141a33780(image, tuile). Au chargement, ce passage
+// a lieu avant notre recollage (entree d'origine) et ne se refait jamais. On
+// repose donc la tuile une fois pour chaque tracker dont l'entree est une de
+// nos copies de piege.
+typedef uintptr_t(*MajTrackerDilemme_t)(uintptr_t tracker);
+typedef int(*IndiceDilemmeMarqueur_t)(uintptr_t sys, uintptr_t marqueur);
+typedef uintptr_t(*EntreeDilemmeIndice_t)(uintptr_t sys, int indice);
+typedef void(*PoserTuileImage_t)(uintptr_t image, uintptr_t tuile);
+constexpr uintptr_t OFF_MAJ_TRACKER_DILEMME = 0x1C19460;
+constexpr uintptr_t OFF_INDICE_MARQUEUR     = 0x17CFBF0;
+constexpr uintptr_t OFF_ENTREE_INDICE       = 0x17CFD70;
+constexpr uintptr_t OFF_POSER_TUILE_IMAGE   = 0x1A33780;
+constexpr int       TRACKER_MARQUEUR        = 0x28;
+constexpr int       TRACKER_IMAGE           = 0x60;
+constexpr int       TRACKER_ICONE_POSEE     = 0x80;
+MajTrackerDilemme_t g_origMajTracker = nullptr;
+uintptr_t           g_trackersCorriges[32] = {};
+int                 g_nTrackersCorriges = 0;
+
+uintptr_t hkMajTrackerDilemme(uintptr_t tracker)
+{
+    uintptr_t r = g_origMajTracker(tracker);
+    uint8_t posee = 0;
+    if (!SafeRead((void*)(tracker + TRACKER_ICONE_POSEE), &posee, 1) || !posee) return r;
+    for (int i = 0; i < g_nTrackersCorriges && i < 32; ++i) if (g_trackersCorriges[i] == tracker) return r;
+    bool aPiege = false;
+    for (const PiegeSuivi& p : g_pieges) if (p.actif && p.def && p.clone) aPiege = true;
+    if (!aPiege) return r;
+
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    uintptr_t sys = 0, poignee = 0, marqueur = 0, poigneeImg = 0, image = 0, entree = 0;
+    __try {
+        if (!SafeRead((void*)(base + OFF_SYSTEME_DILEMMES), &sys, 8) || !sys ||
+            !SafeRead((void*)(tracker + TRACKER_MARQUEUR), &poignee, 8) || !poignee ||
+            !SafeRead((void*)poignee, &marqueur, 8) || !marqueur) return r;
+        int indice = ((IndiceDilemmeMarqueur_t)(base + OFF_INDICE_MARQUEUR))(sys, marqueur);
+        if (indice < 0) return r;
+        entree = ((EntreeDilemmeIndice_t)(base + OFF_ENTREE_INDICE))(sys, indice);
+        bool notre = false;
+        for (const PiegeSuivi& p : g_pieges) if (p.actif && p.def && p.clone && p.clone == entree) notre = true;
+        if (!notre) return r;
+        uint8_t drapeau = 0;
+        if (!SafeRead((void*)(entree + DIL_IMAGE_MARQUEUR), &drapeau, 1) || !drapeau ||
+            !SafeRead((void*)(tracker + TRACKER_IMAGE), &poigneeImg, 8) || !poigneeImg ||
+            !SafeRead((void*)poigneeImg, &image, 8) || !image) return r;
+        ((PoserTuileImage_t)(base + OFF_POSER_TUILE_IMAGE))(image, entree + DIL_TUILE_MARQUEUR);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        JournalImmediat("[DIL] EXCEPTION 0x%08lX a la correction de l'icone d'une bulle\n", GetExceptionCode());
+        return r;
+    }
+    g_trackersCorriges[g_nTrackersCorriges++ % 32] = tracker;
+    printf("[DIL] icone de la bulle reposee (tracker 0x%llX, entree 0x%llX)\n", (unsigned long long)tracker,
+        (unsigned long long)entree);
+    return r;
+}
+
+void DilemmesAPChargement(int etape)
+{
+    if (etape == 0) { g_bullesReinit = false; return; }
+    RecollerBulles(etape == 1 ? "fin de la lecture" : "sortie de LoadGame");
+    if (etape == 2) g_bullesReinit = false;
 }
 
 void InstallHooksEvenements(uintptr_t modBase)
@@ -634,4 +958,8 @@ void InstallHooksEvenements(uintptr_t modBase)
     bool okR = MH_CreateHook(resoudre, (void*)&hkResoudreDilemme, (void**)&g_origResoudre) == MH_OK &&
                MH_EnableHook(resoudre) == MH_OK;
     printf("[DIL] hook resolution de dilemme (+%llX) %s\n", (unsigned long long)OFF_RESOUDRE_DILEMME, okR ? "OK" : "KO");
+    void* tracker = (void*)(modBase + OFF_MAJ_TRACKER_DILEMME);
+    bool okT = MH_CreateHook(tracker, (void*)&hkMajTrackerDilemme, (void**)&g_origMajTracker) == MH_OK &&
+               MH_EnableHook(tracker) == MH_OK;
+    printf("[DIL] hook mise a jour d'une bulle (+%llX) %s\n", (unsigned long long)OFF_MAJ_TRACKER_DILEMME, okT ? "OK" : "KO");
 }

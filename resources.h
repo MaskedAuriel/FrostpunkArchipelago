@@ -21,6 +21,9 @@ bool Res_Add(const char* name, int delta);
 // inconnue.
 uintptr_t Res_Definition(const char* name);
 
+// GUID (16 octets, ordre memoire) d'une ressource connue. false si inconnue.
+bool Res_Guid(const char* name, uint8_t* out16);
+
 // A appeler a chaque chargement de partie : les contextes captures deviennent faux.
 void Res_OublierContextes();
 

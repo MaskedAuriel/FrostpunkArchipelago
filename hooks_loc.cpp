@@ -1,5 +1,6 @@
 // hooks_loc.cpp
 #include "hooks_loc.h"
+#include "lois.h"
 #include "tech_state.h"
 #include "tech_runtime.h"
 #include "MinHook.h"
@@ -310,6 +311,7 @@ static uintptr_t hkTranslate(uintptr_t loc, const char* key,
     char k[256] = { 0 };
     if (!SafeRead((void*)key, k, sizeof(k) - 1)) return ret;
     const char* kp = (k[0] == '@') ? k + 1 : k;
+    LoisNoterTraduction(kp, ret);   // noms affiches des lois (F4)
 
     // --- Cles de nos notifications : "AP/Notif/<id>/T" ou ".../D" ----------
     {
@@ -376,8 +378,13 @@ static uintptr_t hkTranslate(uintptr_t loc, const char* key,
     if (StrEqLoc(kp, "Resources/Names/AP_Item")) {
         if (!g_apLocPret || !g_modeleChars) return ret;
 
+        // Pendant le remplissage de la liste de droite, la liste est celle
+        // de l'expedition affichee, dans une chaine propre a cette expedition :
+        // l'infobulle de la case garde la chaine (+1 ref.), une chaine partagee
+        // afficherait le texte de la derniere case remplie.
         static wchar_t liste[512];
-        int nItems = ScootingListePortee(liste, 512);
+        int exp = -1;
+        int nItems = ScootingListePourAffichage(liste, 512, &exp);
         const wchar_t* t = nullptr;
 
         if (nItems > 0) t = liste;
@@ -398,7 +405,8 @@ static uintptr_t hkTranslate(uintptr_t loc, const char* key,
             t = fixe;
         }
 
-        wchar_t* chaine = ApChaine(t, g_modeleChars, 1);
+        int slotChaine = (nItems > 0 && exp >= 0 && exp < 16) ? 4 + exp : 1;
+        wchar_t* chaine = ApChaine(t, g_modeleChars, slotChaine);
         if (!chaine) return ret;
         uintptr_t p = (uintptr_t)chaine;
         memcpy(g_apLoc, &p, 8);
@@ -596,7 +604,7 @@ void DumpClesDilemme(const char* k, uintptr_t ret)
 }
 
 
-static const int AP_SLOTS = 4;
+static const int AP_SLOTS = 4 + 16;   // 0..3 usages fixes, 4..19 item AP par expedition
 
 wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot)
 {

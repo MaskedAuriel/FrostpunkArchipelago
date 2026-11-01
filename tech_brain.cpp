@@ -13,6 +13,8 @@ static int g_sinceBonus = 0;
 
 
 
+static void TechSauver();   // sauvegarde locale (plus bas)
+
 static const char* NameOfHash(uint64_t hash)
 {
     const TechInfo* t = TechByHash(hash);
@@ -40,6 +42,7 @@ void OnResearchComplete(uint64_t hash)
     SyncGameState(r);          // received ? 2 : 0 -> une techno recue RESTE a 2
     printf("[AP] recherche terminee : %s (recu=%d) -> etat %d\n",
            NameOfHash(hash), r->received, r->received ? 2 : 0);
+    TechSauver();
     AP_SendCheck(hash);
 }
 
@@ -123,7 +126,119 @@ bool OnProgressiveReceived(int tree, const char** nomTech)
         g_sinceBonus = 0;
         OnProgressiveReceived(BONUS_TREE);   // silencieux si l'arbre est epuise
     }
+    TechSauver();
     return true;
+}
+
+// --- Sauvegarde locale des technologies (2026-10-29) --------------------------
+// Demande de l'auteur : une sauvegarde LOCALE, prioritaire ; le serveur
+// Archipelago viendra la completer (jamais l'effacer). Un fichier par partie
+// (GameId du systeme de scenario, comme ap_pending_<GameId> des scouts) :
+// mods\ap_technos_<GameId>.txt, reecrit en entier a chaque changement :
+//   T <hash 16 hex> <researched 0|1> <received 0|1>
+//   A <arbre> <progressives recues>
+//   B <progressives depuis le dernier bonus>
+// Cumulatif, comme Archipelago : charger une sauvegarde plus ancienne de la
+// meme partie garde les checks envoyes et les items recus (le serveur ne les
+// reprend pas non plus). Au changement de partie (TechPersistanceTick) :
+// remise a zero, relecture, puis etat du jeu reapplique a chaque techno.
+static SRWLOCK g_verrouTechnos = SRWLOCK_INIT;
+static bool    g_technosPretes = false;   // fichier de la partie courante relu
+
+static bool CheminTechnos(char* out, size_t taille)
+{
+    if (!g_run.valid || (!g_run.gameId[0] && !g_run.gameId[1])) return false;
+    char base[MAX_PATH] = {};
+    if (!GetModuleFileNameA(nullptr, base, MAX_PATH)) return false;
+    for (int i = (int)strlen(base) - 1; i >= 0; --i)
+        if (base[i] == '\\') { base[i + 1] = 0; break; }
+    _snprintf_s(out, taille, _TRUNCATE, "%smods\\ap_technos_%016llX%016llX.txt", base,
+        (unsigned long long)g_run.gameId[1], (unsigned long long)g_run.gameId[0]);
+    return true;
+}
+
+static void TechSauver()
+{
+    // Pas avant d'avoir relu la sauvegarde de la partie : on ecraserait le
+    // fichier d'une partie rechargee par l'etat vide du debut de chargement.
+    if (!g_technosPretes) return;
+    char chemin[MAX_PATH], temp[MAX_PATH + 8];
+    if (!CheminTechnos(chemin, sizeof(chemin))) return;
+    _snprintf_s(temp, sizeof(temp), _TRUNCATE, "%s.tmp", chemin);
+    AcquireSRWLockExclusive(&g_verrouTechnos);
+    FILE* f = nullptr;
+    if (fopen_s(&f, temp, "w") != 0 || !f) {
+        ReleaseSRWLockExclusive(&g_verrouTechnos);
+        printf("[TECH] ecriture de la sauvegarde locale impossible\n");
+        return;
+    }
+    int n = 0;
+    for (int i = 0; i < RT_Count(); ++i) {
+        TechRuntime* r = RT_At(i);
+        if (!r || (!r->researched && !r->received)) continue;
+        fprintf(f, "T %016llX %d %d\n", (unsigned long long)r->hash, r->researched ? 1 : 0, r->received ? 1 : 0);
+        ++n;
+    }
+    for (int t = 0; t < MAX_TREES; ++t) if (g_progressive[t]) fprintf(f, "A %d %d\n", t, g_progressive[t]);
+    fprintf(f, "B %d\n", g_sinceBonus);
+    fclose(f);
+    MoveFileExA(temp, chemin, MOVEFILE_REPLACE_EXISTING);   // remplacement d'un bloc
+    ReleaseSRWLockExclusive(&g_verrouTechnos);
+}
+
+static int TechCharger()
+{
+    char chemin[MAX_PATH];
+    if (!CheminTechnos(chemin, sizeof(chemin))) return -1;
+    FILE* f = nullptr;
+    if (fopen_s(&f, chemin, "r") != 0 || !f) return 0;
+    char ligne[128];
+    int n = 0;
+    while (fgets(ligne, sizeof(ligne), f)) {
+        unsigned long long h = 0;
+        int a = 0, b = 0;
+        if (ligne[0] == 'T' && sscanf_s(ligne + 2, "%llx %d %d", &h, &a, &b) == 3) {
+            TechRuntime* r = RT_Get(h);
+            if (r) { r->researched = a != 0; r->received = b != 0; ++n; }
+        }
+        else if (ligne[0] == 'A' && sscanf_s(ligne + 2, "%d %d", &a, &b) == 2 && a >= 0 && a < MAX_TREES)
+            g_progressive[a] = b;
+        else if (ligne[0] == 'B' && sscanf_s(ligne + 2, "%d", &a) == 1)
+            g_sinceBonus = a;
+    }
+    fclose(f);
+    return n;
+}
+
+// Boucle du mod (tick d'une seconde, apres CaptureRunState) : a chaque
+// nouvelle partie (chargement, autre scenario), l'etat des technos de
+// l'ancienne partie est oublie, celui de la nouvelle relu puis reapplique.
+void TechPersistanceTick()
+{
+    static unsigned generationVue = 0xFFFFFFFF;
+    static uint64_t partieVue[2] = {};
+    unsigned gen = PartieGeneration();
+    if (!PartiePrete() || !g_run.valid || !EnsureTechSelf()) return;
+    if (gen == generationVue && g_run.gameId[0] == partieVue[0] && g_run.gameId[1] == partieVue[1]) return;
+    generationVue = gen;
+    partieVue[0] = g_run.gameId[0];
+    partieVue[1] = g_run.gameId[1];
+
+    g_technosPretes = false;
+    RT_Reset();
+    memset(g_progressive, 0, sizeof(g_progressive));
+    g_sinceBonus = 0;
+    int n = TechCharger();
+    int appliquees = 0;
+    for (int i = 0; i < RT_Count(); ++i) {
+        TechRuntime* r = RT_At(i);
+        if (r && (r->researched || r->received)) { SyncGameState(r); ++appliquees; }
+    }
+    g_technosPretes = true;
+    printf("[TECH] partie %016llX%016llX (generation %u) : %s, %d techno(s) reappliquee(s)\n",
+        (unsigned long long)g_run.gameId[1], (unsigned long long)g_run.gameId[0], gen,
+        n < 0 ? "identifiant de partie absent" : n == 0 ? "aucune sauvegarde locale (nouvelle partie)" : "sauvegarde locale relue",
+        appliquees);
 }
 
 // Un arbre progressif non epuise du scenario courant, au hasard (-1 si aucun).

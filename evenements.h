@@ -11,6 +11,9 @@
 // Au demarrage : hook de l'invocation d'un evenement (FUN_1417b9b70).
 void InstallHooksEvenements(uintptr_t modBase);
 
+// Nom de l'evenement en cours d'execution (vide hors evenement ; thread du jeu).
+extern char g_nomEvtEnCours[128];
+
 // Thread du jeu : les evenements invoques avec cette entite pour contexte
 // sont releves en detail (effets, dilemme, choix). 16 entites au plus.
 void EvenementsSuivreEntite(uintptr_t entite);
@@ -39,6 +42,12 @@ const char* DilemmePiegeTexte(int slot, char champ, int indice);
 // entree 2350) : texture et nombre de cases repris du marqueur de
 // "Survivors group". false si indisponible.
 bool TuileAtlasBulles(const char* icone, uint8_t* tuile);
+
+// Sauvegarde AP des bulles (mods\ap_dilemmes.txt), thread du jeu, appelee par
+// les hooks du chargement (mod_common) : 0 = entree de LoadGame, 1 = fin de
+// la lecture de la sauvegarde, 2 = sortie de LoadGame. Les bulles AP en
+// attente recoivent de nouveau notre copie (textes, icone, effets AP).
+void DilemmesAPChargement(int etape);
 
 // Dilemme du jeu par son lien (GUID de 16 octets), ou 0.
 uintptr_t DilemmeParGuid(const uint8_t* guid);

@@ -11,6 +11,12 @@ struct SitePayload {
 
 // Trace verbeuse (une ligne par expedition et par tour).
 int ScootingListePortee(wchar_t* out, int maxChars);
+// Liste de droite (groupes.cpp, hook du remplissage de l'inventaire) :
+// expedition dont la case est en cours de remplissage, 0 apres.
+void ScootingExpeditionAffichee(uintptr_t comp);
+// Liste pour la traduction de l'item AP : expedition affichee si elle est
+// posee (*exp = son indice, 0..15), sinon liste du tick (*exp = -1).
+int ScootingListePourAffichage(wchar_t* out, int maxChars, int* exp);
 int ExpeditionSelectionnee();
 
 void ScootingInit();        // objets du scouting ; appele par le tick a chaque nouvelle partie
@@ -20,6 +26,11 @@ int  ScootingLocationPourCleSite(const char* cle);
 void ScootingAppliquerTresors();
 void ScootingSubstituerContenuSites();
 void ScootingChargerEnAttente();
+
+// Thread du jeu, sortie de FrostpunkGame::LoadGame (hook de mod_common) :
+// cargaisons a definition morte videes avant le 1er tick, items AP en
+// attente reinjectes si le porteur existe deja.
+void ScootingApresChargement();
 void ScootingReparerCargaisons();
 void ScootingSauverEnAttente();
 bool InjecterPorteur(uintptr_t comp, uintptr_t def, int64_t quantite);
@@ -31,3 +42,6 @@ extern bool g_defEnregistree;
 extern volatile bool g_pret;
 void ScootingFournirContenuSites();
 int ExpeditionVisee();
+// Au demarrage : hook de l'envoi d'une expedition (FUN_1418a0a60) ; en debug
+// (EXPEDITIONS_RAPIDES), trajets ramenes a 15 minutes de jeu.
+void InstallHooksExpeditions(uintptr_t modBase);

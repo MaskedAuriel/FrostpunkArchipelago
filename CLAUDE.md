@@ -91,7 +91,7 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
 
 | Fichier | Rôle |
 |---|---|
-| `version.cpp` | Point d'entrée : proxy des 17 exports de `version.dll`, `DllMain`, `PayloadThread` (console + journal `logs\console.log`, `MH_Initialize`, hooks des constructeurs de templates **en premier**, puis les autres hooks), boucle principale : touches de debug (F3–F9 ; F11 réservée aux tests demandés par l'auteur ; jamais F10 = menu des options ; F3 = création de groupe, F6 = dilemme piège de test (remplace l'ancienne fenêtre `OpenKeyLogWindow`), F7 = progressive de test, F8 = rapprocher le premier groupe de la ville, F9 = diagnostic des groupes, F11 = ressources de test) + tick d'une seconde (`EnsureTechSelf`, `EnsureResSelf`, **`PartieTick`**, `CaptureRunState`, `ScootingTick`, `SurveillerArbreTechno`) |
+| `version.cpp` | Point d'entrée : proxy des 17 exports de `version.dll`, `DllMain`, `PayloadThread` (console + journal `logs\console.log`, `MH_Initialize`, hooks des constructeurs de templates **en premier**, puis les autres hooks), boucle principale : touches de debug (F3–F9 ; F11 réservée aux tests demandés par l'auteur ; jamais F10 = menu des options ; F3 = création de groupe, F4 = relevé des lois, F5 = item de loi de test, F6 = dilemme piège de test (remplace l'ancienne fenêtre `OpenKeyLogWindow`), F7 = progressive de test, F8 = item « Temperature rise » de test (+1 niveau ; l'ancien rapprochement du premier groupe n'est plus lié), F9 = relevé des quêtes (`quetes.cpp` ; le relevé de température et l'ancien `DiagGroupes` ne sont plus liés), F11 = ressources de test) + tick d'une seconde (`EnsureTechSelf`, `EnsureResSelf`, **`PartieTick`**, `CaptureRunState`, `ScootingTick`, `SurveillerArbreTechno`) |
 | `mod_common.h/.cpp` | Socle : `SafeRead`/`SafeWrite`, `GetClassNameFP` (RTTI), ancrages (`SystemeParId`, `ComposantsDuSysteme`, `IdSysteme::*`), captures (`ListeCaptures`), **cycle de vie de la partie** (`PartieTick`, `PartiePrete`, `PartieGeneration`, `PartieSelection`, `PartieRechargee`, garde-fou sur la liste des sites), **diagnostics d'ancrage** (`DiagAncrages`, `DiagGabaritsPrecoces`, `ChercherValeurDansTas`, `ChercherReferencesVtable`…), balayage mémoire historique (`CollectObjectsByClasses`), résolution des self par globaux, dumps (PropertyManager, vtables), hooks d'E/S (`NtReadFile`/`NtWriteFile`), allocateur du moteur, `ToucheAppuyee`, offsets (`GameOffsets`, `SetupOffsets`, `TECH_*`, `RES_*`), macro `CHRONO` |
 | `hooks_loc.h/.cpp` | `hkTranslate` : cœur du détournement de **tous** les textes affichés |
 | `hooks_research.h/.cpp` | Les 4 hooks de recherche : `CanResearch`, `ResearchStart`, `ResearchComplete` (location check), `CancelResearch` |
@@ -99,6 +99,7 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
 | `tech_brain.h/.cpp` | État runtime par techno `{researched, received}` ↔ état mémoire du jeu |
 | `tech_runtime.h/.cpp` | `TechRuntime`, `RT_Get`, `RT_CanResearch` |
 | `known_techs.h` | Table des technos (hash → nom) |
+| `known_quests.h` | Table des quêtes par scénario (GUID → nom interne / affiché, catégorie) — **générée** par `outils\quetes_excel.py` depuis le relevé F9 |
 | `archipelago.h/.cpp` | **Surface de communication Archipelago ↔ jeu** (noms en anglais, demande de l'auteur). Serveur → jeu : `ReceiveProgressive(tree, player)` (toute techno reçue est une progressive, même un arbre à un niveau), `ReceiveResource(name, amount, player)`. Jeu → serveur : `SendResearchCheck(hash)`, `SendLocationCheck(id)` — **seuls** points de sortie (appelés par `AP_SendCheck` et par `ScootingTick`). Chaque fonction : partie prête → effet → popup. La future classe réseau n'appellera que ça |
 | `resources.h/.cpp` | Lecture/modification des ressources (`Res_Get`, `Res_Add`, `Res_OublierContextes`) via le hook du setter `+0x173FE40`. Le hook capture les **6 arguments** du dernier appel du jeu par ressource ; `Res_Add` met un crédit en attente, appliqué **par le hook, sur le thread du jeu** (l'ancienne version, commentée, ne passait que 4 arguments : règle n° 5) |
 | `ap_ressources.h/.cpp` | « Porteur » : définition de ressource clonée servant de support visuel aux items Archipelago (`ApPorteurInit`, `ApPorteurDef`), `EconomieValide` |
@@ -109,7 +110,12 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
 | `MessageManager.h/.cpp` | Émission de notifications (popup gauche de l'écran) — **fonctionnel** |
 | `groupes.h/.cpp` | Groupes de survivants sur la carte du monde : création d'entité par `Creer` (`+0x1016250`) sur le thread du jeu (`GroupesPompe`) ; F3 = test de création |
 | `evenements.h/.cpp` | Mécanique des événements et dilemmes du jeu : hooks de l'invocation d'événement `+0x17B9B70` (journal `[EVT]`), de la création `+0x17CDE10` (remplacement du dilemme d'arrivée des groupes AP) et de la résolution `+0x17D40C0` ; `DilemmeCloner`, `DilemmeAPCreer(def)`, `TuileAtlasBulles(icone)` |
+| `lois.h/.cpp` | Lois du jeu (« sociotechs ») : `DiagLois` (F4), relevé des arbres, prérequis et réglages par scénario |
+| `lois_ap.h/.cpp` | Lois Archipelago : signature = check(s) par rang dans l'arbre, effet retenu jusqu'à l'item progressif, sauvegarde locale `ap_lois_<GameId>.txt` ; F5 = item de test |
 | `dilemmes_ap.h/.cpp` | **Catalogue des dilemmes Archipelago** (bulles en ville, pièges) : table `DILEMMES_AP` (id, titre, sous-titre, texte, icône, titre de popup, choix si ignoré, ≤ 4 choix `{texte, ressource, quantité signée, effetSpecial}`) ; `DilemmeAPDemander("id")` (tout thread, file) → `DilemmesPompe` (thread du jeu). **Pour ajouter un piège : une entrée dans la table** |
+| `menu_ap.h/.cpp` | **Écran de connexion Archipelago du menu principal** : hook de l'init du panneau principal (`+0x1B28950`), clones d'`EXIT_BUTTON` (libellés Server / Slot name / Password, bouton Connect) et d'un `UITextInput` de panneau en jeu, masque du mot de passe, `mods\ap_connexion.txt` ; Connect → `RequestConnection` (archipelago) |
+| `temperature.h/.cpp` | **Température / météo** : relevé F9 (`[TEMP]`, thread du jeu via `TemperaturePompe`) des niveaux, météos, chronologies météo, actes, modifications de difficulté et de la chronologie calculée de la partie ; **montées AP** : hook du recalcul `+0x1812C10`, montées retirées, `TemperatureRecevoirMontee` (← `ReceiveTemperatureRise`, archipelago), `mods\ap_temperature_<GameId>.txt` |
+| `quetes.h/.cpp` | **Quêtes** : relevé F9 (`[QUETE]`, thread du jeu via `QuetesPompe`) des répertoires, quêtes, objectifs, effets, et des événements portant un effet de quête ou d'acte |
 
 ---
 
@@ -1421,11 +1427,1585 @@ pas un simple « incomplet ».
   initiale / plafond (150 / 900), `+0x28` `@Resources/Names/Coal`. Le GUID
   était lu 8 octets trop tôt. `EntreeRessource` prend désormais `def + 8`
   (vérifié : GUID + clé `@`). Non testé.
+- **Sauvegarde des éléments AP (2026-10-29)** : au rechargement d'une
+  sauvegarde, un groupe AP perd logo et contenu (la copie du template n'est
+  pas sauvegardée : la sauvegarde référence le template d'origine).
+  **Décision de l'auteur : notre propre sauvegarde persistante** (comme
+  `mods\ap_pending_<GameId>.txt` des scouts), recollée au chargement — pas
+  d'écriture dans la sauvegarde du jeu. Difficultés : clé stable d'un groupe
+  après chargement (adresses changeantes), et chargement d'une sauvegarde
+  **plus ancienne** (garder un enregistrement par groupe, ne recoller que les
+  groupes présents). À recoller : copie du template (nom, description,
+  icône), cargaison, durée, remplacement de la bulle d'arrivée ; plus tard :
+  bulles de piège et messages en attente.
+  Étape 1 : relevé `[SAV]` (`ReleverUnGroupe` / `ReleverGroupes`,
+  groupes.cpp) à la création (« cree »), au 1er passage après un changement
+  de partie (« apres chargement ») et sur F9 : template (notre copie ?),
+  clé du nom, GUID `tpl +0xD0`, nom d'entité, qwords `entité +0x08..+0x40`,
+  contenu, ReachedCity, dates du mouvement. Non testé.
+  **Moment du recollage** (idée de l'auteur : agir pendant le chargement,
+  avant le 1er tick). Décompilés du 2026-10-29 : `FUN_141265df0(jeu, nom)` =
+  **`FrostpunkGame::LoadGame`** (`frostpunkgame.cpp`, drapeau `jeu +0x489`) :
+  `FUN_141286840` (« Loading game save… » / « …successfully loaded. » ; lit
+  le `.save` par `FUN_141286580` et le désérialise par
+  `FUN_14101f110(gestionnaire d'entités, données, …)`), puis si succès
+  `FUN_141264b10(jeu, 1, …)` (état `InFrostpunkGame`, écouteurs `jeu +0x358`
+  / compte `+0x360`) et `FUN_141266390(jeu)`. `FUN_14126c9f0` = vérification
+  « The game should not be paused after load » du système de temps (appelée
+  depuis `0x141269500`, hors fonction connue). → **`InstallTraceChargement`**
+  (mod_common) : `[CHARG]` à l'entrée / sortie de `LoadGame`, à la fin de la
+  lecture, à la vérification après chargement (thread, nombre de groupes,
+  temps). But : savoir si les groupes existent déjà à la sortie de
+  `LoadGame` (chargement synchrone) et sur quel thread. Non testé.
+  **Résultat (2026-10-29)** : tout le chargement est **synchrone sur le
+  thread du jeu** (29924 = celui de `Translate` / `ModifyResource`) ; les
+  composants de groupe sont reconstruits dans la lecture (pile `[TRACE]` :
+  `FUN_14101f110` ← `FUN_141286580` ← `FUN_141286840` ← `LoadGame`),
+  **0 groupe** inscrit à la fin de la lecture, **4/4** à la vérification
+  après chargement et à la **sortie de `LoadGame`** → **point de
+  recollage = sortie de `LoadGame`** (`GroupesApresChargement`, appelé par
+  le hook). `LoadGame` est aussi appelé une 2e fois juste après, sans effet
+  (entrée/sortie à t+0). La partie redevient « prête » (`PartiePrete`) bien
+  plus tard : F9 juste après le chargement → `partie pas prete`. Relevé
+  avant sauvegarde : notre groupe `SurvivorsFromExpeditionSite*6986`,
+  `entité +0x18/+0x20` = 128 bits aléatoires (GUID d'entité ?), `+0x28` =
+  `CompoundTemplate`, `+0x30` = `0x2000000005`. Relevé `[SAV]` désormais
+  fait à la sortie de `LoadGame`. Non testé.
+  **Relevé après chargement (2026-10-29)** : nom d'entité (`…*6986`),
+  identifiant `entité +0x18/+0x20` (`9A92A21ED66D5C94 / 86EEAD4EAA9B43E4`),
+  survivants (5) et **dates du trajet** identiques avant / après ; template
+  = celui du jeu (nom, icône perdus). → **clé = identifiant 128 bits de
+  l'entité** ; durée et survivants : natifs, rien à recoller.
+  **Implémenté (non testé)** : fichier **`mods\ap_groupes.txt`** (un pour
+  toutes les parties ; ligne `G <id 32 hex>\t<sansMorts>\t<icône>\t<nom>\t
+  <description>\t<titre bulle>\t<texte>\t<choix>\t<res=q;res=q>`, ajoutée à
+  la création par `SauverGroupe`, jamais effacée, la dernière ligne d'un id
+  l'emporte). **Recollage dans le hook de `FUN_1418b1cc0`** (composant
+  ajouté, appelé aussi pendant le chargement) : entre `GroupesAvantChargement`
+  (entrée de `LoadGame`) et `GroupesApresChargement` (sortie), chaque groupe
+  dont l'id est dans le fichier reçoit un slot, sa copie du template
+  (`PoserCopieTemplate`, avant l'original : le jeu recopie lui-même nom et
+  icône dans le composant de carte `entité +0x2A0 + type × 8` : `+0x30` nom,
+  `+0x40..+0x50` icône), cargaison et textes de bulle ; slots remis à zéro au
+  1er groupe du chargement ; taux de mort remis à 0 à la sortie si
+  `sansMorts`. `SuivreGroupes` ne vide plus les slots au changement de
+  génération : il garde ceux dont le composant, l'entité et l'id
+  correspondent (adresses réutilisées d'un chargement à l'autre).
+  Limite : `surArrivee` (pointeur de fonction) n'est pas sauvegardé.
+  **Test** : groupe bien enregistré (`BFD163B16C8C39CF…`), mais **aucun
+  appel du hook de `FUN_1418b1cc0` pendant `LoadGame`** : les groupes
+  chargés ne passent pas par « composant ajouté », le composant de carte
+  garde nom et icône désérialisés. → **recollage à la sortie de
+  `LoadGame`** (seulement si la lecture a réussi, `GroupesLectureFaite`
+  appelée par le hook de lecture) sur tous les groupes non arrivés :
+  `RecollerGroupe` (slot + copie du template) puis **`MettreAJourCarte`** :
+  composant de carte `*(entité + 0x2A0 + FUN_1412ec200() × 8)`, nom
+  `*FUN_141a0f1c0(comp)` (+1 réf. `FUN_140e1ce20`, ancien relâché
+  `FUN_140e1d180`) en `+0x30`, icône `FUN_141a0f2a0(comp)` copiée par
+  `FUN_140e4f9a0` en `+0x40` + case / nombre de cases `+0x48 / +0x50`.
+  (`FUN_141776ba0` = drapeau de sélection, sans rapport.) Non testé.
+  **Test** : recollé, **liste de droite OK** (nom, logo), mais **icône de
+  la carte vanilla** et **inventaire vidé** au rafraîchissement suivant.
+  Causes : (1) le marqueur de carte (`FrostpunkWorldMapMarkerComponent`,
+  0x38 octets, sans icône propre) lit l'icône à l'activation des groupes,
+  **entre la fin de la lecture et la sortie de `LoadGame`** → trop tard ;
+  (2) `Res_Definition` renvoie l'entrée − 8 tant que le contexte vient d'un
+  appel du jeu, **l'entrée elle-même après `Res_InitDepuisEconomie`**
+  (deux ancrages incohérents). → recollage **dès la fin de la lecture**
+  (`GroupesLectureFaite`) sur les `SurvivorGroupComponent` **construits
+  pendant `LoadGame`** (`GroupesComposantConstruit`, appelé par le hook du
+  constructeur `+0x1A0EB70` de mod_common), si entité et template sont déjà
+  là ; filet à la sortie de `LoadGame` (`RecollerSiNotre`, sans doublon) ;
+  `EntreeRessource` : GUID de la table (`Res_Guid`), candidats `def`,
+  `def + 8`, `def − 8`. **VALIDÉ le 2026-10-29** (carte, liste, inventaire
+  après rechargement).
+  **Messages AP (2026-10-29)** : après rechargement, seul le message
+  « ouvrable » restait, sans contenu, icône et couleur du jeu. Causes : textes
+  seulement en mémoire (8 places, id recyclé) ; entrée sauvegardée = notre
+  copie relue comme `CitizensDied` vanilla (importante → orange, icône du jeu),
+  or tout le code d'icône / couleur reconnaissait un message AP à notre copie.
+  → **id unique croissant** (suite du plus grand id de
+  **`mods\ap_messages.txt`**, ligne `M <id>\t<icône>\t<titre>\t<texte>`,
+  `SauverMessage` à l'émission) ; `ApNotifTexte` passe par un cache de 64
+  (`NotifParId`) qui relit le fichier pour un id inconnu (absence mémorisée) ;
+  clés allouées par message (`CleMoteur`, plus de blocs statiques recyclés
+  `ApCle`) ; dans `hkAjouterPopup`, un message dont la clé de titre (`msg
+  +0x98`) est `@AP/Notif/<id>/…` et dont l'entrée n'est pas notre copie
+  reçoit **avant l'ajout** `EntreeDeNotre(icône de l'id)` en `msg +0x80`
+  (référence `CitizensDied` prise sur le message si `PartieTick` ne l'a pas
+  encore posée). **Test : contenu et couleur OK, logo du jeu.** Les
+  messages rechargés sont ajoutés **pendant `LoadGame`** ; l'icône posée sur
+  `icon` y est perdue. → `ReposerIconesMessages` (contrôle + entrée gardés
+  dans `ControleColore`) à la sortie de `LoadGame` (`MessagesApresChargement`)
+  et au 1er passage de `PompeNotifications`. Non testé.
+  **Bulles AP en attente (2026-10-29)** : sauvegardées par le jeu avec le
+  GUID de l'original (« Survivors group ») → rechargées comme l'original
+  (arrivée de groupe vanilla ; un piège perdrait sa perte). Décompilé de
+  `FUN_1417cde10` : dilemmes actifs `système +0x21A0` (compte `+0x21A8`),
+  enregistrements de 0x90 : `+0x00` id (compteur `système +0x2198`),
+  `+0x10` entrée, `+0x20` contexte, `+0x78` **expiration**, `+0x80`
+  marqueur. → **`mods\ap_dilemmes.txt`** : `P <id> <expiration>\t<id du
+  catalogue>` (`DilemmeAPCreer`) et `G <id> <expiration>\t<titre>\t<texte>\t
+  <choix>` (`hkCreerDilemme`, bulle d'arrivée d'un groupe AP, textes via
+  `GroupeTexte`). **`RecollerBulles`** à la fin de la lecture puis à la
+  sortie de `LoadGame` (`DilemmesAPChargement(0|1|2)`, appelée par les hooks
+  de mod_common) : pour chaque enregistrement dont (id, expiration) est dans
+  le fichier, slot de piège, copie (piège : `ConstruirePiege` depuis le
+  catalogue ; groupe : `DilemmeCloner` avec clés `@AP/Dil/<slot>/T|X|C0`),
+  posée en `enregistrement +0x10`. Bulle de groupe rechargée : `def` nul, pas
+  d'effet AP à la résolution.
+  **Test** : recollage seulement à la sortie de `LoadGame` (à la fin de la
+  lecture, le système des dilemmes n'est pas lisible) ; **plantage au clic
+  sur un choix du piège rechargé**. Cause (décompilé `FUN_1417d40c0`,
+  résolution) : table des occurrences **`système +0x21B8`** (hachage indexé
+  par l'adresse de l'entrée, éléments de 0x38 en `+0x21C0`) ; la résolution y
+  cherche l'entrée et lit `*(+0x21C0) + 0x18 + index × 0x38` **sans vérifier
+  l'index** ; la table du chargement porte l'entrée d'origine, pas notre
+  copie → index −1 → lecture hors du tableau. → `InscrireOccurrence` :
+  `FUN_1417cfc40(table, &entrée)` (chercher) puis `FUN_1417d16d0(table,
+  &{entrée, DAT_142c2fca8, 0, 0, 0, 0})` (insérer, comme `FUN_1417cde10`),
+  **avant** de poser la copie dans l'enregistrement. Autre structure indexée
+  par l'entrée : `système +0x2218` (cherchée, ignorée si absente).
+  **VALIDÉ le 2026-10-29** (plus de plantage, choix et pertes OK), sauf
+  l'**icône de la bulle** : `FrostpunkUIDillemaTracker` (vtable
+  `0x142217550`), mise à jour **`FUN_141c19460(tracker)`**, ne pose l'icône
+  **qu'une fois** (drapeau `tracker +0x80`) : marqueur `*(tracker +0x28)` →
+  indice `FUN_1417cfbf0(système, marqueur)` → entrée `FUN_1417cfd70(système,
+  indice)` → tuile `entrée +0x238` (si `+0x230`) posée sur l'image
+  `**(tracker +0x60)` par `FUN_141a33780(image, tuile)` ; au chargement, c'est
+  fait avec l'entrée d'origine, avant le recollage. → hook
+  `hkMajTrackerDilemme` : une fois par tracker dont l'entrée est une de nos
+  copies de piège, repose la tuile avec `FUN_141a33780`. **VALIDÉ le
+  2026-10-29** (tous les visuels après rechargement).
+  **Technologies (2026-10-29)** : demande de l'auteur, **sauvegarde locale
+  prioritaire**, le serveur viendra compléter. État du mod jusqu'ici en
+  mémoire seulement, et jamais remis à zéro d'une partie à l'autre :
+  `TechRuntime {researched, received}` par hash, `g_progressive[arbre]`,
+  `g_sinceBonus`. → **`mods\ap_technos_<GameId>.txt`** (`T <hash> <r> <c>`,
+  `A <arbre> <n>`, `B <n>`), réécrit en entier (fichier temporaire puis
+  `MoveFileEx`) par `TechSauver` après `OnResearchComplete` et
+  `OnProgressiveReceived` ; **cumulatif** (charger une sauvegarde plus
+  ancienne garde checks envoyés et items reçus, comme le serveur AP).
+  `TechPersistanceTick` (tick d'une seconde, après `CaptureRunState`) : à
+  chaque nouvelle génération ou nouveau `GameId`, `RT_Reset`, compteurs à 0,
+  relecture, puis `SyncGameState` de chaque techno connue ; `TechSauver`
+  n'écrit rien avant cette relecture (sinon un chargement écraserait le
+  fichier par un état vide). Non testé.
 - **Survol d'un scout** : identifier l'expédition sous le curseur.
+  **Infobulle de la case AP dans la liste de droite (2026-10-30, non
+  testé)** : elle n'affichait qu'un check sur deux. Cause : la case est
+  remplie par `FUN_141c2b6e0` (`FrostpunkUIExpeditionControl`), le texte de
+  l'infobulle est la traduction de `@Resources/Names/AP_Item` faite à ce
+  moment (`FUN_1416b7350` → `FUN_141ce67f0`), gardée telle quelle (+1 réf.)
+  par `FUN_1419636e0` dans `FrostpunkUISimpleTooltipPanelArgs +0x38`. Or la
+  liste ne visait que l'expédition survolée / sélectionnée **sur la carte**
+  (`ExpeditionVisee`) → aucune pendant le remplissage → repli sur la
+  description du site (un seul check). → `hkUICargaison` (groupes.cpp) pose
+  l'expédition du contrôle (`ctrl +0x290`, poignée → composant) par
+  `ScootingExpeditionAffichee` autour de l'original ; `hkTranslate` prend
+  `ScootingListePourAffichage` et une **chaîne propre à chaque expédition**
+  (`ApChaine` slots 4..19 : une chaîne partagée donnerait à toutes les
+  cases le texte de la dernière remplie).
 - **Sites landmarks** : affichage du contenu.
 - **Sauvegarde empoisonnée** : écrire un hook de sauvegarde qui vide les
   cargaisons avant sérialisation.
-- **Lois.**
+  **2026-10-29** : le porteur AP (`g_def`, tampon statique de la DLL) garde
+  la même adresse d'un chargement à l'autre dans une session ; une cargaison
+  sauvegardée n'est morte qu'au 1er chargement après un lancement.
+  Corrections : (1) **`DefRessourceValide`** lisait l'économie mémorisée
+  (`g_selfRessource`, parfois celle de la partie précédente juste après un
+  chargement) → la **vraie définition du charbon** d'une cargaison vanilla
+  était jugée invalide et la cargaison vidée (journal : `[REPAIR] exp 1 :
+  definition invalide 0x183AD5940D0`) ; elle lit maintenant l'économie
+  actuelle (`+0x40916D0`, vrai compte du conteneur). (2)
+  **`ScootingApresChargement`** (sortie de `LoadGame`, seulement si la
+  lecture a réussi) : cargaisons à définition morte vidées **avant le 1er
+  tick**, puis, si le porteur existe déjà, items de `ap_pending_<GameId>`
+  réinjectés (GameId lu sur le système de scénario `+0x110`) ; sinon le tick
+  s'en charge après l'init, comme avant. Non testé.
+- **Lois** (demande de l'auteur, 2026-10-30 : déblocage **progressif** par
+  arbre, comme les technologies). En interne, une loi = **sociotech**
+  (« NewLawIntroduced » est émis avec la catégorie `"Sociotech"`).
+  Décompilés du 2026-10-30 :
+  - `FrostpunkSocietyConfig` = instance statique **`base + 0x4070460`** :
+    `+0x78` catégories (= arbres), `+0xB0` **toutes les lois** (pointeurs,
+    compte `+0xB8`, `DAT_144070510`).
+  - `FrostpunkSociotechEntry` (0x240), base `FrostpunkProgressTreeEntry`
+    (comme les technos) : `+0x18` nom, `+0x20` GUID, `+0x30` Enabled,
+    `+0x38` Requirements (compte `+0x40`), `+0x68` Display name, `+0x88`
+    Grid position, `+0x94` Signable, `+0xD0` Activation dilemma, `+0xE0`
+    Effects, `+0x140` Exclusion group, **`+0x148` Category** (lien GUID),
+    `+0x1C8` Special node.
+  - `FrostpunkSociotechCategoryEntry` (0x90) : `+0x00` nom, `+0x08` GUID,
+    `+0x18` Display name, `+0x78` Requirements.
+  - `FrostpunkSociotechRequirement` (0x40) : `+0x30` lien vers la loi requise.
+  - `FrostpunkScenariosConfig` = instance statique **`base + 0x2C34490`** :
+    `+0x88` scénarios (`FrostpunkScenarioEntry` : `+0x00` nom, `+0x1B0`
+    liens « Sociotech setups »), `+0x210` réglages
+    (`FrostpunkScenarioSociotechSetupEntry` : `+0x18` lois de départ,
+    `+0x30` lois verrouillées, liens de 0x10), `+0x4F8` scénarios de debug.
+  - Système des lois : `*(base + 0x408FBD0)` ; `+0xD8` Map `{loi,
+    SociotechData}` au pas de 0x18 (compte `+0xE0`), état à `+0x10` de
+    l'élément (2 = posée d'office par le réglage de départ, cf.
+    `FUN_1416ffbe0`). `FUN_1416ff990(sys, loi)` = active ?,
+    `FUN_1416fd350(sys, loi)` = activer. Réglage courant :
+    `*(DAT_144062870 + 0xE0)`. Collection des lois : `FUN_141437900()`,
+    méthode `+0x88(coll, &guid)`.
+  - **F4 = `DiagLois`** (lois.cpp ; remplace `ResetSeenKeys`) : liste par
+    catégorie (nom, clé d'affichage, grille, prérequis), réglages et
+    scénarios, état courant. **Validé le 2026-10-30.**
+  - **Relevé F4 (2026-10-30)** : **112 lois, 4 catégories**.
+    - `Purpose` (22) : branches `Order` (11, niveaux 1→5, fin
+      `DESPOTIZM`) et `Faith` (11, niveaux 1→6, fin `FANATIZM`).
+    - `Adaptation` (30) : branche `Adaptation` (16), branche `People` (11),
+      et 3 lois `[… - Endless]` (Cocaine, Field pharmacy, Bathhouse).
+    - `Labour` (37, préfixe `Builders` = Last Autumn) : sous-branches
+      `Labour` (14), `Left` (12, fin `TERROR`), `Right` (11, fin
+      `SERVITUDE`). **8 lois désactivées** (Enabled = 0).
+    - `ADMINISTRATION` (23, `Builders [LifeConditions …]`).
+    - Paires exclusives par **groupe d'exclusion** (`+0x140`) : Burials,
+      Sick, Sick2, Soup, kids1, kids2, Work, Housing, Disabled.
+    - Types de prérequis vus : `SociotechRequirement` (loi requise),
+      `SociotechExclusionRequirement`, `CompositeRequirement`,
+      `UnlockRequirement` (contenu des deux derniers **non relevé**).
+  - **6 réglages, 2 seulement rattachés à un scénario** : `WINTERHOME` →
+    `Winterhome` (5 lois de départ) ; `BUILDERS` → `Builders` (verrouille
+    **toutes** les lois `Purpose` et `Adaptation`, hors Endless).
+    `Faith Unlock`, `Order Unlock`, `Benchmark`, `AvgPlayer` : rattachés à
+    aucun scénario (debug / tests). 14 scénarios : DEFAULT, Endless Canyon /
+    Default / Points / Bridges / Largest Circle, TechHaven, REFUGEES,
+    WINTERHOME, Debug_Minimal, Scenario, Debug_Builders, BUILDERS,
+    Reconquest. Inconnu : ce qui **masque** `Labour` / `ADMINISTRATION`
+    hors Last Autumn (probablement les prérequis des catégories, `cat
+    +0x78`, non relevés).
+  - État en partie : `Kids work in light jobs = 2` (loi signée → état 2).
+  - **Prérequis (décompilés du 2026-10-30)** : base
+    `FrostpunkRequirementEntry` (0x30 : `+0x18` lien d'erreur, `+0x28`
+    texte d'erreur) ; `CompositeRequirement` (0x50 : `+0x30` Operator
+    `eBooleanOperator`, `+0x38` Requirements) ; `SociotechExclusionRequirement`
+    (0x38 : `+0x30` ExclusionGroup) ; `UnlockRequirement` (0x40 : `+0x30`
+    lien vers `FrostpunkUnlockEntry` : `+0x00` nom, `+0x08` GUID, `+0x18`
+    Display name, rangées dans `FrostpunkUnlocksConfig +0x78`, instance
+    cherchée par RTTI autour de son gestionnaire `base + 0x4082EC0`).
+    → F4 décrit les prérequis récursivement (`op<N>(…)`) et ceux des
+    catégories. **Validé le 2026-10-30.** `FrostpunkUnlocksConfig` à
+    **`base + 0x4082F10`**. `eBooleanOperator` (déduit) : **0 = ET, 1 = OU,
+    2 = NON**.
+  - **Visibilité des arbres** (prérequis des catégories) : `Purpose` ←
+    unlock `IdeologyTree` ; `Adaptation` ← **NON** unlock `[Builders]Builders
+    Scenario` ; `Labour` ← unlock `[Builders] SOCIOTECH Labour tree -
+    SAFETY` ; `ADMINISTRATION` ← unlock `[Builders]Builders Scenario`. Donc
+    Purpose + Adaptation partout sauf Last Autumn, Labour + ADMINISTRATION
+    seulement dans Last Autumn. Les 3 lois « Endless » n'ont **aucune**
+    restriction de scénario (Cocaine ← OU soupe, Field pharmacy ← OU soins,
+    Bathhouse ← Care House).
+  - Autres conditions : Neighborhood watch / House of Prayer ← OU de deux
+    `PolicyRequirement` (choix de l'objectif, contenu non relevé) ; DESPOTIZM
+    ← OU(Prison beating, Propaganda ability) ; Kids light jobs / Child
+    shelters ← NON unlock `[TechHeaven] Quest1` ; Augmentation / Medical
+    Repatriation (Last Autumn) ← NON unlock `[Builders] Act 3 - The End` ;
+    Right (Factory Inspectorate) ← unlock `STRIKE R` + exclusion `Labour`,
+    Union delegates (désactivée) ← `STRIKE L` : Left / Right se décide par
+    l'histoire de Last Autumn.
+  - **Arbres d'Adaptation (hors Last Autumn)** :
+    Burials [Cemetery | Put them in the snow] → [Burial Ceremony |
+    Transplantation] → Corps Processing (côté neige seulement) ;
+    Sick [RadicalTreatment | Life Sustain] → OU → [Double Ration | People on
+    the floor] (Sick2) → Triage, et → Care House → Augmentation, Bathhouse,
+    et → Field pharmacy ; Soup [Poor Soup | Sawdust] → OU → Alternative Food
+    Source, Cocaine ; kids1 [light jobs | Child shelters] → hard jobs (light)
+    | [Med Kids | EngineerKids] (shelters) ; Fightclub → PublicHouses →
+    Prostitutes, Moonshine ; Fightclub → Dueling Law ; Emergancy shift →
+    Hard work rigor.
+  - **ADMINISTRATION (Last Autumn)** : Burials [Cemetery | Morgue] →
+    [Burial Ceremony | Steel coffins] ; Soup [Gruel | Better food] → Cocaine,
+    Alternative Food Source ; Sick [Radical | Life] → [People on the floor |
+    Double Ration], Care House → [Augmentation | Medical Repatriation] ;
+    Bathhouse → [Crowded | Comfortable Quarters] ; Pub → Prostitutes,
+    Bare-Knuckle Bouts ; Chapel → Evening of Prayers. **Labour** : Work
+    [Hard work rigor | Double Shift] → [compensations | optimisation] ;
+    Safety Procedures → After-hours ; Light Work rigor → upgrade ; Field
+    pharmacy.
+  - **Correction de l'auteur (2026-10-30)** : les arbres ci-dessus mélangent
+    **tous les scénarios** ; il faut raisonner **scénario par scénario**.
+    Capture du livre de Refugees : Fighting Arena (→ Public House, Duelling
+    Law), Emergency Shift (→ Extended Shift), Child Labour Safe Jobs (→ All
+    Jobs) / Medic | Engineer Apprentices, Soup | Food Additives, Cemetery |
+    Corpse Disposal (→ Ceremonial Funerals | Organ Transplants), **Sustain
+    Life seule** (→ Extra Rations | Overcrowding) ; **pas** de Radical
+    Treatment, Corps Processing, House of Healing, prothèses, etc. Cause
+    présumée : les **prérequis d'affichage** (`ProgressTreeEntry +0x50`
+    « Show requirements », non relevés jusque-là) et les unlocks du scénario.
+    → **F4 v3** : liste aussi `affichage : …` par loi, et une section
+    **« scenario courant … : lois presentes »** : catégorie et affichage
+    évalués avec les **unlocks actifs** (`FrostpunkUnlocksSystem`, trouvé
+    par l'annuaire, `+0x68` = Set de pointeurs d'entrées, compte `+8` ;
+    propman `DAT_14408fd10`, réflexion `FUN_1417018c0`) et le réglage
+    courant (`*(*(base + 0x4062870) + 0xE0)`, lois verrouillées). Statuts :
+    DESACTIVEE, VERROUILLEE, arbre absent, CACHEE, ?, PRESENTE (bloquée ou
+    non par un unlock). Prérequis de loi / d'exclusion tenus pour vrais ;
+    types inconnus (`PolicyRequirement`…) → `?`. Limite : les unlocks
+    **ajoutés plus tard** dans le scénario ne sont pas connus (photo de
+    l'instant). Non testé.
+  - **1er relevé v3 (Refugees)** : 4 unlocks actifs (IdeologyTree,
+    SociotechButton, TechTreeButton, TechnologyPanelOpened). Les lois
+    absentes de la capture (Radical Treatment, Care House, Triage,
+    Augmentation, Moonshine…) n'ont **aucun** prérequis d'affichage : la
+    capture ne montrait qu'une partie du livre (grille jusqu'à y ≈ 5,
+    |x| ≈ 6 ; Care House est en (0, 7), Moonshine en (−11, 0)) et une paire
+    signée n'affiche que la loi choisie. Prérequis d'affichage réels :
+    `ScenarioRequirement` (Corps Processing) et `PolicyRequirement`
+    (Census Station, Propaganda, Mechanical Agitator, DESPOTIZM, Temple,
+    Captains message, Righteous Denunciation, Public conversion, FANATIZM,
+    Alternative Food Source, et 2 chacune pour les 3 lois Endless), NON
+    `[TechHeaven] Quest1` (lois des enfants). Décompilés :
+    `FrostpunkScenarioRequirement` (0x48 : `+0x30` lien scénario, `+0x40`
+    Negate) ; `FrostpunkPolicyRequirement` (0x40 : `+0x30` lien
+    `FrostpunkPolicyEntry`, `+0x00` nom, `+0x08` GUID, rangées dans les
+    enjeux `FrostpunkSocietyConfig +0x150` → `FrostpunkPolicyIssueEntry
+    +0x18`) ; politiques en vigueur : `FrostpunkPolicySystem +0x68` (Map
+    `{enjeu, GUID}` au pas de 0x18). → F4 v4 les décrit et les évalue
+    (scénario = `ScenarioSystem +0x68 +0x08`). **Validé le 2026-10-30.**
+  - **Relevé v4 (Refugees)** : 96 politiques en vigueur (enjeux de tous les
+    scénarios, ex. `[Refugees Scenario] Epidemy`, `[SOCIOTECH]Path chosen=
+    Both`, `[CustomScenario]IsEndless=No`). Prérequis d'affichage décodés :
+    - 9 lois de Purpose ← `[Scenario Fall of Winterhome] Sociotechs
+      blocker = Avalible` (vrai hors Winterhome ; Winterhome les retire en
+      cours de partie) ;
+    - Alternative Food Source ← `[Sociotech] Alternative food source
+      avalible = Avalible` (Refugees : `Hidden` → cachée ; politique qui
+      peut changer en cours de partie) ;
+    - Corps Processing ← **PAS** scénario `Reconquest` (= On the Edge,
+      enjeux `[aDLC3]` / `[Reconquest]`) → **présente** dans Refugees selon
+      les données, alors que l'auteur dit ne pas y avoir accès : à vérifier
+      (case (8, 6), sous Organ Transplants, hors de la capture) ;
+    - Cocaine, Field pharmacy, Bathhouse ← ET(`[CustomScenario]
+      IsEndlessBuilders = Yes`, `[TechHaven] Manchester Quest =
+      ManchesterQuestFinished`) : conditions de deux modes différents,
+      donc a priori **jamais** visibles ;
+    - lois des enfants ← NON unlock `[TechHeaven] Quest1`.
+    Statut Refugees : Purpose 22 présentes, Adaptation 26 présentes
+    (cachées : les 3 Endless, Alternative Food Source), Labour et
+    ADMINISTRATION absents. **Limite** : politiques et unlocks évoluent en
+    cours de partie, un relevé ne vaut que pour l'instant.
+  - **2e capture de Refugees (aucune loi de soins signée)** : visibles
+    (estompées) Soup | Food Additives, Radical Treatment | Sustain Life,
+    Extra Rations | Overcrowding, **Care House**, Cemetery | Corpse Disposal,
+    Ceremonial Funerals, Organ Transplants, Medic | Engineer Apprentices ;
+    **absentes** Triage, Augmentation, Corps Processing (rien sous Organ
+    Transplants). `FrostpunkSociotechCategoryDisplayData` (cat `+0x60`,
+    `FUN_1419f1030`) n'est pas un filtre (Modifier, 2 images, Root node
+    name). **Hypothèse** cohérente avec les 2 captures : le livre ne montre
+    une loi que si ses lois requises sont **signées ou sans prérequis**
+    (dévoilement à 2 niveaux) : Care House (← racines Radical / Sustain)
+    visible, Triage (← paire Sick2, non signée) et Corps Processing (←
+    Organ Transplants, non signée) cachées, Duelling Law / Public House
+    (← Fighting Arena, racine) visibles. Donc Corps Processing **existe**
+    dans Refugees mais n'apparaît qu'après Organ Transplants.
+    **CONFIRMÉ le 2026-10-30** (captures après signatures en chaîne) :
+    Organ Transplants signée → **Organic Fertiliser** (= Corps Processing)
+    apparaît ; Care House signée → **Prosthetics** (= Augmentation) ;
+    Sustain Life signée → Triage (estompée) sous Extra Rations | Overcrowding ;
+    Fighting Arena signée → **House of Pleasure** (= Prostitutes) et
+    **Moonshine** (estompées) derrière Public House. Règle : une loi est
+    affichée quand ses lois requises sont **signées ou signables**. Les
+    données (F4 v4) donnent donc bien la liste par scénario : Refugees =
+    Purpose 22 + Adaptation 26.
+    Noms affichés relevés : Kids work in light / hard jobs = Child Labour –
+    Safe Jobs / All Jobs, Child shelters (non vue), Med Kids / EngineerKids =
+    Medic / Engineer Apprentices, Fightclub = Fighting Arena, PublicHouses
+    unlock = Public House, Dueling Law = Duelling Law, Emergancy shift =
+    Emergency Shift, Hard work rigor = Extended Shift, Poor Soup / Sawdust =
+    Soup / Food Additives, Put them in the snow = Corpse Disposal, Burial
+    Ceremony = Ceremonial Funerals, Transplantation = Organ Transplants, Life
+    Sustain = Sustain Life, Double Ration / People on the floor = Extra
+    Rations for the Ill / Overcrowding.
+  - **Noms affichés dans F4 (2026-10-30, non testé)** : le nom interne
+    (`+0x18`, ex. `Corps Processing - fertilizer`) diffère du nom affiché
+    (« Organic Fertiliser », clé `+0x68`). `hkTranslate` appelle
+    `LoisNoterTraduction(cle, valeur)` pour chaque traduction ; les clés
+    `Generated/SocietyConfig/Sociotechs/…/Display name` sont mémorisées
+    (256 max, texte ASCII), et la section « lois presentes » de F4 affiche
+    le nom vu, ou « (nom affiche non vu) » si le jeu ne l'a pas encore
+    traduit (ouvrir le livre de lois avant F4).
+    **Validé le 2026-10-30** (A New Home, Last Autumn). Relevés :
+    - **A New Home (`DEFAULT`)** : Adaptation 26 présentes (mêmes que
+      Refugees) ; Purpose **fermé au moment du relevé** (unlock
+      `IdeologyTree` donné plus tard par l'histoire).
+    - **Last Autumn (`BUILDERS`)** : Purpose et Adaptation verrouillées par
+      le réglage ; ADMINISTRATION 22 présentes (Alternative Food Source
+      cachée), noms affichés : Pub = Public House, Prostitutes = House of
+      Pleasure, Evening of Prayers = Evening Service, Cemetery = On-Site
+      Burials, Morgue = Repatriation of Bodies, Steel coffins = Company
+      Funerals, Better food = Hearty Meals, Bathhouse = Bath House, Cocaine
+      = Cocaine Pills, Augmentation = Prostheses Shipments ; Labour **fermé
+      au moment du relevé** (unlock `SOCIOTECH Labour tree - SAFETY`).
+    - Noms de Purpose non vus (jamais traduits dans ces parties).
+    → F4 v5 : un arbre fermé n'efface plus ses lois (statut `PRESENTE si
+    l'arbre s'ouvre`, prérequis de l'arbre en clair) ; `LireTexte` lit par
+    blocs de 16 (un nom interne sortait `?` près d'une fin de page).
+    Réponse à l'auteur : **pas besoin** de tout débloquer avant F4 ; ouvrir
+    le livre suffit pour les noms affichés (globaux, une fois par session).
+  - **Relevé F4 v5 de tous les scénarios (2026-10-30)** — lois existantes
+    par scénario (hors désactivées, hors cachées) :
+    | Scénario (interne) | Purpose | Adaptation | Labour | ADMINISTRATION |
+    |---|---|---|---|---|
+    | A New Home (`DEFAULT`) | 22, arbre ouvert plus tard (`IdeologyTree`) | 26 | — | — |
+    | The Arks (`TechHaven`) | **aucune** (vérifié par l'auteur) | 21 : **sans les 5 lois des enfants** (unlock `[TechHeaven] Quest1` actif dès le départ) | — | — |
+    | Refugees (`REFUGEES`) | 22 (ouvert) | 26 | — | — |
+    | Fall of Winterhome (`WINTERHOME`) | 22 (ouvert) | 26, réglage `Winterhome` (5 lois de départ) | — | — |
+    | Last Autumn (`BUILDERS`) | verrouillé | verrouillé | 9 (`Labour`) + Left / Right selon l'histoire (`STRIKE L` / `STRIKE R`) ; arbre ouvert plus tard (`SAFETY`) | 22 (Alternative Food Source cachée) |
+    | On the Edge (`Reconquest`) | **aucune** (vérifié par l'auteur) | 25 : **sans Organic Fertiliser** | — | — |
+    Toujours cachées : les 3 lois Endless, Alternative Food Source (sauf
+    changement de politique en cours de partie). Labour / ADMINISTRATION
+    hors Last Autumn : leurs unlocks n'existent que dans Last Autumn.
+    Un 7e relevé (scénario `?`, système des lois illisible) a été fait hors
+    partie : à ignorer. **Inconnu** : quels scénarios donnent réellement
+    `IdeologyTree` (The Arks, On the Edge) ; il est donné par l'histoire
+    (effet `FrostpunkAddUnlockEffect`), pas par les données du scénario.
+    Noms affichés de Purpose relevés : Neighbourhood Watch, Morning
+    Gathering, Patrol, Guard Stations, Foreman, Propaganda Centre (Census
+    Station), Prison, Pledge of Loyalty (Propaganda ability), Forceful
+    Persuasion (Prison beating), Agitator, NEW ORDER (DESPOTIZM), Shrines,
+    House of Healing, The Temple, Protector of the Truth (Captains message),
+    Righteous Denunciation, Public Penance (Public conversion), Field
+    Kitchens, NEW FAITH (FANATIZM), House of Prayer, Evening Prayers, Faith
+    Keepers.
+  - **Qui donne les unlocks (F4 v6, 2026-10-30, non testé)** : question de
+    l'auteur « The Arks / On the Edge ont-ils Purpose ? ». Les unlocks sont
+    donnés par des **données** (effets d'événements et de dilemmes), pas par
+    le code → F4 les parcourt en mémoire. Décompilés :
+    `FrostpunkAddUnlockEffect` (0x28, réflexion `FUN_141934300`) : `+0x18`
+    lien unlock ; `FrostpunkScenarioEntry` : `+0xE8` liens « Events
+    setups », `+0x100` liens « Unlocks setups », `+0x1B0` « Sociotech
+    setups » ; config des scénarios `+0xC0` réglages d'événements
+    (`FrostpunkScenarioGameEventsSetupEntry`, `FUN_14160ed60` : `+0x18`
+    « Event directories ») et `+0x248` réglages d'unlocks
+    (`FrostpunkScenarioUnlocksSetupEntry`, `FUN_1416103b0` : `+0x18`
+    « Starting unlocks »). Parcours (`DiagUnlocks`, lois.cpp) : tous les
+    répertoires d'événements (`base + 0x406DDA8`), effets `+0x58`,
+    récursion générique dans les tableaux d'objets « Frostpunk… » des
+    0x100 premiers octets de chaque effet, et dilemmes des effets
+    `…DilemmaEffect` (lien `+0x18`, résolu par
+    `(*DAT_144069970)->vtable[0x88]`, effets initiaux / ignorés, effets et
+    résultats des choix). Sortie `[UNLK] <unlock> <- evenement "…"
+    (repertoire …)`, puis par scénario ses réglages d'événements / d'unlocks
+    et le détail des réglages. **F4 s'exécute désormais sur le thread du
+    jeu** (`LoisDemanderReleve` → `LoisPompe`) : jeu **hors pause**.
+    **1er test : plantage** juste après `52 repertoires d'evenements`.
+    Cause : `ResoudreDilemme` lisait `*(base + 0x4069970)` comme pointeur
+    de collection, alors que **`DAT_144069970` est la collection
+    elle-même** (`FUN_1413e4240()` renvoie `&DAT_144069970` ; vtable en
+    `+0`) → appel d'une adresse prise dans le code. Corrigé : collection =
+    `base + 0x4069970`, vtable et fonction bornées à l'image, appel sous
+    SEH (`AppelerTrouverDilemme`). Log `[UNLK] resolution des dilemmes :
+    vtable +…, fonction +…`.
+    **2e test (2026-10-30) : pas de plantage**, 510 effets AddUnlock, mais
+    **aucun dilemme suivi** (ligne de résolution absente) et ensemble des
+    objets vus saturé (8192). Réglages : `DEFAULT` et les Endless →
+    événements `Default` (Main Scenario, Londoners, Beacon, Endgame…) ;
+    `TechHaven` → TechHeaven Quest, Londoners, Beacon ; `REFUGEES` →
+    Refugees Quest + **unlocks de départ `Winterhome` = IdeologyTree,
+    TechTreeButton** ; `WINTERHOME` → idem ; `BUILDERS` → Builders Quest /
+    Consequences / Utility / Debug ; `Reconquest` → Beacon, Reconquest
+    Quest / Utility / Improvements, unlocks de départ vides. Qui donne :
+    - **IdeologyTree** : réglages d'unlocks Winterhome (donc Refugees et
+      Winterhome dès le départ), **« U: Sick from the dead - start - first
+      dead » (répertoire `Health`)**, « Endless Start » (×3,
+      `CustomScenarioEvents`), et des événements de debug ;
+    - `SOCIOTECH Labour tree - SAFETY` : « M: [Crisis] 1 - First Work
+      Accident (Safety Unlock) » (Builders Quest) ;
+    - `STRIKE L` / `STRIKE R` : seulement des événements de **debug**
+      trouvés (le vrai déblocage passe sans doute par un dilemme, non suivi) ;
+    - `[TechHeaven] Quest1` : « U: Intro Arks » (dès le départ des Arks) ;
+    - `[Builders]Builders Scenario` : « U: Initial Statistic ».
+    Les répertoires `Health`, `Sequences`, `Utility - General`… ne sont
+    rattachés à **aucun** réglage de scénario : chargés partout ? → F4 v7 :
+    compteurs des effets de dilemme (lien nul / non résolu / résolu),
+    ensemble des vus en table de hachage (65536), et liste des
+    **répertoires actifs** du système d'événements (`*(base + 0x40935C8)
+    +0x2128`, format supposé : tableau de pointeurs). **Validé le
+    2026-10-30** (The Arks, On the Edge) : collection des dilemmes à vtable
+    `+0x1F22468`, fonction de recherche **`+0xFF8F90`** ; 683 effets de
+    dilemme, tous résolus ; répertoires actifs lus correctement (32 dans
+    The Arks, 33 dans On the Edge). **`Health` est actif dans les deux**
+    (avec `Sequences`, `Utility - SocioTech`, `Hope Related Events`…,
+    `Londoners` aux Arks seulement, les répertoires `Scenario Reconquest …`
+    à On the Edge, et `Scenario Reconquest Endless` dans les deux).
+    Défaut : un effet partagé n'était attribué qu'au **premier** événement
+    qui l'atteignait (« Sick from the dead » disparu du relevé, IdeologyTree
+    attribué à « E: No alive people in the city » de Winterhome). → F4 v8 :
+    ensemble des vus **vidé à chaque événement** (`ViderVus`, cases
+    mémorisées), et pour tout événement qui donne IdeologyTree, état activé
+    (`+0x20`) et tableaux d'objets de l'entrée (déclencheurs `+0x28`,
+    conditions…) décrits comme des prérequis (`DecrireEvenement`).
+    **Test v8 : attributions fausses** (événements de debug, `[Hint]` de
+    Winterhome « donnant » IdeologyTree ; « Sick from the dead » absent).
+    Deux causes : (1) le parcours générique lisait 0x100 octets dans des
+    effets de 0x28 → débordement dans les objets voisins ; (2)
+    `FrostpunkGameEventEntry` fait **0x90 octets, entrées contiguës** :
+    `+0xB8…` = l'événement suivant. Disposition confirmée par le relevé :
+    `+0x20` Enabled, `+0x28` déclencheurs, `+0x40` conditions (expressions,
+    ex. `CurrentScenarioParametersCheckExpression`, `UnlockCheckExpression`),
+    `+0x58` effets. → F4 v9 : taille réelle de chaque objet par sa **fiche
+    de réflexion** (méthode `[3]` = vtable `+0x18`, fiche `+0x88` = taille,
+    `FUN_140e4e520` ; appel sous SEH), parcours générique borné à cette
+    taille ; `DecrireEvenement` borné à 0x90. Non testé.
+    **Recherche close (2026-10-30)** : l'auteur a vérifié ailleurs que
+    **The Arks et On the Edge n'ont pas l'arbre Purpose**. `DiagUnlocks`
+    reste dans F4 (relevé lourd, à couper si gênant).
+  - **Debug : pas de délai entre deux lois (2026-10-30, VALIDÉ)** :
+    commande console `ResetSociotechCooldown` = `FUN_1413a64c0` →
+    `FUN_141700760(système des lois)` : `système +0xF8`
+    (SociotechActivationCooldown) = `DAT_142c2fca8` (temps nul), puis
+    événement « cooldown expiré » (`système +0xA0`) s'il a changé ;
+    `+0xF0` = LastSociotechActivationTime. → `LoisPompe` (lois.cpp,
+    appelée par le hook du setter de ressources après `DilemmesPompe`,
+    thread du jeu) l'appelle dès que `+0xF8` diffère du temps nul, tant que
+    `LOIS_SANS_DELAI = true` (**à remettre à false** hors debug). Log
+    `[LOIS] debug : delai … remis a zero` (10 premiers). Comme les autres
+    pompes, ne tourne pas en pause.
+  - **Modèle de checks voulu par l'auteur (2026-10-30)** : dans un petit
+    arbre d'Adaptation, la loi exclusive (l'une OU l'autre) = **un seul
+    check**, la loi qui en découle (quelle que soit la branche) = **un
+    seul check** ; l'item **progressif** de l'arbre débloque l'**effet** de
+    la loi effectivement signée à ce niveau (signer = check, effet en
+    attente de l'item, comme `{researched, received}` des technos). Cas
+    hors modèle à trancher : 3e niveau d'un seul côté (Corps Processing),
+    exclusion au 2e niveau (Housing, Disabled, kids2), branches sans
+    exclusion, Purpose. Lois désactivées : à exclure.
+    **Règles tranchées par l'auteur (2026-10-30)** : (1) une loi **sans
+    exclusion** = **un check à elle seule** (on peut tout prendre) ;
+    (2) une **paire exclusive**, quel que soit son niveau, = **un seul
+    check** (ex. Medic | Engineer Apprentices). Les « suites communes » ne
+    sont pas exclusives entre elles (aucun groupe d'exclusion : Care House,
+    Triage, Prosthetics, Alternative Food Source, Cocaine…) → règle (1).
+    (3) Des lois **exclusives par leurs parents** (chacune n'est
+    accessible que par une branche différente d'une même paire) forment
+    aussi **un seul check** : Child Labour – All Jobs | Medic Apprentices |
+    Engineer Apprentices (← Safe Jobs | Child Shelters) ; Ceremonial
+    Funerals | Organ Transplants ; Last Autumn : Ceremonial Funerals |
+    Company Funerals, compensations | optimisation (travail). Organic
+    Fertiliser (côté Corpse Disposal seulement) reste un check à part.
+    (4) **Décision de l'auteur** : côté Cemetery, **Ceremonial Funerals
+    vaut 2 checks** (l'équivalent d'Organ Transplants + Organic
+    Fertiliser), pour que les deux côtés envoient autant de checks.
+    **Order / Faith et Left / Right** (branches entières exclusives) :
+    même nombre de lois (11 / 11 ; 10 / 10 hors désactivées) mais
+    **formes différentes**. Order : NW → {MG → Foreman ; GS → {Census →
+    {Pledge, Agitator} ; Prison → Forceful Persuasion ; Patrol}} → NEW
+    ORDER (← OU Pledge, Forceful), profondeur 5. Faith : HoP → {Shrines →
+    {House of Healing, Field Kitchens} ; Evening Prayers → {Temple →
+    Righteous Denunciation ; Faith Keepers → Public Penance → Protector of
+    the Truth → NEW FAITH}}, profondeur 6. Left : LU → {CB ; WC → OD →
+    {SS ; Prop ; Abolition → Militia → {Show of force, TERROR}}} ; Right :
+    FI → {IP ; Overseers → SO → {Class Seg., Strike Busting, Penal Colony
+    → {Rationalised HC ; Round-ups → SERVITUDE}}} (identiques jusqu'à la
+    profondeur 4, différents ensuite). **Retenu par l'auteur** : checks
+    **par rang** (la N-ième loi signée dans la branche choisie envoie le
+    check N ; 11 pour Purpose, 10 pour Left / Right).
+  - **Signer sans effet / effet sans signer (décompilés du 2026-10-30)** :
+    `FUN_1416fd350(sys, loi)` = signer : frustration (`loi +0x90`, sur les
+    entités de `DAT_144098320`), map `+0x08` date / `+0x10` état 2,
+    `sys +0xF0` / `+0xF8` délai (`loi +0xC8`), **`FUN_1416fdbc0(sys, loi)`**,
+    espoir (`FUN_1418d8440`, `loi +0xB0/+0xB4`), alignement (`loi +0x98`,
+    `FUN_1418fa5e0`), commentaires (`loi +0x1D0`), événement `sys +0x30`,
+    `FUN_1416ffe70` (rafraîchit le livre). `FUN_1416fdbc0` = modificateurs
+    globaux `+0xF8` / d'entité `+0x110` / de lieu `+0x128` inscrits **une
+    fois** dans le système de modificateurs (`DAT_144093180`, liste
+    `+0x2128`), puis effets `+0xE0` (`FUN_14169ae90`, contexte par défaut).
+    Aussi appelée par `FUN_1416ffbe0` (lois de départ du réglage, état 2
+    posé à la main) : la séparation état / effet existe déjà dans le jeu.
+    Mais l'état est **aussi lu en continu** : `FUN_1416ff990` (« active ? »)
+    a 29 appelants, dont l'expression « Sociotech is researched »
+    (`FUN_1415d5ce0`, conditions d'événements), le panneau du refuge
+    d'enfants (Medic / Engineer, `FUN_14152bb30`), le système des groupes
+    (`FUN_1418b3d50`), les prérequis des lois et le livre.
+    **Décision de l'auteur (option A)** : signer = état 2 tout de suite
+    (le jeu réagit à l'état, événements compris) ; seuls les
+    modificateurs et effets (`FUN_1416fdbc0`) attendent l'item.
+    Espoir (`FUN_1418d8440` = `frostpunkcitizenhopesystem.cpp`) et
+    « alignements » (`FUN_1418fa5e0`, système `DAT_14409d2e0` : jauges
+    0..1 par alignement, liste `DAT_14407fea8`, commande console
+    `SetAlignment`) : **à la signature** (décision de l'auteur,
+    2026-10-30), comme la frustration, le délai et les commentaires.
+    Donc à la signature : tout `FUN_1416fd350` **sauf** `FUN_1416fdbc0`,
+    appelé à la réception de l'item (ou à la signature si l'item est
+    déjà reçu).
+  - **Ce que la sauvegarde du jeu garde (décompilés du 2026-10-30)** :
+    `SociotechData` (`FUN_141700520`) = `ActivationTime` + `State`
+    (`eSociotechState`, 1er nom « Inactive ») → l'état 2 d'une loi signée
+    est sauvegardé. Le système de modificateurs (`FUN_1417a0220`)
+    sauvegarde **lui-même** ses modificateurs (`GlobalModifierHost`,
+    `ModifierExpireQueue`, `ActiveModifiersWithConditions`,
+    `EntitiesOfTypeModifiers`, `BuildingsOfCategoryModifiers`) : ils ne
+    sont **pas** recalculés depuis l'état des lois au chargement
+    (`FUN_1416fdbc0` n'est appelée que par la signature et par le réglage
+    de départ, qui saute les lois déjà à l'état 2). Une loi « signée, effet
+    en attente » est donc rechargée telle quelle par le jeu ; seul le mod
+    doit se souvenir de ce qui est en attente.
+  - **Implémenté (2026-10-30, non testé) : `lois_ap.h/.cpp`.** Hooks de
+    `FUN_1416fd350` (signature) et `FUN_1416fdbc0` (effets : retenus
+    seulement s'ils sont appelés **dans** une signature et que l'arbre n'a
+    pas assez d'items ; le réglage de départ passe toujours). **Arbres**
+    construits une fois depuis les données : composantes des
+    `SociotechRequirement` (composites compris) et des groupes d'exclusion
+    (`+0x140`, par catégorie) ; Order + Faith = `Purpose`, Left + Right =
+    `Politics` ; autres arbres nommés par leur 1re loi (nom interne) ; lois
+    désactivées exclues. Liste dans le journal `[LOIAP]`. **Rang** = 1 +
+    poids des lois signées avant dans l'arbre (date d'activation) ;
+    Ceremonial Funerals d'Adaptation pèse 2 ; lois de départ (date
+    `DAT_14293fde8`) ignorées. Une loi de rang r, poids p envoie les checks
+    r..r+p−1 (`SendLawCheck(arbre, rang, nom, effetEnAttente)`,
+    popup « Check sent ») ; effet appliqué quand l'arbre a ≥ r items
+    (`ReceiveLawProgressive(arbre, joueur)`, popup « Law received » ;
+    application par `LoisAPPompe`, thread du jeu, hook du setter).
+    **Persistance** `mods\ap_lois_<GameId>.txt` (A items / C checks /
+    E guid + date d'activation + date d'application), cumulative ; relue au
+    changement de partie et après `LoadGame` (`LoisAPApresChargement` : date
+    de la sauvegarde) ; effet présent ssi même date d'activation et
+    application ≤ date de la sauvegarde, sinon réappliqué si l'item est là.
+    **F5** = un item pour l'arbre de la loi en attente la plus ancienne
+    (remplace `BaselineKeys`). Les lois signées par un événement (appelants
+    `FUN_14168c160`, `FUN_14186b190`) passent aussi par le hook.
+    **1er test (2026-10-31)** : 104 lois, 18 arbres (Politics = Left + Right
+    seuls, Labour découpé en petits arbres : comme voulu). Cemetery signée →
+    check + effet en attente ; F5 → effet appliqué ; Ceremonial Funerals →
+    checks 2 et 3. **Bug** : « Child Labour – Safe Jobs », signée **avant** le
+    mod dans cette partie, comptait comme en attente → F5 lui a appliqué son
+    effet une **2e fois**. Corrigé : ligne `P <guid> <date>` à chaque effet
+    retenu ; à la relecture, une loi signée sans E ni P de la même date
+    d'activation est « signée hors suivi » → effet tenu pour présent (E
+    écrit) ; checks manquants rattrapés. Arbres nommés par leur 1re racine
+    (loi sans loi en prérequis, hors Endless). Tirets typographiques des
+    noms affichés → `-`. Non testé.
+    **2e test (partie neuve, 2026-10-31)** : Cemetery signée, effet bien
+    retenu (journal), espoir OK, mais **cimetière (bâtiment) débloqué quand
+    même** : le bâtiment a son propre prérequis « loi signée »
+    (`FrostpunkSociotechRequirement`) évalué par **`FUN_1416a71f0`**
+    (`frostpunkrequirementsystem.cpp`, évaluateur de tous les prérequis ;
+    cas 4 techno, 5, 6, **7 loi** → `FUN_1416ff990`, 12–15 scénario…).
+    → hook `hkEvaluerPrerequis` : un SociotechRequirement (vtable relevée)
+    qui **n'est pas** un prérequis de loi (ensemble trié des objets de
+    `+0x38` et `+0x50` de toutes les lois, composites compris) répond 0 si
+    sa loi est `retenue` (signée, effet en attente). Le livre garde donc
+    l'état signé. Log `[LOIAP] prerequis … refuse`. Inconnu : le menu de
+    construction se rafraîchit-il seul quand l'item arrive ? Non testé.
+    **3e test** : un refus journalisé à la signature (prérequis hors lois de
+    Cemetery), mais **bâtiment toujours débloqué**. Tout prérequis passe
+    par `FUN_1416a71f0` (appelants : `FUN_1416a79e0` liste,
+    `FUN_1416a62d0` composite, `FUN_1416a79d0`). Système des bâtiments
+    (`DAT_142c3c408`, réflexion `FUN_1412f0980`) : cache non sauvegardé
+    **`Ignored_LockedBuildings` `+0x22B8`** (éléments 0x18), événements
+    `BuildingsUnlocked` `+0x2280`, `BuildingTypeConstructibleCheck`
+    `+0x2130`. Écartés (pas le bâtiment) : `FUN_1416d5650` (objectifs de
+    quête), `FUN_1416fec10` (date d'activation), `FUN_141700de0`,
+    `FUN_1416ffe70` (livre), `FUN_141bc09f0` (UI du livre), `FUN_1415d66b0`
+    (« temps depuis l'activation »), `FUN_14152e990` / `FUN_14152bb30`
+    (refuge d'enfants). → **diagnostic** : chaque évaluation d'un prérequis
+    d'une loi retenue (60, pile des 8 premiers refus) et hook de
+    `FUN_1416ff990` qui journalise les « active ? » sur une loi retenue
+    (30, pile des 8 premiers), sans changer le résultat.
+    **Résultat (2026-10-31)** : le blocage **fonctionne** dans une partie
+    déjà suivie (le menu de construction évalue bien ce prérequis :
+    `FUN_1412f07c0`, système des bâtiments, appelé par l'événement de
+    signature, et l'UI `FUN_141b81f40`, tous refusés). Le déblocage observé
+    venait d'une **partie neuve mise en pause dès le début** : la pompe ne
+    tourne pas en pause, le nouveau GameId n'était pas lu, la signature a été
+    traitée avec l'état de la partie précédente (« check #1 déjà envoyé »),
+    puis à la reprise la loi a été prise pour « signée hors suivi » → effet
+    tenu pour présent, bâtiment débloqué, **effet jamais appliqué**. →
+    `AssurerPartie(exclure)` : relecture au changement de GameId faite aussi
+    **depuis la signature** (hkEffets), la loi en cours étant exclue de la
+    vérification. Hook de diagnostic de `FUN_1416ff990` retiré. Non testé.
+  - **Icônes des lois = type du check (2026-10-31, non testé)**, comme les
+    technos. Réflexion `FUN_14145bdd0` (`FrostpunkProgressTreeEntry`) :
+    `+0x80` **Icon tile = case (x, y) seule** ; la texture est commune à
+    toutes les lois : `FrostpunkSocietyConfig` (réflexion `FUN_141439ef0`)
+    `+0x328` « Sociotech icons texture », `+0x330` nombre de cases, `+0x338`
+    / `+0x340` / `+0x348` ornements. `RafraichirIcones` (lois_ap.cpp, après
+    chaque signature et chaque relecture de partie) : loi active →
+    `icon_done` ; sinon icône du **prochain check de son arbre** (rang =
+    1 + poids des lois signées), donc la même pour toutes les lois non
+    signées d'un arbre. Type du check : `IconeDuCheckDeTest(arbre, rang)`
+    (TEMPORAIRE, hachage stable) en attendant le serveur.
+    **1er relevé** : texture = **`UI/Tiles/Icons.dds`** 16 × 16 = l'**atlas
+    des bulles (#2350)**, où nos icônes sont déjà → cases
+    **`bulleCol/bulleRow`** (`techCol/techRow` si c'était `tech_tree_atlas`).
+    Toutes les lois sont en **(2,13)** (flèche jaune ronde), sauf Strike
+    Busting (3, −8). Le livre (`FUN_141bbc320`, image `TECH_IMAGE` de chaque
+    nœud `TECH_ENTRY` / `LEFT_OR_ENTRY` / `RIGHT_OR_ENTRY`) pose la texture
+    `+0x328` (`FUN_141107140`) et la case `loi +0x80` (`FUN_141bb2d30` →
+    `FUN_141107360`) à la **construction** de l'arbre.
+    **Test (capture de l'auteur)** : rien de visible. Loi non signée = rond
+    vide, loi signée = **plume** (case (4,4) d'`Icons.dds`) dans un rond
+    bleu : `TECH_IMAGE` n'est pas l'image affichée. → diagnostic
+    `hkConstruireLivre` (hook de `FUN_141bbc320`, 4 premières constructions) :
+    nœuds du livre (`livre +0x1B0`, compte `+0x1B8`, pas 0x80 : `+0x00` GUID
+    de la loi, `+0x10` poignée de l'élément), arbre d'éléments d'un nœud
+    signé et d'un nœud non signé (`[LOIUI]` : nom, classe, visible
+    `+0x270` bit 0, couleur `+0x120`, textures trouvées entre `+0x280` et
+    `+0x600`).
+    **Relevé** : le nœud (`TECH_ENTRY` / `LEFT_OR_ENTRY` / `RIGHT_OR_ENTRY`,
+    UIButton → `STANDARD_NODE` / `SPECIAL_NODE` → `STATE_ELEM` → `light`,
+    `ROTATING` (`ORNAMENT`…), `graphic`, `active`, `selected`,
+    `highlighted` (cercles), **`circle_inside`** (UIPicture), `signed_text`,
+    et `TECH_NAME`) n'a **aucun `TECH_IMAGE`** : la case `+0x80` n'est
+    jamais affichée. La plume d'une loi signée = **`circle_inside`**
+    (visible si signée, caché sinon, teinte (0.13, 0.78, 0.84)). Aucune
+    texture lisible en clair dans les éléments (scan `+0x280..+0x600` vide).
+    → `PoserIconeNoeud` (à chaque construction du livre, tous les nœuds) :
+    tuile = texture config `+0x328` + case `bulleCol/bulleRow` posée sur
+    `circle_inside` par `FUN_1410260c0`, élément montré (`FUN_14105ac90`) et
+    remis en blanc (`FUN_1410297f0`).
+    **Test (capture)** : icônes AP **visibles** (done sur Cemetery, autres
+    selon l'arbre), mais **~3 fois trop grandes**, et **paires exclusives
+    inchangées** (`LEFT_OR_ENTRY` / `RIGHT_OR_ENTRY` : pas de
+    `circle_inside`, élément 0x0). → taille d'origine relevée sur la 1re
+    image, puis `FUN_14102b170(image, l / 3, h / 3)` (`ICONE_REDUCTION`,
+    `+0x210/+0x214`) ; arbre complet du 1er nœud de chaque sorte sans
+    `circle_inside`.
+    **Test** : taille OK, mais icônes décalées en haut à gauche (la position
+    est celle du coin haut-gauche ; `circle_inside` d'origine 87 × 87 en
+    (−13, −28)). → recentrage par **`FUN_14102a3e0(élément, vec4)`**
+    (translation, mise en file) sur le centre (−13 + 43,5) **en x comme en
+    y** (la plume d'origine n'est pas centrée en y ; décalage mesuré sur la
+    capture ≈ 30 / 45). **Paires** : relevé de `LEFT_OR_ENTRY` /
+    `RIGHT_OR_ENTRY` = demi-ronds dans un `Clip` (`STATE_ELEM` → `defoult`,
+    `active`…), sans image intérieure ; le demi-rond **gauche** a, hors du
+    `Clip`, une image vide **`BlurNotAvaiable`** (alpha 0) → l'icône de la
+    paire y est posée (`IconeDePaire` : `icon_done` si l'une des deux lois
+    est active), taille des nœuds simples, centrée sur sa propre géométrie
+    (journalisée). Rien sur le demi-rond droit.
+    **Test** : nœuds simples presque centrés (un peu bas → `ICONE_DECALAGE_Y`
+    = −4) ; paires : tuile bien posée sur `BlurNotAvaiable` (263 × 163 en
+    (−80, −25)) mais **invisible** (flou « indisponible », alpha remis à 0
+    par l'état). → `PoserIconePaire` : **copie de `circle_inside`** d'un
+    nœud simple (recette `+0x1E8` / ressource `+0x1F0` mémorisées,
+    `FUN_14110c780`), ajoutée au demi-rond gauche (`FUN_141023d70`), tuile,
+    taille 29, centrée sur le rond de la paire (translations cumulées
+    `Clip` → `STATE_ELEM` → `defoult` → `circle_bg` + demi-taille). Paires
+    traitées après les nœuds simples.
+    **4e test** : paires visibles mais décalées d'environ une demi-taille de
+    rond (~48 en bas à droite) → la translation de `circle_bg` est déjà son
+    **centre** : plus de demi-taille (chaîne journalisée une fois) ; nœuds
+    simples trop hauts à −4 → `ICONE_DECALAGE_Y = −2`. Loi **signée** :
+    icône verdâtre, car l'animation d'état reteint `circle_inside` en
+    (0.13, 0.78, 0.84) après notre blanc. → nœuds simples aussi sur une
+    **copie** (`IconeSurCopie`, ajoutée au même parent `STATE_ELEM`, non
+    liée aux animations ; réutilisée si déjà là), original réduit à taille
+    nulle (plume cachée) ; tuile posée **directement** sur la copie
+    (`FUN_141107140` texture + `FUN_141107360` case, corps de
+    `FUN_1410260c0` sans la recherche par nom). Non testé.
+    **5e test** : toujours teintée (paire signée bleue) et paire décentrée.
+    Chaîne relevée : `Clip` (−6, −55) 107 × 200, `STATE_ELEM` (105, 96,7)
+    59 × 59, `defoult` (0, 0) 64 × 64, `circle_bg` (−13, −28) 87 × 87 : les
+    translations cumulées ne donnent pas le centre (ancres / échelle
+    inconnues). → centre **mesuré** sur deux captures (point rouge) et
+    interpolé : `PAIRE_CENTRE = (103, 32)`. Couleur : hook de
+    `FUN_1410297f0` (poseur de couleur) qui force le blanc (alpha gardé) sur
+    nos copies (`g_copies`, vidée à chaque construction du livre) et
+    journalise qui les teinte ; couleur / mode de la recette de
+    `circle_inside` journalisés. Si aucun appel n'est journalisé, la teinte
+    passe par un autre chemin (animateur). Non testé.
+    **6e test** : aucun appel du poseur de couleur sur nos copies, et la
+    « recette » lue en `+0x1E8` donne des flottants absurdes : **`élément
+    +0x1E8` = animateur d'état** (`FUN_1410240d0` : `animateur->vtable
+    [0x138]` puis récursion sur les enfants, pointeur nul = ignoré). La
+    copie rejouait l'état du nœud avec l'animateur de `circle_inside`. →
+    `NouvelleCopie` met `copie +0x1E8` à 0 ; hook du poseur de couleur
+    retiré. Paire : icône **sous le demi-rond droit** (dessiné après) →
+    copie ajoutée **en dernier au parent commun** des nœuds (`racine
+    +0x230` ; `FUN_141023e70` : `+0x228` dernier enfant, `+0x238`/`+0x240`
+    frères), à `translation de la racine + (101, 35)` (moyenne des 3
+    mesures) ; anciennes copies détruites (vtable `+0xE0`) à la
+    construction suivante si leur parent a survécu.
+    **7e test** : parent commun = `TREE_PANEL` (UIElement), racines de
+    paire en (1500, 1100), (1180, 1450)… (`+0xB0` = 100, 100 ; `+0x8C` = 1) ;
+    icône « plus du tout centrée ». Hypothèse : la translation d'une racine
+    est son **centre** → position = `tr − taille / 2 + (101, 35)` ; tailles
+    de la racine et du panneau journalisées.
+    **8e test** : couleur OK (animateur vidé), au-dessus du demi-rond droit
+    OK ; icône à (+84, −10) px du centre (racine 100 × 100, `TREE_PANEL`
+    2600 × 2400, ~1,22 px / unité) → centre = **translation de la racine
+    gauche + (−18, −7)** (`PAIRE_DECALAGE`).
+    **9e test** : presque centrée, ~16 px trop à gauche, ~2 px trop bas →
+    `PAIRE_DECALAGE = (−5, −9)`.
+    **10e test** : un peu trop haut. Remarque de l'auteur : une fois la loi
+    d'une paire signée, la **plume du jeu** s'affiche au centre exact du
+    rond (sous notre icône) → s'en servir comme référence. Relevé de
+    l'arbre (avec translations et tailles) du demi-rond de la loi signée,
+    une fois par côté (`arbre du demi-rond SIGNE`).
+    **Journal** : aucun demi-rond signé — une loi signée d'une paire devient
+    un **nœud simple** (`TECH_ENTRY`, ex. « Child Labour - Safe Jobs » état 2,
+    icône done déjà centrée par la logique des nœuds simples) et l'autre
+    reste en demi-rond (`LEFT_OR_ENTRY` « Child Shelters »). Le « logo de
+    signature » vu par l'auteur = cette icône du nœud simple ; la nôtre
+    faisait doublon. → plus d'icône de paire quand l'autre loi est signée ;
+    translation de la racine de chaque nœud journalisée (`racine en (x,
+    y)`) pour caler le centre des paires non signées sur celui du nœud
+    simple qui les remplace.
+    **11e test** : doublon disparu ; paire encore ~10 px à gauche, ~3 px
+    haut (capture à ~1,55 px / unité) → `PAIRE_DECALAGE = (2, −7)`.
+    **12e test** : ~4 px trop haut, et ~2 px trop à droite selon l'auteur
+    → `PAIRE_DECALAGE = (0,7, −5)`.
+    **13e test** : 2 px plus bas demandés → `(0,7, −3,7)`.
+    **14e test** (plein écran 1920, ~1,65 px / unité) : 3 px plus bas →
+    `(0,7, −1,9)`. **VALIDÉ le 2026-11-01** (placement bon selon l'auteur).
+    **Lois inaccessibles (2026-11-01, demande de l'auteur)** : une loi qu'on
+    ne pourra plus signer perd son icône AP (`Accessible`, lois_ap.cpp) :
+    non active et (une autre loi de son groupe d'exclusion, même catégorie,
+    est active) ou (prérequis insatisfaisables : loi requise inaccessible,
+    composites ET / OU évalués, NON et autres types tenus pour
+    satisfaisables). Ex. Cemetery signée → Corpse Disposal, Organ
+    Transplants, Organic Fertiliser sans icône. Non testé.
+    Question de l'auteur : l'icône des lois non signées change quand on
+    signe dans l'arbre (Organ / Ceremonial Funerals : trap → important) —
+    **normal dans le modèle par rang** : toutes les lois non signées d'un
+    arbre montrent le prochain check (rang = 1 + poids signés ; Ceremonial
+    Funerals pèse 2), tiré au hasard stable par `IconeDuCheckDeTest`.
+- **Écran de connexion au menu principal (2026-10-31, approche 1 choisie par
+  l'auteur, VALIDÉ visuellement le 2026-10-31)** : 3 champs (serveur, slot,
+  mot de passe) + bouton « Connect » dans une colonne propre à droite de la
+  tache d'encre (voir les tests ci-dessous pour l'historique).
+  Décompilés (adresses Ghidra) :
+  - `FUN_141b28950` = init de `FrostpunkUIMainMenuMainPanel` (racine
+    poignée `+0xA8`, boutons `CONTINUE_BUTTON` … `EXIT_BUTTON`) ;
+    `FUN_141a324b0(racine, &nom, objet, fn, p5)` →
+    `FUN_14105a1c0(bouton, objet, fn, 0, p5, 1)` (écouteurs de clic
+    `bouton +0x258`, rappel `fn(objet, …)`).
+  - **Tout élément garde sa recette en `+0x1E8` et sa ressource en `+0x1F0`**
+    (`FUN_14102a5f0`) ; `FUN_14110c780(recette, ressource, drapeaux,
+    &DAT_142be0438)` instancie une copie complète (comme les curseurs du
+    panneau Endless, `FUN_141b3a420`). Recette : `+0x30` enfants, `+0x38`
+    compte, `+0x48` nom, `+0x114` mode (0 toujours, 1 jamais, 2 si drapeau 1).
+    `FUN_141024ba0(chemin, &nom, ctx)` = instancier un nœud nommé d'une
+    recette par chemin ; `FUN_141035c80(pool, chemin, 1)` = ressource (chargée
+    au besoin), `FUN_141119140(ressource)` = recette racine.
+  - `FUN_1410266a0(parent, enfant, avant)` insère ; `FUN_141023d70` ajoute.
+  - **`UITextInput`** (moteur, 0x6E0, fiche `DAT_142bfd7b0`) : `+0x3E8` texte
+    affiché, `+0x678` tampon d'édition / `+0x680` longueur / `+0x684` max,
+    `+0x6C8` en édition, `+0x6B0` caractères interdits, `+0x658` écouteurs de
+    fin d'édition ; `FUN_14111bef0(texte, wchar*, &DAT_142bfd628)` pose un
+    texte brut (tout UIText) ; `FUN_14112a920` = début d'édition (recopie
+    `+0x3E8` dans le tampon) ; `FUN_141030e90(écran, input)` = focus
+    (`UIScreen +0x328`) ; `FUN_1410261e0` = écran d'un élément. Pas de masque
+    de mot de passe dans la recette.
+  - Champs connus : `SAVE_NAME_INPUT` (panneau de sauvegarde, `FUN_141b7edf0`),
+    `ENTITY_NAME_INPUT` (`FrostpunkUINamingCityMessagePanel`, la popup « nommer
+    la ville » d'Endless, `FUN_141ba2580`), `NAME_INPUT` (recherche). Le menu
+    n'en a aucun ; leur recette n'est pas connue du code.
+  - Implémentation (`menu_ap.cpp`) : source du champ cherchée dans
+    `UI/MainScreen` (recherche récursive qui ignore les modes), sinon liste
+    des recettes `UI/` du pool et essai de celles dont le nom évoque un champ
+    (`[MENU] recette …`) ; libellés = clones d'`EXIT_BUTTON` (clic = focus du
+    champ) ; mot de passe : hooks de `FUN_14111bef0` (étoiles affichées,
+    valeur retenue) et `FUN_14112a920` (valeur réelle remise dans le
+    tampon). Inconnus : focus par clic direct sur le champ, saisie clavier au
+    menu, longueur maximale du champ cloné, fond du champ.
+  - **1er test** : source trouvée (`UI/Misc/SaveGamePanel` → `SAVE_NAME_INPUT`,
+    mode 0, colonne = `MENU_LAYOUT` UILayout), focus appelé, mais champs
+    **non interactifs et presque invisibles en bas**. Décompilés : clavier
+    `FUN_140fdabc0` → `FUN_14100fab0` (écrans visibles `vtable+0x218` avec
+    `+0x2D4`, bloquants `+0x2D0`/`+0x2D2`) → `FUN_14102f410(écran, vk)` →
+    `FUN_141129c90` (Entrée / Échap seulement si `input +0x69C`) ; caractères
+    `FUN_140fda9e0` → `FUN_14100f840` → `FUN_14102f300` →
+    **`FUN_14112ac10`** (insertion : caractères interdits `+0x6B0`, refus si
+    curseur `+0x688` ou longueur ≥ max `+0x684`, refus si le texte dépasse la
+    largeur quand **« Limit to width » `+0x6CC`** est posé) ; clic souris
+    `FUN_14102f720` (élément survolé `écran +0x380`, focus si
+    `vtable+0x108` et `+0x228`, sinon fin d'édition si `input +0x6CA`).
+    `FUN_14102b170(élément, l, h)` = taille (`+0x210`/`+0x214`). Causes
+    présumées : champ cloné à 15 caractères (l'URL par défaut en fait 20),
+    limite de largeur active, aucune taille hors de son panneau. →
+    `PreparerChamp` : taille du bouton modèle, tampon de 128 caractères
+    (`MoteurAlloc`), `+0x6CC` à 0 ; bloc déplacé **en tête** de la colonne.
+  - **2e test** : saisie OK. Relevé : champ d'origine 264 × 40, limite de
+    largeur déjà à 0 (seul le maximum de 15 bloquait), bouton 135,7 × 32 —
+    la mise à la taille du bouton rétrécissait le champ (retirée). Remarques
+    de l'auteur : les options du jeu sont repoussées trop bas ; les intitulés
+    ne doivent **pas** être cliquables.
+    → Réflexion de `UIElementRecipe` (`FUN_14110fc60`) : `+0x48` nom,
+    `+0x80` Position, `+0x90` Anchor, `+0xA0` Dock, `+0xB0` Rotation, `+0xC0`
+    Scale, `+0xF0` Color, `+0x108` Color mode, `+0x114` Disabled (= le
+    « mode »), `+0x118` Modal, `+0x120` FreezedLayout, `+0x122` Hidden,
+    `+0x123` Ignore layout, `+0x125` Focusable with mouse, `+0x134` Anchor by,
+    `+0x138` Auto layout, `+0x140…` événements OnShow… .
+    → **Colonne propre** : copie de `MENU_LAYOUT` instanciée avec, le temps
+    de l'appel, 0 enfant et une position décalée en x dans sa recette
+    (`CreerColonne`), ajoutée au parent de `MENU_LAYOUT` ; intitulés = copies
+    du **texte** d'`EXIT_BUTTON` seul ; focus par clic direct : hook du clic
+    de l'écran `FUN_14102f720` (survolé `écran +0x380`, focus `+0x328`).
+  - **3e test** : tout est créé (journal : recette de `MENU_LAYOUT` position
+    (638, 369), ancre (0, 0), dock 0, 18 enfants, parent `UITemplateView`,
+    taille 350 × 370 ; colonne décalée de +410 en x ; texte modèle
+    `MENU_OPTION_TEXT` UIText) mais **rien n'est visible**. Hypothèses :
+    découpage par le parent, ou colonne jamais montrée.
+    `FUN_14105ac90(élément, visible, animé, forcer)` = montrer / cacher
+    (`élément +0x270` bit 0). → colonne forcée visible, et relevé
+    `DecrireChaine` (translation locale `élément +0x80`, taille, drapeaux
+    `+0x270`, couleur `+0x120`, clip / caché de la recette) de `MENU_LAYOUT`
+    et de la colonne, à la pose puis au 1er clic 3 s après.
+  - **4e test (capture de l'auteur)** : seul « ARCH… » (texte du champ
+    serveur) apparaît en filigrane au bord droit de la tache d'encre. Chaîne :
+    `MENU_LAYOUT` (638, 369) ← **`SFX_TXT_MASK`** (`UITemplateView`, 500 ×
+    500, en (0, 0)) ← **`INK_PANEL`** (250, 250) ← `EXT_MAIN_MENU_PANEL`
+    (1280 × 720) ← `FRAME` ← `UIScreen`. `SFX_TXT_MASK` est le **masque en
+    tache d'encre** : ses enfants ne sont visibles que dans la zone noire
+    (l'auteur l'avait deviné). Échelle relevée : ~1,09 px d'écran 1920 par
+    unité. → colonne rattachée à `INK_PANEL` (mêmes coordonnées, ajoutée en
+    dernier).
+  - **5e test** : colonne visible, mais éléments qui **se chevauchent un
+    peu**, et une **barre blanche** au début de chaque champ = le curseur
+    `SAVE_NAME_INPUT_CURSOR`, enfant du champ dans la recette, copié avec lui
+    et jamais lié (le panneau de sauvegarde le lie par `FUN_14112a1d0(input,
+    curseur)`, qui l'ajoute en `input +0x6A0` ; `FUN_141129940` = cacher le
+    curseur `+0x6A0` en fin d'édition). → curseur copié détruit (`vtable
+    +0xE0`) ; au focus, `FUN_14112a920` crée le sien. Réflexion de
+    `UILayoutRecipe` (`FUN_141111850`, 0x240) : `+0x200` Layout Type, `+0x204`
+    Orientation, `+0x208` Alignment, `+0x20C` Cell alignment, `+0x210` (bool),
+    `+0x211` Use content size, `+0x212` Ignore hidden children, `+0x214..+0x220`
+    Padding (gauche, droite, haut, bas), `+0x224`/`+0x228` **Cell margin**
+    horizontale / verticale, `+0x22C`/`+0x230` décalages personnalisés. →
+    marge verticale +12 dans la recette le temps de l'instanciation de notre
+    colonne, et relevé des enfants (translation, taille) 3 s après.
+  - **6e test** : curseurs copiés détruits, espacement OK (layout de
+    `MENU_LAYOUT` : type 0, orientation 0, alignement 3 / 3, padding nul ;
+    groupes au pas de ~66 : intitulé `MENU_OPTION_TEXT` 18 de haut, champ 40).
+    Demande de l'auteur : un **trait pointillé** entre chaque groupe, comme
+    entre les boutons du jeu. → `TrouverSeparateur` : modèle = 1er enfant de
+    `MENU_LAYOUT` qui n'est pas un `UIButton` (liste des enfants
+    journalisée), cloné après chaque champ.
+  - **7e test : rendu validé par l'auteur** (« c'est nice »). Reste : un champ
+    vide affichait le texte par défaut du champ de sauvegarde (« New save »)
+    — un texte vide posé par `FUN_14111bef0` ne le remplace pas. → slot par
+    défaut « Player 1 » (demande de l'auteur), valeur vide affichée comme un
+    espace (mot de passe vide compris), espaces de tête / fin retirés à la
+    lecture (`LireChamp`).
+  - **8e test (capture)** : « Player 1 » / espace OK, mais le texte des champs
+    est **aligné à gauche** dans leur boîte de 264 (le slot déborde à droite,
+    les étoiles du mot de passe sont décalées), alors qu'intitulés et traits
+    sont centrés. Réflexion de `UITextRecipe` (`FUN_1411c4960`) : `+0x200`
+    police, `+0x210` Font size, `+0x214` **Horizontal alignment** (0 Left,
+    1 Right, 2 Center), `+0x218` Vertical alignment, `+0x220` ombre, `+0x240`
+    contour, `+0x24C` Upper case, `+0x24D` Localized, `+0x258` Wrap text,
+    `+0x25B`/`+0x25C` Adjust width / height. → `InstancierChampCentre` :
+    `+0x214` = 2 dans la recette de `SAVE_NAME_INPUT` le temps de
+    l'instanciation (recette partagée avec le panneau de sauvegarde du jeu).
+    Non testé ; si l'élément relit la recette plus tard, l'alignement
+    reviendra à gauche.
+  - **9e test** : serveur et slot centrés (l'alignement est bien copié dans
+    l'élément : `input +0x321`, lu par `FUN_14112a360`), mais pas le mot de
+    passe. Décompilés : `FUN_14112a360(input, pos)` place le curseur en
+    mesurant le **préfixe du tampon** `+0x678` (largeur affichée `+0x4D0`) ;
+    `FUN_1411293b0` = effacer la sélection (`+0x690` début, `+0x694`
+    longueur, `+0x6C9` sélection permise) ; `+0x688` curseur. Le tampon
+    tenait le vrai mot de passe et l'affichage des étoiles → incohérence. Et
+    **« Upper case » (`UITextRecipe +0x24C`) est actif** sur le champ de
+    sauvegarde : `FUN_14112ac10` et `FUN_14112a920` convertissent le
+    **tampon** en majuscules (slot et mot de passe auraient été envoyés en
+    majuscules). → tampon du mot de passe = étoiles seulement, vraie valeur
+    tenue en miroir (hooks `FUN_14112ac10` insertion, où l'on insère `*`, et
+    `FUN_141129c90` retour arrière / suppression / sélection) ; « Upper
+    case » coupé dans la recette le temps de ces appels et de
+    l'instanciation, pour nos champs seulement.
+  - **10e test (capture)** : texte toujours décalé à droite, d'autant plus
+    que le texte de départ était court (étoiles très à droite ; au 8e test,
+    texte à gauche, il partait du centre). Explication cohérente avec les
+    translations relevées (serveur x = 57,8, autres 120) : la colonne place
+    chaque champ selon la **largeur de son texte au moment de la mise en
+    page** (une seule fois, à l'ouverture du menu), puis le texte part de
+    cette position (à gauche) ou se centre dans la boîte de 264 (« Center »).
+    → alignement d'origine (gauche) gardé, et **remise en page de la
+    colonne** (`FUN_1411fd800`) après chaque insertion / effacement dans un
+    de nos champs (`RecalculerColonne`). **VALIDÉ le 2026-10-31** par
+    l'auteur (champs centrés ; relevé : champ x = 175 − largeur du texte / 2).
+    Chantier mis en pause par l'auteur : il y reviendra pour la vraie
+    connexion au serveur (`RequestConnection` ne fait que journaliser).
+    Restent non vérifiés en jeu : la casse conservée à la saisie (« Upper
+    case » coupé) et la valeur du mot de passe envoyée après effacements.
+- **Température (2026-11-01, demande de l'auteur)** : but final = retirer
+  toutes les variations de température scriptées et en faire des checks /
+  items AP. **Étape 1 (en cours) : cartographie** par scénario et difficulté,
+  sans rien retirer. Décompilés du 2026-11-01 — la température vient de la
+  **météo**, pilotée par des **données** :
+  - `FrostpunkEnvironmentConfig` = instance statique **`base + 0x406B4D0`**
+    (réflexion `FUN_1413f5320`) : `+0x58` niveau de température par défaut
+    (lien), `+0x68` degrés par défaut (float, −10), `+0x6C` degrés par niveau
+    (float, 10), `+0x90` niveaux (`FrostpunkTemperatureLevelEntry`, 0x68 :
+    `+0x00` nom, `+0x08` GUID, `+0x40` Display name), `+0xF8` **météos**.
+  - `FrostpunkWeatherEntry` (`FUN_1413f6dc0`) : `+0x00` nom, `+0x08` GUID,
+    `+0x24` **Storm**, **`+0x54` Temperature offset from default level**
+    (int, en niveaux), `+0xB8` Display name.
+  - Chronologies : `FrostpunkScenarioWeatherTimelineEntry` (0x40, polymorphe :
+    `+0x18` nom, `+0x20` GUID), rangées dans `FrostpunkScenariosConfig +0x1A0`.
+    `…SimpleWeatherTimeline` (0x58) : `+0x40` changements
+    (`FrostpunkWeatherChangeEntry`, pas 0x20 : `+0x00` jour u16, `+0x02`
+    heure, `+0x03` minute, `+0x04` lien météo, `+0x18` marqueur de carte) ;
+    `…CompositeWeatherTimeline` (0x60) : `+0x40` composantes (pas 0x18 :
+    liens de chronologies), `+0x58` Loop last component.
+  - Rattachement : `FrostpunkScenarioEntry +0x118` Weather timelines (liens) ;
+    `+0xC8` Game acts setup → `FrostpunkScenarioGameActsSetupEntry` (0x38 :
+    `+0x18` actes, `+0x30` 1er acte au départ) → `FrostpunkGameActEntry`
+    (0x30 : `+0x18` Weather timelines). Un acte démarre par
+    `FrostpunkStartGameActEffect` (`+0x18` lien d'acte) dans un événement.
+  - Difficulté : `FrostpunkDifficultyEntry` (0x38) `+0x20` Modifications
+    (`FrostpunkDifficultyModificationEntry`, 0x50 : `+0x30` scénario requis,
+    `+0x40` interdit) ; météo : `…GameActDifficultyModification` (`+0x50`
+    acte, `+0x60` chronologies de remplacement),
+    `…ScenarioDifficultyModification` (`+0x50` scénario, `+0x60` idem),
+    `…TemperatureLevelDifficultyModification` (`+0x50` niveau, `+0x60`
+    chance de maladie : **pas** une variation de température, réglage
+    « Health »).
+  - Partie : `FrostpunkWeatherSystem` = `*(base + 0x4062D48)` (réflexion
+    `FUN_14132de80`) : `+0x118` chronologie calculée {date, météo} (pas 0x10),
+    `+0x130` chronologies retenues, `+0x148` index, `+0x150` météo courante,
+    `+0x158` précédente. `FUN_14132f260(sys, météo)` = changer de météo
+    (commande console `SetWeather`).
+  - **F9 = relevé `[TEMP]`** (`temperature.cpp`) : config, toutes les
+    chronologies, scénarios / actes, modifications de difficulté (via le
+    système des difficultés : **en partie**), événements portant un
+    `StartGameActEffect` ou un effet « Weather/Temperature »
+    (`LoisParcourirEvenements`, lois.cpp), chronologie calculée de la partie.
+  - **Relevé F9 du 2026-11-01** (partie Refugees, Medium). Échelle :
+    degrés par défaut **−20 °C** (la donnée remplace le −10 du
+    constructeur), 10 °C par niveau, niveau par défaut **Chilly** (indice 3 ;
+    niveaux 0 Freezing, 1 Very cold, 2 Cold, 3 Chilly, 4 Liveable,
+    5 Comfortable). Une météo porte son décalage en niveaux : le nom donne
+    la température (`-40` = −2 niveaux = −40 °C ; variantes `_NoFog`,
+    `_DLC3`, `_Endgame` = même décalage, autre visuel ; `10_Builders` = +3,
+    `00_Builders_with_snow` = +2, `-00` = −1 malgré son nom). 52 météos,
+    66 chronologies. **Aucune météo n'a `Storm` (+0x24) à 1**, pas même les
+    `_Endgame` de la tempête.
+    **Vérifié** : la chronologie calculée de la partie (12 changements)
+    reproduit « Refugees » à l'identique ; `jour N 07:00` = 07:00 du N-ième
+    jour affiché ; `jour 1 00:00` = météo de départ.
+  - **Mécanisme par scénario** : chronologie du scénario (`+0x118`),
+    **remplacée selon le réglage de difficulté « Weather »** (Easy / Hard /
+    Frostbite : `…ScenarioDifficultyModification` par scénario ; Medium = la
+    chronologie du scénario). Les autres réglages de difficulté n'ont aucune
+    modification météo. Actes : A New Home, The Arks, Endless et scénarios de
+    debug ont le réglage d'actes « Default » (Storm preparation → Storm),
+    dont seul **Storm preparation** dépend de la difficulté ; Last Autumn :
+    3 actes **sans** chronologie (Acte 1 à `U: Initial Statistic`, Acte 2 à
+    `S: [Crisis] 3 - Breaking Point`, Acte 3 à `M: [Cut-off] 4 - Last
+    delivery`) ; On the Edge : Acte 1 au départ, chronologie
+    `Reconquest-normal`. Refugees et Winterhome : pas d'actes.
+  - **Tableau complet (référence ; température en °C par jour de bascule, à
+    07:00 sauf mention ; J1 = départ)** — seules les **montées** comptent
+    (voir plus bas) :
+
+    | Scénario | Difficulté « Weather » | Chronologie | Variations |
+    |---|---|---|---|
+    | A New Home | Medium | Default | J1 −20, J4 −40, J6 −30, J10 −40, J12 −30, J15 −40, J21 −60, J23 −40, J26 −70, J27 −50, J30 −60, J33 −70, J36 −80 |
+    | A New Home | Easy | Default_easy | J1 −20, J5 −40, J6 −30, J11 −40, J12 −30, J16 −40, J22 −60, J23 −40, J26 −60, J27 −50, J31 −60, J34 −70, J37 −80 |
+    | A New Home | Hard | Default_hard | J1 −20, J4 −40, J7 −30, J10 −40, J13 −30, J15 −40, J21 −60, J24 −40, J26 −70, J28 −50, J30 −60, J32 −70, J35 −80 |
+    | A New Home | Frostbite | Default_frostbite | J1 −20, J4 −40, J8 −30, J10 −40, J14 −30, J15 −40, J21 −60, J25 −40, J26 −70, J29 −50, J30 −60, J32 −70, J34 −80 |
+    | A New Home, acte Storm preparation (jours relatifs à l'acte) | Medium | Story - storm preparation | J1 −50, J3 −70, J5 −60, J8 −70, J9 −80, J10 −90 |
+    | idem | Easy | …_easy | J1 −50, J4 −70, J5 −60, J9 −70, J10 −80, J10 23:00 −90 |
+    | idem | Hard | …_hard | J1 −50, J2 −70, J5 −60, J7 −70, J9 −80, J10 −90 |
+    | idem | Frostbite | …_frostbite | J1 −50, J2 −70, J5 −60, J6 −70, J8 −80, J10 −90 |
+    | A New Home, acte Storm (toutes difficultés) | — | Story - storm | J1 −90, J2 −100, J3 −110, J4 −120, J6 02:00 −150, J6 07:00 −150 (outro), J6 07:45 −20 (`-00`, −1 niveau) |
+    | The Arks | Medium | TechHaven-normal | J1 −20, J4 −30, J6 −40, J7 −30, J9 −40, J10 −30, J11 −40, J13 −60, J14 −40, J17 −50, J18 −60, J19 −50, J25 −60, J26 −70, J27 −80 |
+    | The Arks | Easy | TechHaven-easy | J1 −20, J3 −30, J5 −20, J8 −30, J12 −40, J14 −50, J15 −40, J20 −50, J25 −60, J27 −70 |
+    | The Arks | Hard | TechHaven-hard | J1 −20, J3 −30, J7 −40, J10 −50, J15 −60, J18 −70, J20 −80, J22 −90 |
+    | The Arks | Frostbite | TechHaven-frostbite | J1 −20, J3 −30, J6 −40, J9 −50, J14 −60, J17 −70, J20 −80, J22 −90 |
+    | Refugees | Medium | Refugees | J1 −20, J3 −30, J7 −40, J9 −30, J12 −50, J13 −30, J15 −40, J17 −50, J19 −60, J21 −50, J23 −60, J26 −70 |
+    | Refugees | Easy | Refugees - easy | J1 −20, J7 −30, J12 −40, J13 −30, J15 −40, J19 −50, J21 −50 |
+    | Refugees | Hard | Refugees - hard | J1 −20, J3 −30, J7 −50, J9 −40, J12 −50, J13 −40, J16 −50, J17 −60, J19 −70, J21 −60, J23 −70, J26 −80 |
+    | Refugees | Frostbite | Refugees - frostbite | J1 −20, J3 −30, J6 −50, J9 −40, J11 −50, J13 −40, J16 −60, J19 −70, J22 −60, J23 −70, J26 −80 |
+    | Fall of Winterhome | Medium | Winterhome-normal | J1 −30, J2 −40, J4 −30, J7 −50, J10 −30, J13 −40, J14 −50, J15 −60, J18 −50, J21 −60, J22 −40, J24 −50, J25 −60 |
+    | Fall of Winterhome | Easy | Winterhome-easy | J1 −20, J2 −30, J3 −20, J7 −40, J10 −20, J13 −30, J14 −40, J18 −50, J22 −40, J25 −50 |
+    | Fall of Winterhome | Hard | Winterhome-hard | J1 −40, J4 −30, J5 −40, J7 −50, J10 −40, J14 −50, J15 −60, J18 −50, J21 −70, J24 −50, J25 −70 |
+    | Fall of Winterhome | Frostbite | Winterhome-frostbite | J1 −40, J6 −50, J10 −40, J13 −50, J15 −60, J17 −70, J18 −50, J21 −70, J24 −50, J25 −70 |
+    | Last Autumn | toutes | Builders-* | J1 +10, puis pluie / sec à 05:00 (J3, J4, J8, J9, J11, J13, J14, J15, J18, J19, J23, J24 ; température inchangée), J27 0 (neige), J31 −10, J35 −20, J37 −30, J39 −40, … , J45 14:30 −20 |
+    | Last Autumn | Medium | Builders-normal | … J39 −40, J42 −50, J45 14:30 −20 |
+    | Last Autumn | Easy | Builders-easy | … J39 −40, J45 14:30 −20 |
+    | Last Autumn | Hard | Builders-hard | … J39 −40, J42 −50, J43 −60, J45 14:30 −20 |
+    | Last Autumn | Frostbite | Builders-frostbite | … J39 −40, J41 −50, J42 −60, J45 14:30 −20 |
+    | On the Edge | Medium | Reconquest-normal | J1 −20, J3 −30, J5 −20, J7 −30, J9 −20, J10 −40, J11 −30, J12 −40, J14 −20, J15 −30, J17 −40, J20 −50, J21 −40, J23 −50, J26 −60, J27 −50, J30 −60, J33 −50, J35 −60, J36 −50, J37 −60 |
+    | On the Edge | Easy | Reconquest-easy | J1 −20, J4 −30, J5 −20, J8 −30, J9 −20, J10 −40, J11 −30, J13 −40, J14 −20, J16 −30, J20 −40, J21 −30, J23 −40, J25 −50, J26 −60, J27 −40, J30 −50, J32 −60, J33 −40, J34 −50, J35 −60, J36 −50, J37 −60 |
+    | On the Edge | Hard | Reconquest-hard | J1 −20, J3 −30, J8 −40, J10 −30, J12 −40, J16 −50, J17 −40, J19 −50, J20 −40, J21 −50, J22 −60, J23 −50, J26 −60, J29 −50, J30 −60, J33 −50, J34 −60, J36 −50, J37 −60 |
+    | On the Edge | Frostbite | Reconquest-frostbite | J1 −20, J2 −30, J6 −40, J10 −30, J11 −40, J13 −50, J14 −40, J17 −50, J18 −60, J19 −50, J22 −60, J23 −50, J26 −60, J29 −50, J30 −60, J34 −50, J35 −60, J36 −50, J37 −60 |
+    | Endless (5 cartes) | — | Endless_CompositeEasy (Hard / Builders : autres composites) | composantes tirées au hasard parmi 3 variantes A/B/C, dernière en boucle (détail dans le log) |
+
+    Chronologies de test sans scénario : Always Clear0, BASIC_NO_STORMS,
+    GAMESCOM, Default_DEBUG_ACT_2, Cold_Storm_prototype, EndgameTest_*,
+    AvgPlayer, Endless_Test.
+  - **Décision de l'auteur (2026-11-01)** : **Endless ignoré**, et **seules
+    les montées de température deviennent des checks** (les baisses restent
+    telles quelles). Montées par chronologie (calculées depuis le relevé ;
+    « J9 −40→−30 » = au jour 9, 07:00, de −40 à −30 °C) :
+
+    | Scénario | Difficulté | Montées |
+    |---|---|---|
+    | A New Home | Medium | 4 : J6 −40→−30, J12 −40→−30, J23 −60→−40, J27 −70→−50 |
+    | A New Home | Easy | 4 : J6 −40→−30, J12 −40→−30, J23 −60→−40, J27 −60→−50 |
+    | A New Home | Hard | 4 : J7 −40→−30, J13 −40→−30, J24 −60→−40, J28 −70→−50 |
+    | A New Home | Frostbite | 4 : J8 −40→−30, J14 −40→−30, J25 −60→−40, J29 −70→−50 |
+    | A New Home, acte Storm preparation | toutes | 1 : J5 de l'acte −70→−60 |
+    | A New Home, acte Storm | toutes | 1 : J6 07:45 −150→−30 (fin de la tempête = fin de partie) |
+    | The Arks | Medium | 4 : J7 −40→−30, J10 −40→−30, J14 −60→−40, J19 −60→−50 |
+    | The Arks | Easy | 2 : J5 −30→−20, J15 −50→−40 |
+    | The Arks | Hard / Frostbite | **0** (froid monotone) |
+    | Refugees | Medium | 3 : J9 −40→−30, J13 −50→−30, J21 −60→−50 |
+    | Refugees | Easy | 1 : J13 −40→−30 |
+    | Refugees | Hard | 3 : J9 −50→−40, J13 −50→−40, J21 −70→−60 |
+    | Refugees | Frostbite | 3 : J9 −50→−40, J13 −50→−40, J22 −70→−60 |
+    | Fall of Winterhome | Medium | 4 : J4 −40→−30, J10 −50→−30, J18 −60→−50, J22 −60→−40 |
+    | Fall of Winterhome | Easy | 3 : J3 −30→−20, J10 −40→−20, J22 −50→−40 |
+    | Fall of Winterhome | Hard | 4 : J4 −40→−30, J10 −50→−40, J18 −60→−50, J24 −70→−50 |
+    | Fall of Winterhome | Frostbite | 3 : J10 −50→−40, J18 −70→−50, J24 −70→−50 |
+    | Last Autumn | toutes | 1 : J45 14:30 → −20 (depuis −50 / −40 / −60 / −60 selon Medium / Easy / Hard / Frostbite ; fin du scénario) |
+    | On the Edge | **toutes** (l'Acte 1 impose `Reconquest-normal`) | 8 : J5 −30→−20, J9 −30→−20, J11 −40→−30, J14 −40→−20, J21 −50→−40, J27 −60→−50, J33 −60→−50, J36 −60→−50 |
+
+    **On the Edge vérifié le 2026-11-01** (F9, difficulté « Weather » =
+    Frostbite) : chronologie calculée = `Reconquest-normal` (21 changements,
+    identiques à la donnée). L'Acte 1, démarré au lancement, **écrase** le
+    remplacement de difficulté du scénario : les variantes
+    `Reconquest-easy / -hard / -frostbite` ne servent jamais (sauf si un
+    acte suivant les reprend : Actes 2 et 3 sans chronologie).
+
+    **Exclues (décision de l'auteur, 2026-11-01)** : les montées de **fin de
+    partie** (fin de la tempête de A New Home, J45 de Last Autumn) ne sont
+    pas des checks. Donc Last Autumn n'a **aucune** montée, l'acte Storm
+    non plus. The Arks Hard / Frostbite n'a aucune montée ; l'entrée dans un acte (ex. Storm preparation qui
+    démarre à −50) n'est pas comptée comme un changement de la chronologie.
+  - **Étape 2 (2026-11-01, non testé) : retrait des montées + item.**
+    Décision de l'auteur : **toutes** les montées sont retirées, les baisses
+    restent vanilla, donc le décalage se **cumule** (« on commence à −20, puis
+    prochaine baisse −30, puis −50… ») ; un check reçu rend la montée.
+    Décompilés : `FrostpunkTemperatureSystem` (réflexion `FUN_141813280`) :
+    **`+0x21A0` CurrentTemperature** (int, en niveaux), `+0x20C0` événement
+    GlobalTemperatureLevelChanged (écouteurs `+0x20D8`, compte `+0x20E0`) ;
+    **`FUN_141812c10(sys)` = recalcul** : indice du niveau par défaut (config
+    `+0x58` dans `+0x90`) + décalage de la météo courante (`+0x54`), écrit
+    `+0x21A0` et diffuse si la valeur change ; seul appelant : l'écouteur
+    `0x141811540` (objet `sys + 0x20A8`, inscrit par `FUN_141812500` sur
+    l'événement « météo changée », `système météo +0x30`, déclenché par
+    `FUN_14132f260` après la pose de `+0x150/+0x158/+0x160`). Température
+    d'une entité (`FUN_141811e10`) = `+0x21A0` + chaleur locale.
+    → `temperature.cpp` : hook de `FUN_141812c10`. À chaque changement de
+    météo, si c'est une **montée** (décalage de la nouvelle > ancienne), elle
+    est notée « retirée » (date `météo +0x160`, niveaux), sauf les montées de
+    fin de partie (vers `-00` ; vers `-20_NoFog` dans `BUILDERS`). Décalage
+    AP = niveaux reçus − montées retirées dont la date est passée ; il est
+    ajouté à `météo courante +0x54` **le temps de l'appel original**, qui
+    calcule et diffuse lui-même. Recalcul forcé (sans noter de changement) à
+    la réception d'un item et au changement de génération de partie.
+    Persistance **`mods\ap_temperature_<GameId>.txt`** (`A <reçus>`, `M <date
+    hex> <niveaux>`), cumulative ; une montée rejouée après chargement d'une
+    sauvegarde plus ancienne retombe sur la même date : pas comptée deux fois.
+    Item : **`ReceiveTemperatureRise(levels, player)`** (archipelago, popup
+    « Temperature rise »), **F8** = +1 niveau de test. Contrairement au
+    tableau, une **entrée d'acte qui réchauffe** (changement de météo)
+    est aussi retirée. Non traité : une partie commencée sans le mod (ses
+    montées passées ne sont pas retirées). Journal `[TEMPAP]`.
+    **Prévisions de l'interface (demande de l'auteur : retirées aussi)** —
+    décompilés du 2026-11-01 : `FUN_141559730(panneau, i, &chrono[i],
+    &chrono[i−1], p5)` = icône de la **frise météo** pour le changement i
+    (`WEATHER_CHANGE_ICON`, case montée / baisse selon l'écart des décalages,
+    infobulle `env +0x200 / +0x218`, icônes `+0x250 / +0x268`) ; écart nul →
+    pas d'icône, renvoie 1 (boucles `FUN_141559f10`, `FUN_14155a620`,
+    `FUN_14155acf0`, frise reconstruite sur l'événement « chronologie
+    changée » `météo +0x68`). `FUN_141bcc1a0(panneau, météo à venir)` =
+    icône du **panneau de température** (`TEMPERATURE_UP` / `_DOWN` /
+    `STORM`, écart nul : rien), écouteur `0x141bcb540`. Le message
+    « WeatherChangeApproaching » (n° 0x1B, `FUN_141680800`) n'est programmé
+    que vers une météo plus haute dans la liste des météos (= plus froide) :
+    rien à faire. → hooks : une montée retirée (même règle d'exclusion) est
+    traitée comme un écart nul (frise : renvoie 1 ; panneau : appelé avec la
+    météo courante).
+    **Test du 2026-11-01 (On the Edge) : validé par l'auteur.** 3 hooks OK ;
+    F8 : 8 appuis en pause regroupés à la reprise (`+8`, température 3 → 11
+    niveaux), puis 3 → … 12 ; frise : montée du changement 2
+    (`-30_DLC3 → -20_DLC3`) masquée. **Aucune borne** : le niveau monte
+    au-delà de Comfortable (indice 5), à borner si nécessaire. Pas encore vu :
+    une vraie montée retirée au changement de météo (`MONTEE … retiree`) et
+    le rechargement d'une sauvegarde.
+  - **Points ouverts** :
+    - le **déclencheur réel des actes de A New Home** (Storm preparation,
+      Storm) n'est dans aucun événement ni dilemme : seuls des événements
+      de debug (commandes console `StartStormPreparation`, `StartStorm`,
+      `changeAct`, `endGame`) portent un `StartGameActEffect` « Default ».
+      Piste : quêtes, ou code (`StartGameAct`). The Arks a aussi le réglage
+      « Default » : a-t-il réellement un acte de tempête ?
+    - **Actes : prochaine grosse étape du mod** (décision de l'auteur,
+      2026-11-01). La cartographie n'en dépend que pour la date réelle de la
+      montée de Storm preparation (jour relatif au début de l'acte).
+    - les `EntityTemperatureLevelComparisonExpression` (prison gelée,
+      `[Act III] Cold steel`…) sont des **conditions** sur la température,
+      pas des variations.
+    Validation de l'auteur attendue.
+- **Debug : trajets d'expédition de 15 min (2026-11-01, non testé)** —
+  pour atteindre vite les Londoniens d'une partie neuve (trace des quêtes).
+  `FUN_1418a0a60(système, entité, composant, cible)` = envoyer une
+  expédition vers une cible (`frostpunkexpeditionsystem.cpp`, seul appelant
+  de `FUN_1418853b0` côté expéditions ; les autres sont groupes et
+  transports d'avant-poste) ; `FUN_141885250` pose `mouv +0x50` = maintenant,
+  `+0x58` = maintenant + durée. Hook `hkEnvoyerExpedition` (scooting.cpp,
+  `InstallHooksExpeditions`) : après l'original, arrivée ramenée à départ +
+  0,25 h si plus longue. Log `[EXP] debug : trajet X h -> 0.25 h`.
+  **`EXPEDITIONS_RAPIDES = true` à remettre à false hors debug.** Inconnu :
+  le temps d'exploration sur le site (hors trajet) n'est pas touché.
+- **Actes et quêtes (2026-11-01, prochaine grosse étape)** : les « actes »
+  de données (`FrostpunkGameActEntry`) ne sont **pas** les actes du joueur.
+  A New Home en a 4 selon l'auteur : (1) trouver Winterhome, (2) convaincre
+  les Londoniens de rester, (3) recevoir les réfugiés en attendant la
+  tempête, (4) survivre à la tempête ; (3) et (4) correspondent aux actes de
+  données Storm preparation / Storm, (1) et (2) aux répertoires
+  d'événements « Main Scenario » / « Londoners ». Première quête de A New
+  Home (donnée par l'auteur) : **Fight the Cold** — Stockpile some Coal
+  (0/200), Turn the Generator on.
+  Décompilés du 2026-11-01 : **`FrostpunkQuestsConfig` = `base + 0x407AE80`**
+  (`FUN_14148d280`), collection hiérarchique en `+0x58`, **répertoires en
+  `+0x98`** (compte `+0xA0`) ; `EntryDirectory<FrostpunkQuestEntry>` (0x30) :
+  `+0x00` nom, `+0x08` GUID, `+0x18` quêtes ; **`FrostpunkQuestEntry`**
+  (0xF0, `FUN_1414a5930`) : `+0x00` nom, `+0x08` GUID, `+0x18` Timeout,
+  `+0x30` **Objectives**, `+0x48` / `+0x60` / `+0x78` effets initiaux /
+  succès / échec, `+0x90` Social problem, `+0xA0` Displayed name, `+0xA8`
+  Description, `+0xB0` Time left text, `+0xD8` Quest type ;
+  **`FrostpunkQuestObjectiveEntry`** (0x88, polymorphe, `FUN_1414a61e0`) :
+  `+0x18` Conditions, `+0x31` Hide progress, `+0x32` Display remaining
+  progress, `+0x33` Mandatory, `+0x38` icône, `+0x50` texte, `+0x58`
+  Description, `+0x60` GUID, `+0x70` entités surlignées ; 61 sous-classes
+  (`GatherResource`, `ActivateBuildingOfType`, `ConstructBuildingOfType`,
+  `ResearchTechnology`, `ActivateSociotech`, `CompleteQuest`, `EndGame`,
+  `GeneratorConstructionStepFinished`, `RescueSurvivors`…), champs propres
+  au-delà de `+0x88`. Classe d'effet : `FrostpunkProgressCustomQuestObjectiveEffect`
+  (+ effets `…Quest…` vus par le relevé). **F9 = relevé `[QUETE]`**
+  (`quetes.cpp`) : chaque quête (nom, clés du nom / de la description, type,
+  classes des effets), chaque objectif (classe, obligatoire, clés de texte,
+  classes des conditions, champs propres en entiers / textes), puis les
+  événements portant un effet de quête ou d'acte (`LoisParcourirEvenements`,
+  lien présumé en `+0x18` résolu en nom de quête).
+  **1er relevé (2026-11-01) : validé.** 8 répertoires : `Default` (47, A New
+  Home), `Scenarios` (33 : TechHeaven, Refugees, Winterhome), `Simple Snops`
+  (36), `MiniSnops` (10), `Achievements` (118, type 9), `CustomScenarios`
+  (63, Endless), `Scenario Builders` (63), `Reconquest` (26). Clés de texte
+  `@Generated/QuestsConfig/Quests/<répertoire>/Entries/<nom>/…`.
+  **« Fight the Cold » = `[Main Narrative Line] 001 ACTIVATE GENERATOR`**
+  (type 1) : `GatherResourceQuestObjective` + `ActivateBuildingOfCategory…`.
+  Fil principal de A New Home (types 1 / 3 / 4 / 5) : 001 ACTIVATE
+  GENERATOR, 002 MEANS FOR SURVIVAL, 003 RESCUE SURVIVORS, 004 FIND OTHER
+  CITIES, **005 LONDONERS** (type 5), 006 REFUGEES, 007 CRUEL HORIZON /
+  007 The End, `[ENDGAME]` 001 Research tech, 002 Prepare for the storm
+  (type 3, sous-quêtes 002a FOOD / b SURVIVORS / c OUTPOSTS / d TEMPERATURE,
+  type 4), 003 Final preparation (type 4), 004 Survive the storm.
+  Correspondance avec les 4 actes de l'auteur (présumée) : (1) 001–004,
+  (2) 005, (3) 006 + ENDGAME 001–003, (4) ENDGAME 004 / 007.
+  Lancements trouvés dans les événements : 001 ← `U: Start first quest`
+  (Main Scenario) ; 004 Survive the storm ← `U: Gameplay Storm Start`,
+  fini par `End` (déclencheur `WeatherChangedEventTrigger`) ; 003 Final
+  preparation ← `U: Final preparation quest trigger` ; 005 fini par
+  `BREAKPOINT_order_dillema` / `BREAKPOINT_faith_dillema` (Sequences) ;
+  006 progressé par `U: Refugees in the City1..3`. Effets vus :
+  `StartQuestEffect`, `FinishQuestEffect`, `ProgressCustomQuestObjectiveEffect`.
+  Les autres enchaînements passent par les **effets des quêtes** →
+  F9 v2 : `LoisParcourirEffets` (lois.cpp) sur les effets initiaux / de
+  succès / d'échec de chaque quête (lignes `-> … dans les effets …`), actes
+  nommés par `TemperatureNomActe`.
+  **Relevé v2 (2026-11-01) : validé.** Chaîne de A New Home :
+  001 ← `U: Start first quest` (`GameStartedEventTrigger`) ; 001 succès →
+  002 ; 002 → 003 **non trouvé** (succès = `SwitchEffect`, branches non
+  parcourues) ; 003 succès → 004 ; 004 → 005 **non trouvé** (succès =
+  `SelectEffect`) ; **005 succès ou échec → 006** ; **006 succès →
+  acte « Storm preparation »** + `[ENDGAME] 001 Research tech` (échec →
+  001 Research tech) ; 001 Research tech succès → 002 Prepare for the storm +
+  002a FOOD / b SURVIVORS / c OUTPOSTS / d TEMPERATURE ; 003 Final
+  preparation ← `U: Final preparation quest trigger` (4 ×
+  `QuestFinishedEventTrigger`) ; 004 Survive the storm ←
+  `U: Gameplay Storm Start` (`RandomTimeOfDayEventTrigger`) ; **004 Survive
+  the storm, effets initiaux → acte « Storm »** + fin de toutes les quêtes
+  ENDGAME 001–003 ; 004 fini par `End` (changement de météo) ; 007 CRUEL
+  HORIZON → 007 The End (lancement de 007 : seulement un événement de
+  debug trouvé). Le **déclencheur des actes de tempête est donc résolu** :
+  Storm preparation = succès de 006 REFUGEES (fin de votre acte 3, début de
+  l'attente de la tempête), Storm = début de 004 Survive the storm.
+  Reste : parcourir les branches de `SwitchEffect` / `SelectEffect` pour
+  les maillons 002 → 003, 004 → 005, et le lancement de 007.
+  **Cause trouvée (décompilés du 2026-11-01)** : `FrostpunkSwitchEffect`
+  (0x30, `FUN_141943d00`) : `+0x18` Cases = pointeurs vers des
+  **`FrostpunkCaseEntry` sans vtable** (0x38, `FUN_141935030` : `+0x00`
+  nom, `+0x08` conditions, `+0x20` effets) ; le parcours générique ne
+  descendait que dans les objets à RTTI. `FrostpunkSelectEffect` (0x68,
+  `FUN_1419408d0`) : `+0x18` Selector, `+0x20` Conditions, `+0x38`
+  Probability, `+0x40` Max count, `+0x48` Max fraction, `+0x50` Effects.
+  → `ParcourirObjet` (lois.cpp) fouille aussi les éléments **sans RTTI**
+  d'un tableau de pointeurs (leurs tableaux d'objets « Frostpunk… » dans
+  les 0x80 premiers octets). **F9 v3** (`quetes.cpp` réécrit) : graphe des
+  liens (`S` lance, `F` termine, `A` acte ; source = événement + répertoire,
+  ou quête + moment initiaux / succès / échec, sans doublon), détail de
+  chaque quête avec ses liens entrants / sortants (hors Achievements et
+  CustomScenarios), puis **par scénario** (hors Endless, Debug, `Scenario`) :
+  répertoires d'événements = ceux de ses réglages (`scénario +0xE8` →
+  config `+0xC0` → `+0x18`) **plus ceux qu'aucun réglage ne cite** (marqués
+  `*`, supposés chargés partout), et **quêtes atteignables** (lancées par un
+  événement d'un répertoire actif, puis fermeture par les liens quête →
+  quête), avec leurs sources et les actes lancés.
+  **Relevé v3 (2026-11-01)** : 396 quêtes, 52 répertoires d'événements,
+  516 liens (368 depuis des événements, 148 depuis des quêtes) ; 002 → 003
+  désormais trouvé. Défauts : les répertoires « communs » (`Sequences`,
+  `Utility - General`…) portent des événements de **tous** les scénarios
+  (A New Home « atteignait » des quêtes de Refugees, Builders, Winterhome,
+  The Arks), `Debug` et `CustomScenarioEvents` (Endless) polluaient ; **005
+  LONDONERS n'est lancée par aucun `StartQuestEffect`** (seulement terminée
+  par `BREAKPOINT_order_dillema` / `BREAKPOINT_faith_dillema`, Sequences).
+  Lancement d'une quête : **`FUN_1416e8570(système des quêtes
+  DAT_14408f0e8, quête, &contexte) -> char`** (appelée par la commande
+  console `StartQuest`, `FUN_1413abc00`). Classes d'effets de quête :
+  `FrostpunkStartQuestEffect`, `FrostpunkFinishQuestEffect` seulement ;
+  système de séquences : `FrostpunkSequenceSupportSystem`,
+  `FrostpunkSequenceSignalEntry` / `…EventTrigger`, `FrostpunkSequenceFlagEntry`
+  (non décompilé). **`FrostpunkCurrentScenarioCheckExpression`** (0x30,
+  `FUN_1415e12f0`) : `+0x18` lien scénario, `+0x28` Negate.
+  → **F9 v4** : sources exclues `Debug`, `CustomScenarioEvents`,
+  `Achivments`, `Scenario Builders Debug` ; un événement n'est point
+  d'entrée d'un scénario que si ses conditions (`+0x40`, récursivement dans
+  les expressions imbriquées) ne l'excluent pas (cités sans Negate =
+  autorisés, avec Negate = interdits). **Trace en jeu** :
+  `InstallHooksQuetes` (hook de `FUN_1416e8570`) journalise chaque
+  démarrage (`[QUETE] DEMARRAGE #n "nom" -> lancee / refusee ; evenement en
+  cours : …`, `g_nomEvtEnCours` exposé par evenements.cpp) et la pile des 40
+  premiers (`[TRACE]`).
+  **Relevé v4 (2026-11-01)** : listes resserrées (A New Home 28, The Arks
+  31, Refugees 22, Winterhome 23, Last Autumn 50, On the Edge 29) mais
+  encore polluées par des événements de `Sequences` / `Utility - General`
+  propres à un autre scénario **sans condition de scénario** (ex.
+  `[Refugees-Scenario]Lords_are_coming_SpawnCTA`, `[Builders]GeneratorGet_
+  resolve`, `[TH]_ManchesterSurvivor_CTA`, `U: Endlog-refugees2`).
+  **Trace en jeu (1 démarrage)** : `[Sociotech Related] Burials` lancée
+  **par les effets de la loi Cemetery** (pile `FUN_1416e8570` ←
+  `FUN_141697870` ← `FUN_14169aee0` ← `FUN_14169ae90` ← `FUN_1416fdbc0`,
+  effets de loi appliqués par lois_ap) : les quêtes `[Sociotech Related]`
+  sont lancées par les **lois** (`loi +0xE0`).
+  → **F9 v5** : (1) liens depuis les **effets de toutes les lois** (source
+  « Lois », admise dans tous les scénarios, la quête visée filtrée par son
+  étiquette) ; (2) **filtre par étiquette** de nom (`[Refugees`,
+  `Refugees-Scenario`, `Endlog-refugees` → REFUGEES ; `[Builders` →
+  BUILDERS ; `[Winterhome` → WINTERHOME ; `[TH]`, `[TH_`, `[TechHeaven`,
+  `[NM]` → TechHaven ; `[Reconquest`, `[DLC3`, `[aDLC3` → Reconquest) sur
+  l'événement source et sur la quête visée. Reste : le
+  lancement de 005 LONDONERS (à tracer en jouant jusqu'aux Londoniens).
+  **Relevé v5 (2026-11-01)** : 560 liens (dont **44 depuis des lois** :
+  chaque quête `[Sociotech Related]` est lancée par sa loi, ex. Neighbourhood
+  watchtower ← `[Order - level 1] Neighborhood watch`, Temple ←
+  `[Faith - level 2] Temple`, Labour Union ← `Builders [Left - level 0]
+  Labour Unions`). A New Home : intrus de Refugees / Builders / Winterhome /
+  The Arks éliminés, mais les quêtes des lois de Last Autumn et Endless y
+  apparaissaient → étiquettes `Builders [` (BUILDERS) et `- Endless]`
+  (Endless) appliquées aussi au nom de la loi source.
+  **Trace en jeu** : 72 démarrages (partie neuve jouée jusqu'aux
+  Londoniens) : ~67 succès Steam au lancement, puis 001, 002, 004, Hope
+  Fail Last chance, **005 LONDONERS** ; « événement en cours » **toujours
+  vide**, y compris pour 001 (lancée par `U: Start first quest`) : les
+  effets ne s'exécutent pas pendant l'invocation hookée (`FUN_1417b9b70`),
+  effets différés. Pile non relevée pour 005 (limitée aux 40 premiers,
+  tous des succès). → pile tracée pour **toute quête hors Achievements /
+  CustomScenarios** (200 max), répertoire de la quête journalisé.
+  **Trace du 2026-11-01 (suite)** : pile de 005 LONDONERS =
+  `FUN_1416e8570` ← `FUN_141697870` (exécution d'un effet) ←
+  `FUN_14169aee0` (liste d'effets) ← **`FUN_14169d890`** ← `FUN_141268a70`
+  (mise à jour du jeu). Décompilé : `FUN_14169d890(exécuteur)` = **file
+  des effets temporisés** (`exécuteur +0xA8` file à priorité, compte `+0xB0`,
+  entrée : `+0x00` date, `+0x10` objet `TimedEffect`, `+0x20` poignée de
+  contexte) ; à échéance, « Executing scheduled timed effect... » puis
+  `FUN_14169aee0(exécuteur, TimedEffect + 0x40, &contexte, &sortie)`.
+  005 est donc lancée par un **`TimedEffect`** programmé plus tôt.
+  → hook de **`FUN_14169aee0`** (`hkExecuterEffets`, 6 arguments) : pile par
+  thread des tableaux d'effets en cours ; à chaque démarrage de quête hors
+  succès, chaque tableau est cherché dans les données (`ChercherProprietaire` :
+  objet « Frostpunk… » dont un champ `+0x18..+0x60` est ce tableau, dans les
+  événements, quêtes et lois ; effets directs `+0x58` d'événement, `+0x48 /
+  +0x60 / +0x78` de quête, `+0xE0` de loi) : lignes `[QUETE] tableau
+  d'effets = …`.
+  **Test** : pour 005 LONDONERS et Hope Fail Last chance, la liste exécutée
+  (`TimedEffect +0x40`) n'appartient à **aucune donnée parcourue** (copie
+  ou structure non atteinte). → `NoterTimedEffects` : à chaque liste
+  exécutée, chaque `FrostpunkTimedEffect` qu'elle contient est noté (512 max)
+  avec l'événement en cours (`g_nomEvtEnCours`), la liste qui le porte et
+  la liste la plus extérieure ; au démarrage d'une quête depuis un
+  `TimedEffect`, son contexte de programmation est journalisé et ses listes
+  cherchées dans les données.
+  **Partie neuve du 2026-11-01 (jusqu'aux Londoniens)** : démarrages hors
+  succès : **001** ← `TimedEffect` de `U: Start first quest` (Main
+  Scenario) ; **002** ← `TimedEffect` des effets de 001 ; **003 jamais
+  lancée** dans cette partie ; **004** ← `TimedEffect` de `[Act 1 Arc 1] U:
+  Step 3 controller` (Main Scenario ; objet partagé avec `FirstRefugees`,
+  Sequences) ; **005** ← `TimedEffect` d'une liste **sans propriétaire
+  trouvé**, à 0x380 en mémoire de celui de 004 (même zone de données).
+  « Événement en cours » toujours vide, y compris à la programmation : les
+  effets de ces événements ne passent pas par l'invocation hookée.
+  → repli : objet parcouru le plus proche **en dessous** du tableau
+  (< 0x2000) avec son événement, et classes des effets du tableau.
+  **Partie neuve du 2026-11-01 (trajets de 15 min) : lancement de 005
+  trouvé** (ordre du journal) : éclaireurs sur `Site_007_City_Ruins`
+  (Winterhome) → événement **`StartWinterhomeSequence`**
+  (`FrostpunkStartSequenceEffect` : **séquence cinématique**, système
+  `SequenceSystem` / `FrostpunkSequenceSupportSystem`, données propres
+  « Sequences », non parcourues par le relevé) → événements
+  `Winterhome_InitiateSocialComments`, `Winterhome_ModifyHope`,
+  `Winterhome_SpawnCTA` → dilemmes **`[Scenario] M: Pick your way
+  (protest)`** (choix Ordre / Foi ; le livre Purpose est construit juste
+  après) et **`Winterhome decision`** → plus tard, dilemme **`![London]S:
+  Londoners appear FAITH`** (variante selon la voie choisie ; 1 création
+  réussie, 5 refusées : max d'occurrences) → message tutoriel **`27.
+  Londoners`** → **005 LONDONERS** lancée par un `TimedEffect` dont la liste
+  exécutée = `[CreateMessageEffect, TimedEffect]`. Présumé : cette liste =
+  **effets initiaux du dilemme Londoners** (`dilemme +0x48`, exécutés par
+  `FUN_1417cde10`) — `ChercherProprietaire` ne fouille pas les dilemmes,
+  d'où « propriétaire introuvable » (le voisin `BREAKPOINT_faith_dillema`
+  n'est qu'un repli d'adresse). Classes d'actions de séquence vues dans
+  l'image : `SequenceActionCreateDilemma`, `SequenceActionEmitSignal`
+  (→ `SequenceSignalEventTrigger` des événements `BREAKPOINT_*`),
+  `SequenceActionStartSequence`… Donc l'acte 2 de l'auteur (Londoniens)
+  commence à l'**exploration de Winterhome** par les éclaireurs.
+  À vérifier : propriétaire exact de la liste (dilemmes à ajouter à la
+  recherche) et qui crée le dilemme Londoners (choix de « Pick your way » /
+  « Winterhome decision », ou action de séquence).
+  Debug des trajets : **validé** (5 trajets de 10,8 à 15,2 h ramenés à
+  0,25 h).
+  **Export Excel (demande de l'auteur, 2026-11-01, non testé)** : F9 écrit
+  aussi des lignes tabulées `[QXLS]` (Q quête : répertoire, type, nom et
+  description **traduits** ; O objectif : nom interne = segment de clé après
+  `/Objectives/`, classe, obligatoire, texte et description traduits ; S
+  scénario : ordre, quête, genres des sources L loi / E événement / Q quête).
+  Traduction = appel du jeu **`FUN_140feb760(*(base + 0x2A28D80), &clé,
+  &DAT_142a25a30 (GUID nul = langue courante), 0, 1, 0)`** (comme
+  `FUN_14116b850`), résultat : qword +0 → UTF-16 ; non-ASCII sorti en
+  `\uXXXX`. Puis `python outils\quetes_excel.py` (depuis la racine du
+  projet) → `quetes_par_scenario.xlsx` (une feuille par scénario hors
+  Endless, catégories Histoire / Secondaire Simple Snops, MiniSnops / Lancée
+  par une loi, + feuille « Sans scénario ») **et `known_quests.h`** (table
+  `KNOWN_QUESTS` : scénario, GUID de la quête `+0x08`, nom interne, nom
+  affiché, catégorie, nombre de tâches ; demande de l'auteur : à terme,
+  terminer certaines quêtes donnera un check). Le texte est celui de la
+  **langue du jeu**. 1er F9 : tout « (non traduit) » (212 quêtes) — la clé
+  était passée avec son `@` ; le jeu le saute avant de traduire
+  (`FUN_141ce5a40`) → corrigé, et GUID ajouté aux lignes `Q`.
+  **Validé le 2026-11-01** : 212 quêtes, traductions OK sauf **40 textes**
+  (« (non traduit) ») : textes à paramètres / variantes (noms des quêtes
+  ENDGAME, objectifs `Custom…`, `RescueSurvivors…`, `Unload…`, `Health -
+  facility…`, Builders 002–005), que le jeu remplit avec un contexte.
+  Le script écarte les quêtes lancées seulement par des lois **absentes** du
+  scénario (`LOIS_ABSENTES` : Purpose dans The Arks / On the Edge, lois des
+  enfants aux Arks, Organic Fertiliser à On the Edge), que F9 ne filtrait
+  pas. `known_quests.h` : A New Home 18 histoire + 13 lois, The Arks 22 + 3,
+  Refugees 17 + 12, Winterhome 14 + 13, Last Autumn 43 + 32, On the Edge
+  18 + 6 ; Simple Snops / MiniSnops rattachées à aucun scénario (feuille
+  « Sans scénario »). L'en-tête compile mais n'est inclus nulle part.
+  **v2 (2026-11-01, demande de l'auteur, non testé)** : onglet « Lois » à
+  part (colonne A = scénarios) ; 86 quêtes restaient « Sans scénario », dont
+  005 LONDONERS / 006 REFUGEES et toute leur suite ENDGAME (005 lancée par un
+  dilemme créé par une séquence). Ajouts :
+  (1) **tous les dilemmes comme sources** : `FrostpunkDilemmasConfig`
+  (réflexion `FUN_1413e6a10`, 0x1E8 ; « Dilemma templates » `+0x78`,
+  « Categories » `+0xB0`, **« Dilemmas » `+0x130`** = répertoires
+  `EntryDirectory<FrostpunkDilemmaEntry>`, « Choice types » `+0x168`,
+  « Preloaded dilemma directories » `+0x1D0`), instance statique
+  **présumée `base + 0x4069880`** (collection `DAT_144069970` = config
+  `+0xF0`, à vérifier : log `[QUETE] dilemmes : config +4069880, N
+  repertoire(s)`) ; effets initiaux / ignorés / des choix / des résultats,
+  et **`choix +0x38` = lien de quête lancée directement à la résolution**
+  (`FUN_1417d40c0` → `FUN_14155e350` → `FUN_1416e8570`). Source
+  `Dilemmes/<répertoire>`, active dans un scénario si un répertoire
+  d'événements du **même nom** y est actif (log par répertoire de dilemmes :
+  « repertoire d'evenements du meme nom : oui / NON »). Genre `D`.
+  (2) **repli par répertoire de quête** dans le script : `Reconquest` → On
+  the Edge, `Scenario Builders` ou `[Builders]` → Last Autumn, `Scenarios` +
+  `[Refugees` / `[Winterhome` / `[TechHeaven` / `[TH` ; `CUT …` et
+  `[Endless]…` écartées ; catégorie « Déduit du répertoire ».
+  (4) **GUID sur les lignes O et S** (des noms internes existent dans deux
+  répertoires) ; le script indexe par GUID et refuse un ancien relevé.
+  Autres appelants de `FUN_1416e8570` : `FUN_141736590` / `FUN_141736730`
+  (quêtes de répertoire au GUID `B66D8367-…`, succès probables), commande
+  console. Simple Snops / MiniSnops : déclencheur non trouvé (système du
+  jeu présumé, à chercher).
+  **Relevé v2 (2026-11-01)** : config des dilemmes **confirmé à `base +
+  0x4069880`** (49 répertoires, 411 liens depuis des dilemmes). **005
+  LONDONERS ← dilemmes `![London]S: Londoners appear ORDER` / `FAITH`**
+  (répertoire de dilemmes « Londoners »), 006 ← succès / échec de 005.
+  Mais seuls 7 répertoires de dilemmes ont un homonyme côté événements
+  (Debug, Sociotech Hints, Londoners, Endgame, Holiday Gimmick, SeasonPass)
+  → **v3** : `ScenarioDuRepDilemmes` rattache par le nom (Refugees…,
+  TechHaven…, Winterhome…, Builders…, Reconquest… ; Main Scenario +
+  Endgame → A New Home ; écartés : Debug, CustomScenario, Reconquest
+  Endless, Holiday Gimmick, SeasonPass, répertoires « unused / backup / WIP
+  / TEMP / temp » ; les autres = communs, filtrés par étiquette), et
+  étiquettes `[Main Narrative Line` / `[ENDGAME]` → A New Home (Londoners
+  actif aussi aux Arks). Résultat du script avec le relevé v2 : 56 quêtes
+  sans scénario (Simple Snops, MiniSnops, [Endless] Crysis…, 007 CRUEL
+  HORIZON / The End…). **v3 validée le 2026-11-01** : **17 quêtes sans
+  scénario** (6 `[Endless] Crysis…`, `CUT …`, 007 CRUEL HORIZON / The End,
+  `[Story Randomized] … TEST`, Food Shortage, Use Public Penance / Round Up,
+  2 MiniSnops, 2 Simple Snops) ; fil principal (001–006, ENDGAME) dans A New
+  Home seulement ; Simple Snops (32, 33 à Last Autumn) et MiniSnops (4, 8 à
+  Last Autumn) rattachées partout par les dilemmes « Simple Version Snops »
+  / « miniSNOPs ». Le script réserve aussi `[LondonerArc]` à A New Home
+  (`RESERVEES` : lois de Purpose, retirées des Arks et de Refugees).
+  **Tri avec l'auteur (2026-11-01)** : « Burials et Snow Pit, c'est de la loi
+  à 100 % » → catégorie Loi dès qu'**une** loi lance la quête (même si un
+  événement ou un dilemme la lance aussi : « S: Death - First death »,
+  « [Sociotech Hints]S: FirstDead »), et pour tout nom `[Sociotech Related]`
+  (« Burials again » n'est relancée que par « U: Cemetery relocation »).
+  Onglet Lois : 39 quêtes ; une quête de loi dont toutes les lois sources
+  sont absentes du scénario reste écartée (Guardposts, Prison, Faith Keepers
+  aux Arks malgré les dilemmes « Londoners »).
+  Décision suivante : « Game Ending avec Last chance, c'est du sans scénario,
+  comme c'est présent partout » → toute quête (hors lois) rattachée aux **6**
+  scénarios passe dans l'onglet « Sans scenario », catégorie « Commune a
+  tous les scenarios (…) », et dans `known_quests.h` avec `scenario = "*"`
+  (40 : les 2 `[GAME ENDING] … Last Chance`, `[consequences] Augmentation`,
+  `[Disability] Care House`, 32 Simple Snops, 4 MiniSnops). Les variantes
+  `[Builders]` restent à Last Autumn. Une quête présente dans 5 scénarios
+  sur 6 reste dans ses feuilles.
+  Puis : les 14 quêtes Last Autumn au nom affiché « Pass "<loi>" »
+  (`[Builders] Pass Workers Councils`, `… Safety Procedures`, `… Terror`,
+  `… Servitude`…) sont des quêtes de loi → onglet Lois (règle sur le nom
+  affiché, appliquée aussi au repli par répertoire). De même les quêtes
+  `[Builders] … Build <bâtiment de loi>` (`[Cut-off] Build Peoples Militia`,
+  `[Cut-off] Build Security Outposts`) ; règle limitée à `[Builders]`
+  (`[ENDGAME] Build Coal Thumpers` et le générateur de Last Autumn ne sont
+  pas des lois).
+  **Tri manuel de Last Autumn** (`CLASSEMENT_MANUEL` du script, nom interne →
+  catégorie, prioritaire) : en Lois `Pass First Safety Law`, `Open House of
+  Pleasure`, `No more soup`, `Open Bath House`, `Open Public House`, `Open
+  Care House`, `Dismantle guard posts`, `Better food` ; en nouvelle
+  catégorie « Secondaire (hors quête principale) » (`QueteCat::Secondaire`)
+  `[Crisis] Resolve strike`, `Heat construction site (research / no
+  research)`, `[Discontent] General Strike`, `Find escaped convicts`, `Safe
+  Construction Site`. Reste en histoire de Last Autumn : 001 / 002 / 003 /
+  004 / 005 / 006 / 006a / 007, New Allerton (+ survivors).
+  Demande suivante : les feuilles de scénario ne gardent **que l'histoire** ;
+  toutes les catégories « Secondaire … » (hors quête principale, Simple
+  Snops, MiniSnops propres à un scénario) vont dans un onglet
+  **« Secondaires »** (colonne A = catégorie - scénarios). `known_quests.h`
+  inchangé (catégories gardées).
+  **Checks de fin de quête (2026-11-01, demande de l'auteur, non testé)** :
+  seules les quêtes de l'**histoire** (catégories Histoire / Dilemme /
+  Répertoire de `known_quests.h`, pour le **scénario courant** ; pas les
+  lois, secondaires ni communes `"*"`) envoient un check, à leur **succès**.
+  Décompilés : **`FUN_1416d22a0(système des quêtes, id d'instance, succès)`
+  = terminer une quête** (16 appelants : objectifs remplis, effet
+  `FinishQuestEffect` = `FUN_14168e090` → `FUN_1416d2710(sys, quête,
+  succès)`, console, délai…) ; instances `système +0x1C0` (enregistrements
+  0x90, indice par `FUN_1416c5ec0(système + 0x1C0, &id)`) : `+0x10` quête,
+  `+0x18` état (−1 active, puis `!succès`), `+0x70` date de fin ; effets de
+  succès `quête +0x60` / d'échec `+0x78` exécutés là. → hook
+  `hkTerminerQuete` (quetes.cpp) : quête lue **avant** l'original, puis
+  `QueteTerminee` : log `[QUETEAP] FIN "…" (scénario) : succes / echec
+  [-> quete de l'histoire]` (100 premières hors histoire), check par
+  **`SendQuestCheck(nom, nomAffiché)`** (archipelago, popup « Check sent » /
+  « Quest: … »), sans doublon : **`mods\ap_quetes_<GameId>.txt`** (`Q
+  <GUID>`, cumulatif). Scénario courant = `ScenarioSystem +0x68 → +0x00`.
+  Quêtes d'histoire : A New Home 18, The Arks 11, Refugees 8, Winterhome
+  14, Last Autumn 12, On the Edge 20.
+  **Validé le 2026-11-01** (A New Home) : `[QUETEAP] FIN "[Main Narrative
+  Line] 001 ACTIVATE GENERATOR" (DEFAULT) : succes -> quete de l'histoire`,
+  puis `[AP CHECK] quete … ("FIGHT THE COLD")` et popup. Partie suivante :
+  001, 002 (« SECURE FOOD »), 003 (« PEOPLE FROM OUR CONVOY ») → 3 checks.
+  **Non-doublon validé** (2026-11-01) : 001 refaite après rechargement →
+  `check deja envoye dans cette partie`, pas de 2e check. Chantier validé.
 - **Réseau Archipelago** : à n'aborder que sur demande explicite. L'auteur
   prévoit « une classe spécifique pour toutes les interactions avec le serveur
   qui s'occupera de manager les notifications et leur véritable envoi ».

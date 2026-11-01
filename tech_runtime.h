@@ -6,8 +6,9 @@
 //   received   : le serveur Archipelago a envoye l'item
 //                -> gouverne l'ETAT JEU (donc l'effet / le deblocage)
 //
-// Stockage EN MEMOIRE seulement (non persistant) : au chargement d'une partie,
-// ces donnees seront reconstruites depuis le serveur Archipelago.
+// Stockage en memoire, sauvegarde localement par partie (tech_brain.cpp,
+// mods\ap_technos_<GameId>.txt, demande de l'auteur du 2026-10-29 : sauvegarde
+// locale PRIORITAIRE, le serveur Archipelago viendra la completer).
 // ---------------------------------------------------------------------------
 #pragma once
 #include "mod_common.h"
@@ -29,3 +30,9 @@ bool RT_CanResearch(uint64_t hash);
 
 // Nombre d'entrees actuellement enregistrees (diagnostic).
 int RT_Count();
+
+// Entree i (0..RT_Count()-1), ou nullptr.
+TechRuntime* RT_At(int i);
+
+// Oublie tout (changement de partie, avant de relire la sauvegarde locale).
+void RT_Reset();

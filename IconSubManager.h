@@ -20,7 +20,9 @@ struct TechIcons {
     const char* nom;        // "icon_vanilla", "icon_trap", ...
     int32_t batCol, batRow;   // case dans l'atlas des miniatures (#3037)
     int32_t techCol, techRow;  // case dans l'atlas des technos (#1179)
-    int32_t bulleCol, bulleRow;  // case dans l'atlas des bulles (#2350), cases libres de la ligne 1
+    // Case dans l'atlas des bulles (#2350, UI\Tiles\Icons.dds), cases libres
+    // de la ligne 1. C'est aussi l'atlas des icones du livre des lois.
+    int32_t bulleCol, bulleRow;
 };
 
 static const TechIcons ARCHIPELAGO_ICONS_TECH[] = {

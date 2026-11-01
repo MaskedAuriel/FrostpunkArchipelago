@@ -37,3 +37,8 @@ void DumpProgression();
 // Debloque la techno suivante de l'arbre. nomTech (optionnel) recoit son nom.
 bool OnProgressiveReceived(int tree, const char** nomTech = nullptr);
 int  ArbreProgressifAuHasard();   // -1 si tous les arbres sont epuises
+
+// Sauvegarde locale des technos (mods\ap_technos_<GameId>.txt), prioritaire
+// sur le serveur. Boucle du mod, tick d'une seconde, apres CaptureRunState :
+// relit et reapplique l'etat a chaque nouvelle partie.
+void TechPersistanceTick();

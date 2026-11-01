@@ -73,6 +73,16 @@ void DiagGroupes();
 // creations en attente.
 void GroupesPompe();
 
+// Thread du jeu, entree et sortie de FrostpunkGame::LoadGame (hook de
+// mod_common). Entre les deux, chaque groupe ajoute a son systeme est
+// compare a notre sauvegarde (mods\ap_groupes.txt, identifiant de l'entite)
+// et recoit sa copie du template (nom, description, icone), sa cargaison et
+// ses textes de bulle. A la sortie : finalisation et releve [SAV].
+void GroupesAvantChargement();
+void GroupesComposantConstruit(uintptr_t comp);   // hook du constructeur (mod_common)
+void GroupesLectureFaite();      // fin de la lecture de la sauvegarde, avec succes
+void GroupesApresChargement();
+
 // Thread du jeu, meme endroit : rend la carte du monde accessible sans
 // balise (deverrouillage + compte de batiments d'acces au moins a 1).
 void CarteAssurerAcces();

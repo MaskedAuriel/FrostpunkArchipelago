@@ -31,3 +31,11 @@ bool RT_CanResearch(uint64_t hash)
 }
 
 int RT_Count() { return g_rtCount; }
+
+TechRuntime* RT_At(int i) { return (i >= 0 && i < g_rtCount && g_rt[i].used) ? &g_rt[i] : nullptr; }
+
+void RT_Reset()
+{
+    memset(g_rt, 0, sizeof(g_rt));
+    g_rtCount = 0;
+}
