@@ -36,6 +36,12 @@ bool ReceiveLawProgressive(const char* tree, const char* fromPlayer);
 // plus tard, sur le thread du jeu. false si la partie n'est pas prete.
 bool ReceiveTemperatureRise(int levels, const char* fromPlayer);
 
+// "Scenario Unlock <scenario>" : le scenario (nom interne : DEFAULT,
+// TechHaven, REFUGEES, WINTERHOME, BUILDERS, Reconquest) devient lancable au
+// menu principal (scenarios_ap.cpp). Valable hors partie ; popup seulement si
+// une partie est prete. false si le nom est inconnu.
+bool ReceiveScenarioUnlock(const char* scenario, const char* fromPlayer);
+
 // --- Jeu -> serveur ----------------------------------------------------------
 
 // Recherche terminee : location check de cette techno.

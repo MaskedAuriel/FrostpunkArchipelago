@@ -7,6 +7,7 @@
 #include "MessageManager.h"
 #include "lois_ap.h"
 #include "temperature.h"
+#include "scenarios_ap.h"
 
 // ============================================================================
 //  Serveur -> jeu
@@ -105,6 +106,27 @@ bool ReceiveTemperatureRise(int levels, const char* fromPlayer)
     AfficherNotificationAP("Temperature rise", texte);
 
     printf("[AP RECU] montee de temperature : %+d niveau(x) (de %s)\n", levels, fromPlayer ? fromPlayer : "?");
+    return true;
+}
+
+bool ReceiveScenarioUnlock(const char* scenario, const char* fromPlayer)
+{
+    // 1. Effet : le menu des scenarios lit ScenarioDebloque a chaque ouverture.
+    int r = ScenarioDebloquer(scenario);
+    if (r < 0) {
+        printf("[AP RECU] deblocage du scenario \"%s\" de %s : scenario inconnu, ignore\n",
+            scenario ? scenario : "?", fromPlayer ? fromPlayer : "?");
+        return false;
+    }
+    printf("[AP RECU] scenario \"%s\" debloque (de %s)%s\n", scenario, fromPlayer ? fromPlayer : "?",
+        r == 0 ? " : deja debloque" : "");
+
+    // 2. Popup, seulement en partie (au menu, aucun message ne s'affiche).
+    if (r == 1 && PartiePrete()) {
+        char texte[160];
+        sprintf_s(texte, "%s (from %s)", scenario, fromPlayer ? fromPlayer : "?");
+        AfficherNotificationAP("Scenario unlocked", texte);
+    }
     return true;
 }
 

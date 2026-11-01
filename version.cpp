@@ -32,6 +32,7 @@
 #include "lois.h"
 #include "lois_ap.h"
 #include "menu_ap.h"
+#include "scenarios_ap.h"
 #include "temperature.h"
 #include "quetes.h"
 
@@ -191,10 +192,12 @@ DWORD WINAPI PayloadThread(LPVOID)
 	InstallHooksQuetes(modBase);        // trace des demarrages de quete
 	InstallHooksExpeditions(modBase);   // DEBUG : trajets d'expedition de 15 min
 	InstallMenuAP(modBase);   // ecran de connexion Archipelago du menu principal
+	InstallHooksScenarios(modBase);   // scenarios verrouilles tant qu'Archipelago ne les debloque pas
 
 
 	ApChargerChecksDeTest();
 	ApChargerTechnosDeTest();
+	ScenariosRecevoirItemsDeTest();   // TEMPORAIRE : item de scenario de depart (REFUGEES)
 	InstallResourceHooks(modBase);
 	InstallResearchHooks(modBase);
 	InstallLocHooks(modBase);	

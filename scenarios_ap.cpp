@@ -1,0 +1,281 @@
+// scenarios_ap.cpp
+// ---------------------------------------------------------------------------
+// Verrou des scenarios au menu principal (2026-11-01).
+//
+// Decompiles du 2026-11-01 (adresses Ghidra) :
+//  - FUN_141283ea0(profil, liste) -> char = prerequis de profil satisfaits ?
+//    liste = tableau dyn. de liens (GUID, pas 0x10, compte liste +8) vers des
+//    "profile progress" ; 0 des qu'un lien resolu n'est pas acquis
+//    (FUN_1412827b0). DAT_142c343cd (debug) = tout debloque.
+//  - FrostpunkScenarioEntry : +0x00 nom interne, +0x18 visible au menu,
+//    **+0x20 "Scenario unlock profile progress"** (la liste ci-dessus : le
+//    jour 20 de A New Home, etc.), +0x38 liste du conseil "Maybe play Main
+//    Scenario", +0x238 / +0x240 titre / description, +0x263 lien de DLC.
+//    Scenarios : FrostpunkScenariosConfig (base + 0x2C34490) +0x88, compte
+//    +0x90 (DAT_142c34518 / DAT_142c34520).
+//  - FUN_141b2b1b0(panneau, etat) = FrostpunkUIMainMenuScenariosPanel, etat 0
+//    (liste) : pour chaque scenario visible, debloque =
+//    FUN_141283ea0(profil, scn + 0x20) ; seuls les debloques entrent dans la
+//    liste selectionnable (panneau +0x198, compte +0x1A0 : fleches, details),
+//    puis FUN_141b2cb40(panneau, scn, debloque, indice) cree le bouton :
+//    FUN_14105a3a0(bouton, debloque, 1) (actif ?), et si verrouille presets
+//    "LOCKED" et "LOCKED_<nom>" sans ecouteur de clic ; sinon clic ->
+//    FUN_141b2d910 (lancement, via les details).
+//  - Autres appelants de FUN_141283ea0 sur scn + 0x20 : FUN_141b2e010 (points
+//    de la vue de details, memes indices que la liste), FUN_141b28f10 (bouton
+//    "Scenarios" du menu principal actif s'il y a des sauvegardes ou un
+//    scenario debloque, presets SCENARIO_UNLOCK / NEW_DLC_ON),
+//    FUN_14131e800 (un scenario autre que le principal est-il debloque ?),
+//    FUN_14131eca0 (notification de scenario debloque par un progres).
+//
+// Le hook ne change que la reponse pour la liste +0x20 d'un des 6 scenarios
+// Archipelago : tous les appelants voient donc le meme verrou que le jeu.
+//
+// 1er test (2026-11-01) : verrou OK, mais le bouton affiche la condition du
+// jeu (« necessite le jour 20 »). FUN_141b2cb40 joue, pour un verrouille,
+// FUN_1410240d0(bouton, "LOCKED") puis FUN_1410240d0(bouton, "LOCKED_<nom>")
+// (nom = scn +0x00) : le second preset, propre au scenario, est presume
+// porter ce texte. -> pendant la creation du bouton d'un scenario verrouille
+// PAR LE MOD, le preset "LOCKED_<nom>" est saute ; l'arbre du bouton est
+// journalise (nom, classe, visible +0x270 bit 0, texte) pour retrouver
+// l'element si le texte reste.
+// ---------------------------------------------------------------------------
+#include "scenarios_ap.h"
+#include "archipelago.h"
+#include "mod_common.h"
+#include "MinHook.h"
+#include <cstring>
+
+namespace {
+
+// Regle n. 5 : 4 arguments declares (le jeu en passe 2).
+typedef uintptr_t (*PrerequisProfil_t)(uintptr_t profil, uintptr_t liste, uintptr_t p3, uintptr_t p4);
+typedef void      (*CreerBouton_t)(uintptr_t panneau, uintptr_t scn, uintptr_t debloque, uintptr_t indice);
+// FUN_1410240d0(element, &nom, recursif, ...) -> octet, 9 parametres : 10 declares.
+typedef uintptr_t (*JouerPreset_t)(uintptr_t el, uintptr_t* nom, uintptr_t p3, uintptr_t p4, uintptr_t p5,
+                                   uintptr_t p6, uintptr_t p7, uintptr_t p8, uintptr_t p9, uintptr_t p10);
+
+constexpr uintptr_t OFF_PREREQUIS_PROFIL = 0x1283EA0;   // FUN_141283ea0
+constexpr uintptr_t OFF_CREER_BOUTON     = 0x1B2CB40;   // FUN_141b2cb40
+constexpr uintptr_t OFF_JOUER_PRESET     = 0x10240D0;   // FUN_1410240d0
+constexpr uintptr_t OFF_SCENARIOS_CONFIG = 0x2C34490;
+constexpr int CFG_SCENARIOS   = 0x88;
+constexpr int SCN_DEBLOCAGE   = 0x20;   // "Scenario unlock profile progress"
+constexpr int EL_NOM          = 0x1D8;
+constexpr int EL_ENFANT       = 0x220;
+constexpr int EL_FRERE        = 0x240;
+constexpr int EL_DRAPEAUX     = 0x270;  // bit 0 = visible
+constexpr int TXT_TEXTE       = 0x3E8;  // texte affiche (vu sur UITextInput)
+
+PrerequisProfil_t oPrerequisProfil = nullptr;
+CreerBouton_t     oCreerBouton = nullptr;
+JouerPreset_t     oJouerPreset = nullptr;
+uintptr_t g_base = 0;
+
+// Creation en cours du bouton d'un scenario verrouille par le mod (thread du jeu).
+bool      g_boutonVerrouAP = false;
+uintptr_t g_boutonCree = 0;     // element qui a recu le preset "LOCKED"
+int       g_relevesArbre = 0;
+
+// Scenarios geres par Archipelago (noms internes).
+const char* const SCENARIOS_AP[] = {
+    "DEFAULT", "TechHaven", "REFUGEES", "WINTERHOME", "BUILDERS", "Reconquest",
+};
+
+constexpr int NB_SCENARIOS_AP = (int)(sizeof(SCENARIOS_AP) / sizeof(SCENARIOS_AP[0]));
+
+// Deblocages recus (item "Scenario unlock" par ReceiveScenarioUnlock), en
+// memoire seulement : le serveur renvoie les items recus a chaque connexion.
+// Ecrit par le thread de reception, lu par le thread du jeu (octets).
+volatile bool g_debloque[NB_SCENARIOS_AP] = {};
+
+int IndiceScenarioAP(const char* nom)
+{
+    for (int i = 0; i < NB_SCENARIOS_AP; ++i) if (strcmp(nom, SCENARIOS_AP[i]) == 0) return i;
+    return -1;
+}
+
+bool EstScenarioAP(const char* nom) { return IndiceScenarioAP(nom) >= 0; }
+
+bool LireNomScenario(uintptr_t scn, char* out, int taille)
+{
+    out[0] = 0;
+    uintptr_t p = 0;
+    if (!SafeRead((void*)scn, &p, 8) || p <= 0x10000) return false;
+    int i = 0;
+    for (; i < taille - 1; ++i) {
+        char c = 0;
+        if (!SafeRead((void*)(p + i), &c, 1) || !c) break;
+        if (c < 0x20 || c >= 0x7F) return false;
+        out[i] = c;
+    }
+    out[i] = 0;
+    return i > 0;
+}
+
+// Scenario dont la liste de deblocage est `liste`, ou 0.
+uintptr_t ScenarioDeLaListe(uintptr_t liste)
+{
+    uintptr_t tab = 0;
+    int32_t n = 0;
+    if (!SafeRead((void*)(g_base + OFF_SCENARIOS_CONFIG + CFG_SCENARIOS), &tab, 8) ||
+        !SafeRead((void*)(g_base + OFF_SCENARIOS_CONFIG + CFG_SCENARIOS + 8), &n, 4) ||
+        tab <= 0x10000 || n <= 0 || n > 256) return 0;
+    for (int i = 0; i < n; ++i) {
+        uintptr_t scn = 0;
+        if (SafeRead((void*)(tab + (uintptr_t)i * 8), &scn, 8) && scn > 0x10000 && scn + SCN_DEBLOCAGE == liste)
+            return scn;
+    }
+    return 0;
+}
+
+// Journal : une ligne par scenario et par changement de verdict.
+struct Vu { char nom[32]; int verdict; };
+Vu g_vus[32];
+int g_nVus = 0;
+
+void Journaliser(const char* nom, bool jeu, bool ap)
+{
+    int verdict = (jeu ? 1 : 0) | (ap ? 2 : 0);
+    for (int i = 0; i < g_nVus; ++i) {
+        if (strcmp(g_vus[i].nom, nom) != 0) continue;
+        if (g_vus[i].verdict == verdict) return;
+        g_vus[i].verdict = verdict;
+        printf("[SCN] \"%s\" : jeu %s, Archipelago %s -> %s\n", nom, jeu ? "debloque" : "verrouille",
+               ap ? "debloque" : "verrouille", (jeu && ap) ? "LANCABLE" : "VERROUILLE");
+        return;
+    }
+    if (g_nVus < 32) {
+        strcpy_s(g_vus[g_nVus].nom, sizeof(g_vus[g_nVus].nom), nom);
+        g_vus[g_nVus].verdict = verdict;
+        ++g_nVus;
+    }
+    printf("[SCN] \"%s\" : jeu %s, Archipelago %s -> %s\n", nom, jeu ? "debloque" : "verrouille",
+           ap ? "debloque" : "verrouille", (jeu && ap) ? "LANCABLE" : "VERROUILLE");
+}
+
+uintptr_t hkPrerequisProfil(uintptr_t profil, uintptr_t liste, uintptr_t p3, uintptr_t p4)
+{
+    uintptr_t r = oPrerequisProfil(profil, liste, p3, p4);
+    uintptr_t scn = ScenarioDeLaListe(liste);
+    if (!scn) return r;
+    char nom[32];
+    if (!LireNomScenario(scn, nom, sizeof(nom)) || !EstScenarioAP(nom)) return r;
+    bool jeu = (r & 0xFF) != 0;
+    bool ap = ScenarioDebloque(nom);
+    Journaliser(nom, jeu, ap);
+    // Le verrou du jeu (jour 20 de A New Home...) est remplace par celui
+    // d'Archipelago : seul l'item decide.
+    return ap ? 1 : 0;
+}
+
+// --- Bouton d'un scenario verrouille par le mod -----------------------------------
+void LireTexteElement(uintptr_t el, char* out, int taille)
+{
+    out[0] = 0;
+    uintptr_t p = 0;
+    if (!SafeRead((void*)(el + TXT_TEXTE), &p, 8) || p <= 0x10000) return;
+    // Essai en UTF-16, puis en 8 bits.
+    wchar_t w[96] = {};
+    if (SafeRead((void*)p, w, sizeof(w) - 2) && w[0] >= 0x20 && w[0] < 0x7F && w[1] != 0) {
+        int i = 0;
+        for (; i < taille - 1 && i < 95 && w[i]; ++i) out[i] = (w[i] >= 0x20 && w[i] < 0x7F) ? (char)w[i] : '?';
+        out[i] = 0;
+        return;
+    }
+    ReadAscii(p, out, taille);
+}
+
+void DecrireArbre(uintptr_t el, int prof)
+{
+    if (el < 0x10000 || prof > 10) return;
+    char nom[64] = "", cls[64] = "?", texte[96] = "";
+    uintptr_t pn = 0;
+    if (SafeRead((void*)(el + EL_NOM), &pn, 8) && pn > 0x10000) ReadAscii(pn, nom, sizeof(nom));
+    GetClassNameFP(el, cls, sizeof(cls));
+    uint32_t drapeaux = 0;
+    SafeRead((void*)(el + EL_DRAPEAUX), &drapeaux, 4);
+    if (strstr(cls, "Text")) LireTexteElement(el, texte, sizeof(texte));
+    printf("[SCN]   %*s%s (%s) %s%s%s%s\n", prof * 2, "", nom, cls, (drapeaux & 1) ? "visible" : "cache",
+           texte[0] ? " \"" : "", texte, texte[0] ? "\"" : "");
+    uintptr_t enfant = 0;
+    SafeRead((void*)(el + EL_ENFANT), &enfant, 8);
+    for (int garde = 0; enfant > 0x10000 && garde < 64; ++garde) {
+        DecrireArbre(enfant, prof + 1);
+        if (!SafeRead((void*)(enfant + EL_FRERE), &enfant, 8)) break;
+    }
+}
+
+uintptr_t hkJouerPreset(uintptr_t el, uintptr_t* nom, uintptr_t p3, uintptr_t p4, uintptr_t p5,
+                        uintptr_t p6, uintptr_t p7, uintptr_t p8, uintptr_t p9, uintptr_t p10)
+{
+    // Le preset est rejoue recursivement sur les enfants : seul l'appel du
+    // bouton lui-meme (premier vu) compte pour g_boutonCree.
+    if (g_boutonVerrouAP && nom) {
+        char n[96] = "";
+        uintptr_t pn = 0;
+        if (SafeRead((void*)nom, &pn, 8) && pn > 0x10000) ReadAscii(pn, n, sizeof(n));
+        if (strcmp(n, "LOCKED") == 0 && !g_boutonCree) g_boutonCree = el;
+        if (strncmp(n, "LOCKED_", 7) == 0) {
+            if (el == g_boutonCree) printf("[SCN] preset \"%s\" saute (condition du jeu)\n", n);
+            return 0;
+        }
+    }
+    return oJouerPreset(el, nom, p3, p4, p5, p6, p7, p8, p9, p10);
+}
+
+void hkCreerBouton(uintptr_t panneau, uintptr_t scn, uintptr_t debloque, uintptr_t indice)
+{
+    char nom[32];
+    bool verrouAP = (debloque & 0xFF) == 0 && LireNomScenario(scn, nom, sizeof(nom)) &&
+                    EstScenarioAP(nom) && !ScenarioDebloque(nom);
+    if (!verrouAP) { oCreerBouton(panneau, scn, debloque, indice); return; }
+    g_boutonVerrouAP = true;
+    g_boutonCree = 0;
+    oCreerBouton(panneau, scn, debloque, indice);
+    g_boutonVerrouAP = false;
+    if (g_boutonCree && g_relevesArbre < 6) {
+        ++g_relevesArbre;
+        printf("[SCN] bouton verrouille de \"%s\" :\n", nom);
+        DecrireArbre(g_boutonCree, 0);
+    }
+}
+
+} // namespace
+
+bool ScenarioDebloque(const char* nomInterne)
+{
+    if (!nomInterne) return true;
+    int i = IndiceScenarioAP(nomInterne);
+    return i < 0 || g_debloque[i];
+}
+
+int ScenarioDebloquer(const char* nomInterne)
+{
+    int i = nomInterne ? IndiceScenarioAP(nomInterne) : -1;
+    if (i < 0) return -1;
+    if (g_debloque[i]) return 0;
+    g_debloque[i] = true;
+    return 1;
+}
+
+void ScenariosRecevoirItemsDeTest()
+{
+    // TEMPORAIRE : item de depart simule, en attendant le serveur.
+    ReceiveScenarioUnlock("REFUGEES", "Server (test)");
+}
+
+void InstallHooksScenarios(uintptr_t modBase)
+{
+    g_base = modBase;
+    struct { uintptr_t off; void* hk; void** orig; const char* nom; } h[] = {
+        { OFF_PREREQUIS_PROFIL, (void*)&hkPrerequisProfil, (void**)&oPrerequisProfil, "des prerequis de profil" },
+        { OFF_CREER_BOUTON, (void*)&hkCreerBouton, (void**)&oCreerBouton, "du bouton de scenario" },
+        { OFF_JOUER_PRESET, (void*)&hkJouerPreset, (void**)&oJouerPreset, "des presets d'interface" },
+    };
+    for (auto& x : h) {
+        void* p = (void*)(modBase + x.off);
+        bool ok = MH_CreateHook(p, x.hk, x.orig) == MH_OK && MH_EnableHook(p) == MH_OK;
+        printf("[SCN] hook %s (+%llX) %s\n", x.nom, (unsigned long long)x.off, ok ? "OK" : "KO");
+    }
+}
