@@ -1367,6 +1367,42 @@ void InstallHooksLoisAP(uintptr_t modBase)
     }
 }
 
+const char* IconeCheckDeTest(const char* cle, int rang)
+{
+    return IconeDuCheckDeTest(cle, rang);
+}
+
+uintptr_t IconeAPSurCopieDe(uintptr_t original, uintptr_t parent, const char* icone)
+{
+    const TechIcons* ic = nullptr;
+    for (const TechIcons& t : ARCHIPELAGO_ICONS_TECH) if (icone && !strcmp(t.nom, icone)) ic = &t;
+    uintptr_t modele[2] = {};
+    if (!ic || !SafeRead((void*)(original + ELEM_RECETTE), &modele[0], 8) || !modele[0] ||
+        !SafeRead((void*)(original + ELEM_RESSOURCE), &modele[1], 8)) return 0;
+    uintptr_t copie = ((Instancier_t)(Base() + OFF_INSTANCIER))(modele[0], modele[1], 1, Base() + OFF_CTX_INSTANCIER);
+    if (!copie) return 0;
+    uintptr_t zero = 0;
+    SafeWrite((void*)(copie + ELEM_RECETTE), &zero, 8);
+    ((AjouterEnfant_t)(Base() + OFF_AJOUTER_ENFANT))(parent, copie);
+    PoserTuileSur(copie, ic);
+    static const float blanc[4] = { 1.f, 1.f, 1.f, 1.f };
+    ((Montrer_t)(Base() + OFF_MONTRER))(copie, 1, 0, 1);
+    ((PoserCouleur_t)(Base() + OFF_POSER_COULEUR))(copie, blanc);
+    return copie;
+}
+
+bool IconeAPPoser(uintptr_t image, const char* icone)
+{
+    for (const TechIcons& t : ARCHIPELAGO_ICONS_TECH)
+        if (icone && !strcmp(t.nom, icone)) { PoserTuileSur(image, &t); return true; }
+    return false;
+}
+
+void ElementTailleNulle(uintptr_t el)
+{
+    ((PoserTaille_t)(Base() + OFF_POSER_TAILLE))(el, 0.f, 0.f);
+}
+
 void LoisAPApresChargement()
 {
     g_dateSauvegarde = DateCourante();

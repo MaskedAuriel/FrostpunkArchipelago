@@ -3120,6 +3120,27 @@ pas un simple « incomplet ».
   carte figée. Corrigé au passage : plusieurs F9 dans un même journal
   dupliquaient les lignes `S` des quêtes (comptes ×6) ; dédoublonnées par
   (scénario, GUID).
+- **Icône AP sur les marqueurs de site de la carte (2026-11-01, VALIDÉ par
+  l'auteur le 2026-11-01 : rendu « parfait », aucune exception, copie à
+  48 × 48 en (18, 14), `icon_done` sur un site déjà exploré)** :
+  le gabarit de site n'a pas d'icône. Marqueur =
+  `FrostpunkUIExpeditionSiteSelectorTracker` (vtable `0x142217798`), mis à
+  jour par **`FUN_141c1a0e0`** (commune à tous les sélecteurs de la carte :
+  ville, groupes…) : tracker `+0x18` racine, `+0x28` entité (poignées) ;
+  composant de site = `*(entité + 0x2A0 + FUN_14148c130() × 8)`. Arbre
+  (presets `SIZE_SMALL` / `SIZE_LARGE`, gabarit `+0x3C8`) : `SITE_SELECTOR` →
+  `BUTTON` → … → `highlight_anim_move_container` → `not_frozen_container` /
+  `frozen_container`, chacun avec une image **`ICON`** (48 × 48, texture
+  **`UI/Tiles/Icons.dds`** = atlas des bulles). Sa case est posée par
+  l'**animateur d'état** (`FUN_1416ae7b0` = ApplyExpeditionSitePresets :
+  `NOT_FROZEN` / `FROZEN`, `UNVISITED` / `VISITED` (État ≥ 1) / `EXPLORED`
+  (≥ 2) / `DEPLETED` / `TARGETED_BY_TASK`, outpost, settlement, shelter,
+  `MARKED`…). → hook de `FUN_141c1a0e0` (scooting.cpp,
+  `IconeMarqueurSite`) : dans chaque conteneur, **copie de `ICON` sans
+  animateur** (`IconeAPSurCopieDe`, lois_ap.cpp) avec notre case, original à
+  taille nulle (revérifiée à chaque mise à jour) ; copie retrouvée par son
+  animateur nul (pas de doublon). Type : `IconeCheckDeTest(nom du site, 0)`
+  (TEMPORAIRE), `icon_done` dès l'état `+0x34` ≥ 2. Log `[SITEUI]`.
 - **Réseau Archipelago** : à n'aborder que sur demande explicite. L'auteur
   prévoit « une classe spécifique pour toutes les interactions avec le serveur
   qui s'occupera de manager les notifications et leur véritable envoi ».

@@ -6,6 +6,7 @@
 #include "ap_ressources.h"
 #include "archipelago.h"
 #include "quetes.h"         // TraduireCleJeu
+#include "lois_ap.h"        // icones AP des marqueurs de site
 #include <intrin.h>
 #include <algorithm>
 
@@ -1579,8 +1580,246 @@ static uintptr_t hkTirerTable(uintptr_t sys, uintptr_t emplacements, uintptr_t t
     return res;
 }
 
+// ---------------------------------------------------------------------------
+// Icone AP sur les sites de la carte (demande de l'auteur, 2026-11-01).
+// Decompiles du 2026-11-01 : le gabarit de site n'a aucune icone ; le marqueur
+// est un FrostpunkUIExpeditionSiteSelectorTracker (vtable 0x142217798), mis a
+// jour par FUN_141c1a0e0 (vtable [4]) : tracker +0x18 poignee de la racine,
+// +0x28 poignee de l'entite suivie, +0x70 / +0x80 / +0x90 / +0x98 poignees
+// d'elements ; a la fin, l'etat d'animation de NOM "Tracker preset" du gabarit
+// de site (+0x3C8) est joue sur l'element +0x98 (FUN_1410240d0) : l'icone est
+// donc une image de la recette d'interface, choisie par cet etat.
+// Etape 1 (diagnostic) : relevé, une fois par tracker, du preset et de l'arbre
+// des elements, pour trouver l'image de l'icone.
+// ---------------------------------------------------------------------------
+typedef uintptr_t (*MajTrackerSite_t)(uintptr_t);
+static MajTrackerSite_t oMajTrackerSite = nullptr;
+constexpr int TRK_RACINE = 0x18, TRK_ENTITE = 0x28, TRK_PRESET_ELEM = 0x98;
+constexpr int TPL_SITE_PRESET = 0x3C8;
+constexpr int UIE_NOM = 0x1D8, UIE_ENFANT = 0x220, UIE_FRERE = 0x240, UIE_DRAPEAUX = 0x270;
+
+static uintptr_t LirePoignee(uintptr_t p)
+{
+    uintptr_t h = 0, o = 0;
+    if (!SafeRead((void*)p, &h, 8) || h <= 0x10000 || !SafeRead((void*)h, &o, 8)) return 0;
+    return o;
+}
+
+static void NomUI(uintptr_t el, char* out, int taille)
+{
+    uintptr_t pn = 0;
+    out[0] = 0;
+    if (SafeRead((void*)(el + UIE_NOM), &pn, 8) && pn > 0x10000) ReadAscii(pn, out, taille);
+}
+
+// Arbre d'un element : nom, classe, visible, translation, taille, et les
+// textures lisibles (qwords +0x280..+0x600 vers un texte ".dds" / "Tiles",
+// suivis de la case et du nombre de cases).
+static void DecrireArbreUI(uintptr_t c, int prof, int* budget, bool freres)
+{
+    for (; c > 0x10000 && *budget > 0; --*budget) {
+        char nom[64], cls[96] = "?";
+        NomUI(c, nom, sizeof(nom));
+        GetClassNameFP(c, cls, sizeof(cls));
+        uint32_t dr = 0;
+        float tr[2] = {}, t[2] = {}, coul[4] = {};
+        SafeRead((void*)(c + UIE_DRAPEAUX), &dr, 4);
+        SafeRead((void*)(c + 0x80), tr, sizeof(tr));
+        SafeRead((void*)(c + 0x210), t, sizeof(t));
+        SafeRead((void*)(c + 0x120), coul, sizeof(coul));
+        // Image : ressource de texture en +0x350 (FUN_141107140), nom en +0x08.
+        char tex[96] = "";
+        if (strstr(cls, "Picture")) {
+            uintptr_t res = 0, pn = 0;
+            if (SafeRead((void*)(c + 0x350), &res, 8) && res > 0x10000 && SafeRead((void*)(res + 8), &pn, 8) &&
+                pn > 0x10000)
+                ReadAscii(pn, tex, sizeof(tex));
+        }
+        printf("[SITEUI]   %*s\"%s\" %s 0x%llX %s tr (%.1f, %.1f) taille %.1f x %.1f a=%.2f%s%s\n", prof * 2, "",
+            nom, cls, (unsigned long long)c, (dr & 1) ? "visible" : "CACHE", tr[0], tr[1], t[0], t[1], coul[3],
+            tex[0] ? " texture " : "", tex);
+        for (int off = 0x280; off < 0x600; off += 8) {
+            uintptr_t p = 0;
+            char tx[96] = "";
+            if (!SafeRead((void*)(c + off), &p, 8) || p <= 0x10000 || !ReadAscii(p, tx, sizeof(tx))) continue;
+            if (!strstr(tx, ".dds") && !strstr(tx, ".texture") && !strstr(tx, "Tiles")) continue;
+            int32_t v[4] = {};
+            SafeRead((void*)(c + off + 8), v, sizeof(v));
+            printf("[SITEUI]   %*s  +0x%X texture \"%s\" case (%d,%d) sur (%d,%d)\n", prof * 2, "", off, tx,
+                v[0], v[1], v[2], v[3]);
+        }
+        uintptr_t enfant = 0, frere = 0;
+        SafeRead((void*)(c + UIE_ENFANT), &enfant, 8);
+        if (enfant && prof < 12) DecrireArbreUI(enfant, prof + 1, budget, true);
+        if (!freres || !SafeRead((void*)(c + UIE_FRERE), &frere, 8)) return;
+        c = frere;
+    }
+}
+
+// Etape 2 (releve du 2026-11-01) : FUN_141c1a0e0 sert a TOUS les selecteurs de
+// la carte (ville, groupes...) ; composant de site comme le jeu :
+// *(entite + 0x2A0 + FUN_14148c130() x 8). Presets "SIZE_SMALL" / "SIZE_LARGE",
+// meme arbre : SITE_SELECTOR -> BUTTON -> "" -> show_anim_clip ->
+// highlight_anim_move_container -> not_frozen_container / frozen_container,
+// chacun avec une image "ICON" (48 x 48 en (18, 14)) de texture
+// "UI/Tiles/Icons.dds" = l'atlas des bulles, ou nos icones sont deja.
+// La case de "ICON" est posee par l'animateur d'etat : FUN_1416ae7b0
+// (ApplyExpeditionSitePresets) joue NOT_FROZEN / FROZEN, UNVISITED / VISITED /
+// EXPLORED / DEPLETED / TARGETED_BY_TASK... sur la racine. Une tuile posee sur
+// "ICON" serait donc reecrite au changement d'etat -> comme pour les lois :
+// copie de "ICON" sans animateur, ajoutee au meme conteneur, notre case ;
+// l'original reduit a une taille nulle (verifie a chaque mise a jour).
+// Type du check : TEMPORAIRE, hachage stable du nom du site
+// (IconeCheckDeTest) ; "icon_done" une fois le site explore (etat +0x34 >= 2,
+// comme EXPLORED / DEPLETED de FUN_1416ae7b0).
+constexpr int UIE_PARENT = 0x230, UIE_ANIMATEUR = 0x1E8, UIE_TAILLE = 0x210;
+constexpr int SITE_ETAT = 0x34;
+static const char* const CONTENEURS_ICONE[2] = { "not_frozen_container", "frozen_container" };
+
+struct MarqueurSite {
+    uintptr_t trk, racine, comp;
+    uintptr_t conteneur[2], orig[2], copie[2];
+    char site[96];
+    const char* icone;
+};
+static MarqueurSite g_marqueurs[256];
+static int g_nMarqueurs = 0;
+
+static uintptr_t ChercherUI(uintptr_t el, const char* nom, int prof)
+{
+    uintptr_t c = 0;
+    if (!SafeRead((void*)(el + UIE_ENFANT), &c, 8)) return 0;
+    for (int g = 0; c > 0x10000 && g < 64; ++g) {
+        char nm[64];
+        NomUI(c, nm, sizeof(nm));
+        if (!strcmp(nm, nom)) return c;
+        if (prof < 10) {
+            uintptr_t r = ChercherUI(c, nom, prof + 1);
+            if (r) return r;
+        }
+        if (!SafeRead((void*)(c + UIE_FRERE), &c, 8)) return 0;
+    }
+    return 0;
+}
+
+// Enfants directs "ICON" d'un conteneur : l'original (animateur non nul) et
+// notre copie (animateur nul) si elle existe deja.
+static void IconesDuConteneur(uintptr_t cont, uintptr_t& orig, uintptr_t& copie)
+{
+    orig = copie = 0;
+    uintptr_t c = 0;
+    if (!SafeRead((void*)(cont + UIE_ENFANT), &c, 8)) return;
+    for (int g = 0; c > 0x10000 && g < 64; ++g) {
+        char nm[64];
+        NomUI(c, nm, sizeof(nm));
+        if (!strcmp(nm, "ICON")) {
+            uintptr_t anim = 0;
+            SafeRead((void*)(c + UIE_ANIMATEUR), &anim, 8);
+            if (anim) { if (!orig) orig = c; }
+            else if (!copie) copie = c;
+        }
+        if (!SafeRead((void*)(c + UIE_FRERE), &c, 8)) return;
+    }
+}
+
+// La copie memorisee est-elle toujours la notre (meme conteneur, sans
+// animateur) ? Sinon le marqueur a ete reconstruit : on le refait.
+static bool CopieValide(uintptr_t copie, uintptr_t cont)
+{
+    uintptr_t parent = 0, anim = 1;
+    return copie && SafeRead((void*)(copie + UIE_PARENT), &parent, 8) && parent == cont &&
+        SafeRead((void*)(copie + UIE_ANIMATEUR), &anim, 8) && anim == 0;
+}
+
+static void IconeMarqueurSite(uintptr_t trk)
+{
+    uintptr_t ent = LirePoignee(trk + TRK_ENTITE);
+    if (!ent) return;
+    uintptr_t comp = 0;
+    int type = ((int(*)())((uintptr_t)GetModuleHandleW(NULL) + 0x148C130))();
+    if (type < 0 || type >= 512 || !SafeRead((void*)(ent + 0x2A0 + (uintptr_t)type * 8), &comp, 8) ||
+        comp <= 0x10000) return;
+    uintptr_t racine = LirePoignee(trk + TRK_RACINE);
+    if (!racine) return;
+
+    MarqueurSite* m = nullptr;
+    for (int i = 0; i < g_nMarqueurs; ++i) if (g_marqueurs[i].trk == trk) { m = &g_marqueurs[i]; break; }
+    if (!m) {
+        if (g_nMarqueurs >= 256) {
+            static bool dit = false;
+            if (!dit) { dit = true; printf("[SITEUI] plus de 256 marqueurs : icones AP ignorees au-dela\n"); }
+            return;
+        }
+        m = &g_marqueurs[g_nMarqueurs++];
+        memset(m, 0, sizeof(*m));
+        m->trk = trk;
+    }
+    bool aRefaire = m->racine != racine || m->comp != comp;
+    for (int k = 0; k < 2 && !aRefaire; ++k)
+        if (m->conteneur[k] && !CopieValide(m->copie[k], m->conteneur[k])) aRefaire = true;
+    if (aRefaire) {
+        memset(m, 0, sizeof(*m));
+        m->trk = trk; m->racine = racine; m->comp = comp;
+        uintptr_t tpl = 0;
+        strcpy_s(m->site, "?");
+        if (SafeRead((void*)(comp + 0x20), &tpl, 8) && tpl) NomDuGabarit(tpl, m->site, sizeof(m->site));
+    }
+
+    int32_t etat = 0;
+    SafeRead((void*)(comp + SITE_ETAT), &etat, 4);
+    const char* icone = etat >= 2 ? "icon_done" : IconeCheckDeTest(m->site, 0);
+
+    static int nJournal = 0;
+    for (int k = 0; k < 2; ++k) {
+        if (!m->conteneur[k]) {
+            uintptr_t cont = ChercherUI(racine, CONTENEURS_ICONE[k], 0);
+            if (!cont) continue;
+            uintptr_t orig = 0, copie = 0;
+            IconesDuConteneur(cont, orig, copie);
+            if (!orig) continue;
+            bool nouvelle = !copie;
+            if (nouvelle) copie = IconeAPSurCopieDe(orig, cont, icone);
+            else IconeAPPoser(copie, icone);
+            if (!copie) continue;
+            m->conteneur[k] = cont; m->orig[k] = orig; m->copie[k] = copie;
+            if (nJournal++ < 12) {
+                float tr[2] = {}, t[2] = {};
+                SafeRead((void*)(copie + 0x80), tr, sizeof(tr));
+                SafeRead((void*)(copie + UIE_TAILLE), t, sizeof(t));
+                printf("[SITEUI] \"%s\" (%s) : icone \"%s\" %s sur \"%s\" -> copie 0x%llX tr (%.1f, %.1f) taille %.1f x %.1f\n",
+                    m->site, etat >= 2 ? "explore" : "non explore", icone, nouvelle ? "creee" : "reprise",
+                    CONTENEURS_ICONE[k], (unsigned long long)copie, tr[0], tr[1], t[0], t[1]);
+            }
+        }
+        else if (icone != m->icone) IconeAPPoser(m->copie[k], icone);
+        // L'animateur d'etat peut rendre sa taille a l'original : on la
+        // remet a zero des qu'elle reapparait.
+        float t[2] = {};
+        if (m->orig[k] && SafeRead((void*)(m->orig[k] + UIE_TAILLE), t, sizeof(t)) && (t[0] > 0.f || t[1] > 0.f))
+            ElementTailleNulle(m->orig[k]);
+    }
+    if (icone != m->icone && m->icone && nJournal++ < 40)
+        printf("[SITEUI] \"%s\" : icone %s -> %s\n", m->site, m->icone, icone);
+    m->icone = icone;
+}
+
+static uintptr_t hkMajTrackerSite(uintptr_t trk)
+{
+    uintptr_t res = oMajTrackerSite(trk);
+    __try { IconeMarqueurSite(trk); }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        static int n = 0;
+        if (n++ < 5) printf("[SITEUI] EXCEPTION 0x%08lX a la pose de l'icone d'un site\n", GetExceptionCode());
+    }
+    return res;
+}
+
 void InstallHooksExpeditions(uintptr_t modBase)
 {
+    void* m = (void*)(modBase + 0x1C1A0E0);
+    bool okM = MH_CreateHook(m, (void*)&hkMajTrackerSite, (void**)&oMajTrackerSite) == MH_OK &&
+        MH_EnableHook(m) == MH_OK;
+    printf("[SITEUI] hook mise a jour du tracker de site (+1C1A0E0) %s\n", okM ? "OK" : "KO");
     void* p = (void*)(modBase + 0x18A0A60);
     bool ok = MH_CreateHook(p, (void*)&hkEnvoyerExpedition, (void**)&oEnvoyerExpedition) == MH_OK
            && MH_EnableHook(p) == MH_OK;

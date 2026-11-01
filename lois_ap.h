@@ -27,3 +27,16 @@ bool LoisAPRecevoir(const char* arbre, int* rang);
 // F5 : un item pour l'arbre de la loi en attente la plus ancienne (sinon de
 // la derniere loi signee), sur le thread du jeu.
 void LoisAPDemanderTest();
+
+// --- Outils d'icones AP partages (thread du jeu) ---------------------------------
+// TEMPORAIRE : type de check stable (cle, rang) en attendant le serveur.
+const char* IconeCheckDeTest(const char* cle, int rang);
+// Copie de l'image 'original' (instanciee depuis son element +0x1E8 / +0x1F0,
+// animateur d'etat mis a 0 : aucun etat ne la retouche), ajoutee en dernier
+// a 'parent', avec la case 'icone' de l'atlas des bulles (UI/Tiles/Icons.dds),
+// montree, blanche. Garde la geometrie de la recette. 0 si echec.
+uintptr_t IconeAPSurCopieDe(uintptr_t original, uintptr_t parent, const char* icone);
+// Pose la case 'icone' de l'atlas des bulles sur une image deja creee.
+bool IconeAPPoser(uintptr_t image, const char* icone);
+// Taille nulle (FUN_14102b170) : cache une image sans toucher a son etat.
+void ElementTailleNulle(uintptr_t el);
