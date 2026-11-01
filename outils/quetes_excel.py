@@ -9,6 +9,8 @@
 #   S  scenario  ordre  GUID  sources (L loi, E evenement, D dilemme, Q quete)  detail
 # Des noms internes existent dans plusieurs repertoires (ex. "[Sociotech
 # Related] Care House" dans Default et Scenario Builders) : d'ou le GUID.
+import html
+import os
 import re
 import sys
 import zipfile
@@ -34,10 +36,122 @@ def decoder(s):
 quetes = {}        # GUID -> {interne, rep, type, nom, desc}
 objectifs = {}     # GUID -> [(indice, interne, classe, oblig, texte, desc)]
 par_scenario = {}  # scenario -> [(ordre, GUID, genres, sources)]
+# Sites d'exploration (lignes "[SXLS]", scooting.cpp) : scenario -> {site:
+# [nom, dossier, 4 noms affiches, description, etat, contenu, dilemmes]}.
+# Un F9 ne voit que les sites TIRES dans la partie (remarque de l'auteur du
+# 2026-11-01) : les releves sont cumules d'une execution a l'autre dans
+# outils\sites_releves.tsv (un site deja vu garde ses infos), et completes
+# par les tables de tirage (outils\tables_tirage.tsv), qui donnent la liste
+# complete des sites possibles de chaque scenario.
+sites = {}
+# Tables de tirage des sites (lignes "[TXLS]", scooting.cpp) : table -> [(site, chemin)].
+tables_sites = {}
+LARGEURS_SITES = [34, 14, 30, 30, 30, 30, 60, 30, 9, 6, 10, 12]
+ENTETE_SITES = ["Site (nom interne)", "Dossier", "Nom affiche", "Nom non visite", "Nom explore",
+                "Nom epuise", "Description", "Contenu (au releve)", "Dilemmes", "Etat", "Vu en partie",
+                "Sur la carte (tirage fixe)"]
+# Table de tirage de chaque scenario (noms relevees le 2026-11-01 ; la table
+# contient TOUS les sites du scenario, fixes compris : verifie sur A New Home).
+TABLE_DU_SCENARIO = {"DEFAULT": "Story Randomized", "TechHaven": "TechHaven", "REFUGEES": "Refugees",
+                     "WINTERHOME": "Winterhome", "BUILDERS": "Builders", "Reconquest": "Reconquest"}
+DOSSIER_OUTILS = os.path.dirname(os.path.abspath(__file__))
+CACHE_SITES = os.path.join(DOSSIER_OUTILS, "sites_releves.tsv")
+CACHE_TABLES = os.path.join(DOSSIER_OUTILS, "tables_tirage.tsv")
+# Carte figee (tirage fixe de scooting.cpp, valide le 2026-11-01) : sites du
+# dernier releve d'un scenario fait apres un "[SITES] tirage fixe" de sa
+# table, = les sites qui existent dans TOUTE partie de ce scenario (ceux qui
+# recevront un check). scenario -> set(site)
+CACHE_CARTE = os.path.join(DOSSIER_OUTILS, "carte_fixe.tsv")
+carte_fixe = {}
+
+
+def lire_cache_sites():
+    if os.path.exists(CACHE_SITES):
+        with open(CACHE_SITES, encoding="utf-8") as f:
+            for l in f:
+                c = l.rstrip("\n").split("\t")
+                if len(c) == 11:
+                    sites.setdefault(c[0], {})[c[1]] = c[1:]
+        return
+    # Amorcage : onglets "Sites - ..." d'un Excel deja produit.
+    if not os.path.exists(SORTIE):
+        return
+    affiche_vers_interne = {a: i for i, a in SCENARIOS}
+    z = zipfile.ZipFile(SORTIE)
+    wb = z.read("xl/workbook.xml").decode("utf-8")
+    for nom, num in re.findall(r'<sheet name="([^"]+)" sheetId="(\d+)"', wb):
+        nom = html.unescape(nom)
+        if not nom.startswith("Sites - ") or nom[8:] not in affiche_vers_interne:
+            continue
+        scn = affiche_vers_interne[nom[8:]]
+        x = z.read("xl/worksheets/sheet%s.xml" % num).decode("utf-8")
+        for r, contenu in re.findall(r'<row r="(\d+)">(.*?)</row>', x):
+            if r == "1":
+                continue
+            d = {}
+            for col_, a, b in re.findall(r'<c r="([A-Z]+)\d+"[^>]*>(?:<is><t[^>]*>(.*?)</t></is>|<v>(.*?)</v>)</c>', contenu):
+                d[col_] = html.unescape(a or b)
+            if d.get("A") and d.get("K", "oui") != "non":
+                g = lambda k: d.get(k, "-")
+                sites.setdefault(scn, {})[d["A"]] = [d["A"], g("B"), g("C"), g("D"), g("E"), g("F"), g("G"),
+                                                     g("J"), g("H"), g("I")]
+
+
+def lire_cache_tables():
+    if os.path.exists(CACHE_TABLES):
+        with open(CACHE_TABLES, encoding="utf-8") as f:
+            for l in f:
+                c = l.rstrip("\n").split("\t")
+                if len(c) == 3:
+                    tables_sites.setdefault(c[0], []).append((c[1], c[2]))
+
+
+def lire_cache_carte():
+    if os.path.exists(CACHE_CARTE):
+        with open(CACHE_CARTE, encoding="utf-8") as f:
+            for l in f:
+                c = l.rstrip("\n").split("\t")
+                if len(c) == 2:
+                    carte_fixe.setdefault(c[0], set()).add(c[1])
+
+
+lire_cache_sites()
+lire_cache_tables()
+lire_cache_carte()
+tables_du_journal = {}
+dernier_tirage_fixe = None   # table du dernier "[SITES] tirage fixe" du journal
+releve_fixe = None           # scenario du releve en cours s'il suit un tirage fixe
 
 with open(JOURNAL, "rb") as f:
     for brut in f:
         ligne = brut.decode("cp1252", errors="replace").rstrip("\r\n")
+        m = re.match(r'\[SITES\] tirage fixe : table "([^"]*)"', ligne)
+        if m:
+            dernier_tirage_fixe = m.group(1)
+            continue
+        m = re.match(r"\[SITES\] scenario (\S+) :", ligne)
+        if m:
+            scn = m.group(1)
+            releve_fixe = scn if TABLE_DU_SCENARIO.get(scn) == dernier_tirage_fixe else None
+            if releve_fixe:
+                carte_fixe[scn] = set()   # le dernier releve fixe remplace le precedent
+            continue
+        if ligne.startswith("[SXLS]\t") and releve_fixe:
+            c = ligne.split("\t")
+            if len(c) > 3 and c[1] == "S" and c[2] == releve_fixe:
+                carte_fixe[releve_fixe].add(decoder(c[3]))
+        if ligne.startswith("[TXLS]\t"):
+            c = [decoder(x) for x in ligne.split("\t")[1:]]
+            if c[0] == "T" and len(c) >= 2:
+                tables_du_journal[c[1]] = []
+            elif c[0] == "E" and len(c) >= 4:
+                tables_du_journal.setdefault(c[1], []).append((c[2], c[3]))
+            continue
+        if ligne.startswith("[SXLS]\t"):
+            c = [decoder(x) for x in ligne.split("\t")[1:]]
+            if c[0] == "S" and len(c) >= 12:
+                sites.setdefault(c[1], {})[c[2]] = c[2:]
+            continue
         if not ligne.startswith("[QXLS]\t"):
             continue
         c = [decoder(x) for x in ligne.split("\t")[1:]]
@@ -47,7 +161,40 @@ with open(JOURNAL, "rb") as f:
         elif c[0] == "O" and len(c) >= 8:
             objectifs.setdefault(c[1], []).append((int(c[2]), c[3], c[4], c[5] == "1", c[6], c[7]))
         elif c[0] == "S" and len(c) >= 6:
-            par_scenario.setdefault(c[1], []).append((int(c[2]), c[3], c[4], c[5]))
+            # Plusieurs F9 dans un meme journal : une quete n'est gardee qu'une
+            # fois par scenario (le dernier releve l'emporte).
+            lst = par_scenario.setdefault(c[1], [])
+            lst[:] = [x for x in lst if x[1] != c[3]]
+            lst.append((int(c[2]), c[3], c[4], c[5]))
+
+# Caches des sites : tables du journal prioritaires, releves fusionnes.
+tables_sites.update(tables_du_journal)
+with open(CACHE_TABLES, "w", encoding="utf-8") as f:
+    for table in sorted(tables_sites):
+        for site, chemin in tables_sites[table]:
+            f.write("%s\t%s\t%s\n" % (table, site, chemin))
+with open(CACHE_SITES, "w", encoding="utf-8") as f:
+    for scn in sorted(sites):
+        for nom in sorted(sites[scn]):
+            f.write("\t".join([scn] + list(sites[scn][nom])) + "\n")
+with open(CACHE_CARTE, "w", encoding="utf-8") as f:
+    for scn in sorted(carte_fixe):
+        for nom in sorted(carte_fixe[scn]):
+            f.write("%s\t%s\n" % (scn, nom))
+
+
+def sites_complets(interne):
+    """Liste complete d'un scenario : sites releves + sites de sa table de
+    tirage jamais vus en partie. -> [(nom, ligne ou None, chemin)]"""
+    chemins = dict(tables_sites.get(TABLE_DU_SCENARIO.get(interne, ""), []))
+    vus = sites.get(interne, {})
+    return [(nom, vus.get(nom), chemins.get(nom, "")) for nom in sorted(set(vus) | set(chemins))]
+
+
+def dossier_du_chemin(chemin):
+    m = re.search(r"ExpeditionSites/([^/]+)/", chemin)
+    return m.group(1) if m else "?"
+
 
 if not quetes:
     sys.exit("Aucune ligne [QXLS] dans " + JOURNAL + " : faire F9 en partie (jeu hors pause).")
@@ -256,6 +403,34 @@ for guid in sorted(quetes, key=lambda g: (quetes[g]["rep"], quetes[g]["interne"]
 feuilles.append(("Sans scenario", donnees))
 
 
+# Sites d'exploration : un onglet par scenario (releves + table de tirage).
+for interne, affiche in SCENARIOS:
+    liste = sites_complets(interne)
+    if not liste:
+        continue
+    donnees = [ENTETE_SITES]
+    carte = carte_fixe.get(interne)
+    sur_carte = lambda n: "?" if carte is None else ("oui" if n in carte else "non")
+    for nom, s, chemin in liste:
+        if s:   # nom, dossier, 4 noms, description, etat, contenu, dilemmes
+            donnees.append([s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[8],
+                            int(s[9]) if s[9].isdigit() else s[9],
+                            int(s[7]) if s[7].lstrip("-").isdigit() else s[7], "oui", sur_carte(nom)])
+        else:
+            donnees.append([nom, dossier_du_chemin(chemin), "(jamais tire en partie)", "", "", "", "", "", "", "",
+                            "non", sur_carte(nom)])
+    feuilles.append(("Sites - " + affiche, donnees))
+
+
+# Tables de tirage : tous les sites possibles, par table (tous scenarios).
+if tables_sites:
+    donnees = [["Table de tirage", "Site (nom interne)", "Chemin du gabarit"]]
+    for table in sorted(tables_sites):
+        for site, chemin in tables_sites[table]:
+            donnees.append([table, site, chemin])
+    feuilles.append(("Tables de tirage", donnees))
+
+
 # --- Ecriture xlsx minimale -------------------------------------------------
 def col(n):
     s = ""
@@ -270,11 +445,13 @@ LARGEURS = [22, 6, 45, 32, 50, 14, 6, 7, 40, 34, 10, 45, 50, 60]
 
 
 def xml_feuille(donnees):
+    largeurs = (LARGEURS_SITES if donnees and donnees[0] == ENTETE_SITES else
+                [40, 40, 90] if donnees and len(donnees[0]) == 3 else LARGEURS)
     x = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
          '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
          '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" '
          'activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>']
-    for i, w in enumerate(LARGEURS):
+    for i, w in enumerate(largeurs):
         x.append('<col min="%d" max="%d" width="%d" customWidth="1"/>' % (i + 1, i + 1, w))
     x.append("</cols><sheetData>")
     for r, ligne in enumerate(donnees):
@@ -290,7 +467,7 @@ def xml_feuille(donnees):
         x.append("</row>")
     x.append("</sheetData>")
     if len(donnees) > 1:
-        x.append('<autoFilter ref="A1:%s%d"/>' % (col(len(ENTETE) - 1), len(donnees)))
+        x.append('<autoFilter ref="A1:%s%d"/>' % (col(len(donnees[0]) - 1), len(donnees)))
     x.append("</worksheet>")
     return "".join(x)
 
@@ -382,6 +559,53 @@ for scn, cat, ordre, guid in table_code:
 h += ["};", "", "static const int KNOWN_QUESTS_COUNT = (int)(sizeof(KNOWN_QUESTS) / sizeof(KNOWN_QUESTS[0]));", ""]
 with open("known_quests.h", "w", encoding="ascii", newline="\r\n") as f:
     f.write("\n".join(h))
+
+# --- known_sites.h : les sites d'exploration dans le code (assignation des
+#     checks ; meme cle que SITE_PAYLOADS de scooting.cpp : scenario + nom
+#     interne du site) -----------------------------------------------------
+hs = ["// known_sites.h  --  Sites d'exploration par scenario (GENERE par",
+      "// outils\\quetes_excel.py depuis le releve F9 [SXLS] ; ne pas editer a la main).",
+      "// Cle = scenario + nom interne du site (segment ExpeditionSites/<dossier>/<nom>",
+      "// de la cle du gabarit), comme SITE_PAYLOADS dans scooting.cpp.",
+      "// nomAffiche / contenu : langue du jeu et partie au moment du releve",
+      "// (contenu vanilla si le site n'etait ni explore ni configure ; \"AP\" = porteur).",
+      "// Liste complete = table de tirage du scenario (FrostpunkScenariosConfig +0x368)",
+      "// + sites releves ; vuEnPartie = 0 : site possible jamais tire dans un releve",
+      "// (nomAffiche et contenu vides).",
+      "// surCarte = 1 : site present dans TOUTE partie du scenario (tirage fixe de",
+      "// scooting.cpp, releve F9 sur partie neuve) : ce sont eux qui portent un check.",
+      "", "#pragma once", "",
+      "struct SiteInfo {",
+      "    const char* scenario;     // nom interne (DEFAULT, TechHaven, REFUGEES, WINTERHOME, BUILDERS, Reconquest)",
+      "    const char* nom;          // nom interne du site (cle de SITE_PAYLOADS)",
+      "    const char* dossier;      // Story, Refugees, _SHARED...",
+      "    const char* nomAffiche;   // gabarit +0x270 (Display name)",
+      "    const char* contenu;      // ressources du site au releve, ex. \"Coal 110, Steel 86\"",
+      "    int         nbDilemmes;   // dilemmes d'exploration (gabarit +0x3D0)",
+      "    bool        vuEnPartie;   // false : connu seulement par la table de tirage",
+      "    bool        surCarte;     // true : sur la carte figee du scenario (porte un check)",
+      "};", "", "static const SiteInfo KNOWN_SITES[] = {"]
+nb_sites, par_scn = 0, []
+for interne, affiche in SCENARIOS:
+    liste = sites_complets(interne)
+    carte = carte_fixe.get(interne, set())
+    for nom, s, chemin in liste:
+        sc = "true" if nom in carte else "false"
+        if s:
+            hs.append("    { %s, %s, %s, %s, %s, %d, true, %s }," % (c_texte(interne), c_texte(s[0]), c_texte(s[1]),
+                      c_texte(s[2]), c_texte(s[8]), int(s[9]) if s[9].isdigit() else 0, sc))
+        else:
+            hs.append("    { %s, %s, %s, \"\", \"\", 0, false, %s }," % (c_texte(interne), c_texte(nom),
+                      c_texte(dossier_du_chemin(chemin)), sc))
+        nb_sites += 1
+    if liste:
+        par_scn.append("%s %d (%d vus, %d sur la carte)" % (affiche, len(liste), sum(1 for x in liste if x[1]),
+                                                            sum(1 for x in liste if x[0] in carte)))
+hs += ["};", "", "static const int KNOWN_SITES_COUNT = (int)(sizeof(KNOWN_SITES) / sizeof(KNOWN_SITES[0]));", ""]
+if nb_sites:
+    with open("known_sites.h", "w", encoding="ascii", newline="\r\n") as f:
+        f.write("\n".join(hs))
+    print("known_sites.h : %d sites : %s" % (nb_sites, ", ".join(par_scn)))
 
 compte = {}
 for scn, cat, _, _ in table_code:

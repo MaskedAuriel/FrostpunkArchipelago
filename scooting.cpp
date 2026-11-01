@@ -5,7 +5,9 @@
 #include "ap_data.h"
 #include "ap_ressources.h"
 #include "archipelago.h"
+#include "quetes.h"         // TraduireCleJeu
 #include <intrin.h>
+#include <algorithm>
 
 // ============================================================================
 //  Etat interne
@@ -1254,6 +1256,192 @@ static int ExpeditionVisee()
 }
 
 // ---------------------------------------------------------------------------
+// Releve des sites d'exploration de la partie (F9, thread du jeu ; demande de
+// l'auteur du 2026-11-01 : liste complete pour leur assigner les checks).
+// Une ligne "[SXLS]" par site, lue par outils\quetes_excel.py :
+//   scenario, nom interne (cle de SITE_PAYLOADS), dossier du gabarit
+//   (Story, Refugees, _SHARED...), noms affiches Display / Unvisited /
+//   Explored / Depleted (gabarit +0x270 / +0x268 / +0x278 / +0x280),
+//   description (+0x290), etat (+0x34), contenu (+0x48 : {definition,
+//   quantite} au pas de 0x10 ; nom = entree de ressource a definition + 8),
+//   nombre de dilemmes d'exploration (+0x3D0, compte +0x3D8).
+// ---------------------------------------------------------------------------
+static void DossierDeSite(uintptr_t tpl, char* out, int maxlen)
+{
+    strcpy_s(out, maxlen, "?");
+    uintptr_t p = 0;
+    char brut[256] = "";
+    if (tpl <= 0x10000 || !SafeRead((void*)(tpl + 0x270), &p, 8) || p <= 0x10000) return;
+    if (!SafeRead((void*)p, brut, sizeof(brut) - 1)) return;
+    brut[sizeof(brut) - 1] = 0;
+    const char* m = strstr(brut, "ExpeditionSites/");
+    if (!m) return;
+    m += 16;
+    int k = 0;
+    for (; m[k] && m[k] != '/' && k < maxlen - 1; ++k) out[k] = m[k];
+    out[k] = 0;
+}
+
+static void ContenuDuSite(uintptr_t comp, char* out, int maxlen)
+{
+    out[0] = 0;
+    uintptr_t arr = 0, defAP = ApPorteurDef();
+    uint32_t cnt = 0;
+    if (!SafeRead((void*)(comp + 0x48), &arr, 8) || !SafeRead((void*)(comp + 0x48 + 8), &cnt, 4) ||
+        arr <= 0x10000 || cnt == 0 || cnt > 32) {
+        strcpy_s(out, maxlen, "(rien)");
+        return;
+    }
+    for (uint32_t i = 0; i < cnt; ++i) {
+        uintptr_t def = 0; int64_t q = 0;
+        SafeRead((void*)(arr + (uintptr_t)i * 0x10), &def, 8);
+        SafeRead((void*)(arr + (uintptr_t)i * 0x10 + 8), &q, 8);
+        char nom[64] = "?";
+        if (def && def == defAP) strcpy_s(nom, "AP");
+        else if (def > 0x10000) {
+            // Nom interne de la ressource : qword +0x00 de l'entree. 1er
+            // releve du 2026-11-01 : a definition + 8, tout sortait "?" -> la
+            // definition du contenu est l'entree elle-meme ; les deux essayes.
+            const int essais[2] = { 0, 8 };
+            for (int e = 0; e < 2 && !strcmp(nom, "?"); ++e) {
+                uintptr_t pn = 0;
+                char t[64] = "";
+                if (!SafeRead((void*)(def + essais[e]), &pn, 8) || pn <= 0x10000) continue;
+                if (!SafeRead((void*)pn, t, sizeof(t) - 1)) continue;
+                t[sizeof(t) - 1] = 0;
+                int k = 0;
+                while (t[k] >= 0x20 && t[k] <= 0x7E) ++k;
+                if (k >= 2 && t[k] == 0) strcpy_s(nom, t);
+            }
+        }
+        char item[96];
+        sprintf_s(item, "%s%s %lld", i ? ", " : "", nom, (long long)q);
+        strncat_s(out, maxlen, item, _TRUNCATE);
+    }
+}
+
+void ScootingReleverSites()
+{
+    static uintptr_t objs[512];
+    int n = ComposantsDuSysteme(IdSysteme::ExpeditionSite, "FrostpunkExpeditionSiteComponent", objs, 512);
+    const char* scenario = g_run.valid ? g_run.scenario : "?";
+    printf("[SITES] scenario %s : %d site(s)\n", scenario, n);
+    for (int i = 0; i < n; ++i) {
+        if (!EstSiteComponent(objs[i])) continue;
+        uintptr_t tpl = 0;
+        int32_t etat = -1;
+        SafeRead((void*)(objs[i] + 0x20), &tpl, 8);
+        SafeRead((void*)(objs[i] + 0x34), &etat, 4);
+        char nom[128] = "?", dossier[64], contenu[512];
+        NomDuGabarit(tpl, nom, sizeof(nom));
+        DossierDeSite(tpl, dossier, sizeof(dossier));
+        ContenuDuSite(objs[i], contenu, sizeof(contenu));
+        char aff[4][256], desc[1024];
+        const int offs[4] = { 0x270, 0x268, 0x278, 0x280 };
+        for (int k = 0; k < 4; ++k) TraduireCleJeu(tpl + offs[k], aff[k], sizeof(aff[k]));
+        TraduireCleJeu(tpl + 0x290, desc, sizeof(desc));
+        uint32_t nDil = 0;
+        SafeRead((void*)(tpl + 0x3D8), &nDil, 4);
+        if (nDil > 64) nDil = 0;
+        printf("[SXLS]\tS\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\t%u\n", scenario, nom, dossier,
+            aff[0], aff[1], aff[2], aff[3], desc, etat, contenu, nDil);
+        // Position sur la carte du monde (entite +0x140 : x, y, z), pour
+        // verifier que le tirage fixe garde aussi les emplacements (question
+        // de l'auteur du 2026-11-01).
+        uintptr_t ent = 0;
+        float pos[3] = {};
+        if (SafeRead((void*)(objs[i] + 0x18), &ent, 8) && ent > 0x10000) SafeRead((void*)(ent + 0x140), pos, sizeof(pos));
+        printf("[SPOS]\t%s\t%s\t%.1f\t%.1f\n", scenario, nom, pos[0], pos[2]);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tables de tirage des sites (remarque de l'auteur du 2026-11-01 : un F9 ne
+// voit que les sites tires dans la partie, ex. The Arks avait resources01-04
+// et 06 mais pas 05). Decompiles du 2026-11-01 :
+//   FrostpunkScenariosConfig (base + 0x2C34490, reflexion FUN_14129e3e0)
+//   +0x368 "World map randomization tables" (pointeurs) ;
+//   FrostpunkScenarioWorldMapRandomizationTableEntry (0x90, FUN_1416108b0) :
+//   +0x00 nom, +0x08 GUID, +0x18 "Templates" (FrostpunkScenarioRandomWorld
+//   MapEntityTemplateEntry, 0x10 = GUID du gabarit d'entite, compte +0x20),
+//   +0x30 / +0x48 ressources aleatoires, +0x60 survivants, +0x78 conditions.
+//   Resolution (FUN_1418f2a30, systeme de tirage de la carte) :
+//   stub = FUN_141035c50(&pool des templates DAT_142b2e710, &guid, 1)
+//   (= recherche FUN_141035cf0 + CHARGEMENT ; ici recherche seule) ;
+//   stub +0x08 = nom du gabarit (= nom interne du site), FUN_14111c4f0(stub,
+//   tampon, taille, 1, 0) = chemin complet. Aucun chargement.
+//   Une variation de carte de scenario (FrostpunkScenarioWorldMapScene
+//   VariationEntry, 0x58) cite ses tables en +0x18 (liens de 0x10).
+// Une ligne "[TXLS]\tT\t<table>" par table, puis "[TXLS]\tE\t<table>\t<site>
+// \t<chemin>" par gabarit possible.
+// ---------------------------------------------------------------------------
+typedef uintptr_t (*StubParGuid_t)(uintptr_t, const void*);
+typedef void (*CheminDuStub_t)(uintptr_t, char*, int, uintptr_t, uintptr_t);
+
+// FUN_141035cf0(pool, &guid) = recherche PURE (dichotomie sur les stubs
+// tries par GUID : pool +0x30, compte +0x38, stub +0x10 = GUID). 1er essai
+// du 2026-11-01 avec FUN_141035c50(pool, &guid, 1) sous le verrou du pool :
+// jeu bloque au 1er site (cette fonction CHARGE le gabarit et attend le
+// thread de chargement, FUN_14111c700 -> FUN_141004480 ; verrou tenu ->
+// interblocage). Ici : ni chargement ni verrou.
+static uintptr_t StubParGuidSur(uintptr_t pool, const uint8_t* guid)
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
+    __try { return ((StubParGuid_t)(base + 0x1035CF0))(pool, guid); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+
+static bool CheminDuStubSur(uintptr_t stub, char* out, int taille)
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
+    out[0] = 0;
+    __try { ((CheminDuStub_t)(base + 0x111C4F0))(stub, out, taille, 1, 0); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { out[0] = 0; return false; }
+    return out[0] != 0;
+}
+
+void ScootingReleverTablesDeSites()
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
+    uintptr_t pool = base + 0x2B2E710;
+    uintptr_t tables = 0;
+    uint32_t nTables = 0;
+    if (!SafeRead((void*)(base + 0x2C34490 + 0x368), &tables, 8) ||
+        !SafeRead((void*)(base + 0x2C34490 + 0x368 + 8), &nTables, 4) || tables <= 0x10000 || nTables > 512) {
+        printf("[SITES] tables de tirage illisibles\n");
+        return;
+    }
+    printf("[SITES] %u table(s) de tirage des sites\n", nTables);
+    for (uint32_t t = 0; t < nTables; ++t) {
+        uintptr_t table = 0, pn = 0, gab = 0;
+        uint32_t nGab = 0;
+        char nomTable[128] = "?";
+        if (!SafeRead((void*)(tables + (uintptr_t)t * 8), &table, 8) || table <= 0x10000) continue;
+        if (SafeRead((void*)table, &pn, 8) && pn > 0x10000) {
+            SafeRead((void*)pn, nomTable, sizeof(nomTable) - 1);
+            nomTable[sizeof(nomTable) - 1] = 0;
+        }
+        SafeRead((void*)(table + 0x18), &gab, 8);
+        SafeRead((void*)(table + 0x20), &nGab, 4);
+        if (gab <= 0x10000 || nGab > 1024) nGab = 0;
+        printf("[TXLS]\tT\t%s\t%u\n", nomTable, nGab);
+        for (uint32_t k = 0; k < nGab; ++k) {
+            uint8_t guid[16] = {};
+            SafeRead((void*)(gab + (uintptr_t)k * 0x10), guid, 16);
+            uintptr_t stub = StubParGuidSur(pool, guid);
+            char nom[128] = "?", chemin[300] = "?";
+            uintptr_t pnom = 0;
+            if (stub > 0x10000 && SafeRead((void*)(stub + 8), &pnom, 8) && pnom > 0x10000) {
+                SafeRead((void*)pnom, nom, sizeof(nom) - 1);
+                nom[sizeof(nom) - 1] = 0;
+            }
+            if (stub > 0x10000) CheminDuStubSur(stub, chemin, sizeof(chemin));
+            printf("[TXLS]\tE\t%s\t%s\t%s\n", nomTable, nom, chemin);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // DEBUG : trajets d'expedition courts (demande de l'auteur, 2026-11-01, pour
 // atteindre vite les Londoniens d'une partie neuve). FUN_1418a0a60(systeme,
 // entite, composant, cible) = envoyer une expedition vers une cible
@@ -1302,6 +1490,95 @@ static void hkEnvoyerExpedition(uintptr_t sys, uintptr_t entite, uintptr_t comp,
     }
 }
 
+// ---------------------------------------------------------------------------
+// Tirage des sites FIXE (decision de l'auteur du 2026-11-01, option 2 : un
+// check par site, la carte d'un scenario doit donc toujours etre la meme).
+// FUN_1418f2a30(systeme, &emplacements, table) = tirage d'une table
+// (appelants FUN_1418f1440, FUN_14172a770) -> FUN_1418f2290 : melange des
+// emplacements et des candidats par groupes de priorite (gabarit +0x430),
+// puis appariement (FUN_1418edc80). Seul hasard : le generateur global
+// "multiply-with-carry" DAT_142a12d60 / DAT_142a12d64 (multiplicateurs
+// 0x9069 et 18000). On y pose une graine fixe le temps de l'appel, puis on
+// rend l'etat d'origine (le reste du hasard du jeu n'est pas touche).
+// ---------------------------------------------------------------------------
+static const bool     SITES_TIRAGE_FIXE = true;
+static const uint32_t GRAINE_SITES_A = 0x2B7E1516, GRAINE_SITES_B = 0x28AED2A6;   // non nulles
+
+typedef uintptr_t (*TirerTable_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
+static TirerTable_t oTirerTable = nullptr;
+
+// Test du 2026-11-01 (The Arks, 2 parties neuves) : memes 31 sites, mais 14
+// echangent leurs emplacements -> l'ordre des emplacements fournis au tirage
+// varie d'une partie a l'autre. On les trie par position (x puis z) avant
+// le tirage. Emplacement = enregistrement de 0x10 ; son 1er qword (cle du
+// tirage) est l'entite, ou une poignee (*poignee = entite) : les deux essayes.
+static uintptr_t EntiteDeLEmplacement(uintptr_t q)
+{
+    char cls[96] = "";
+    if (q > 0x10000 && GetClassNameFP(q, cls, sizeof(cls)) && strstr(cls, "Entity")) return q;
+    uintptr_t e = 0;
+    if (q > 0x10000 && SafeRead((void*)q, &e, 8) && e > 0x10000 && GetClassNameFP(e, cls, sizeof(cls)) &&
+        strstr(cls, "Entity")) return e;
+    return 0;
+}
+
+static bool TrierEmplacements(uintptr_t emplacements, uint32_t n)
+{
+    uintptr_t tab = 0;
+    if (!SafeRead((void*)emplacements, &tab, 8) || tab <= 0x10000 || n < 2 || n > 512) return false;
+    struct Empl { uint8_t brut[16]; float x, z; };
+    static Empl e[512];
+    for (uint32_t i = 0; i < n; ++i) {
+        if (!SafeRead((void*)(tab + (uintptr_t)i * 0x10), e[i].brut, 16)) return false;
+        uintptr_t q = 0;
+        memcpy(&q, e[i].brut, 8);
+        uintptr_t ent = EntiteDeLEmplacement(q);
+        float pos[3] = {};
+        if (!ent || !SafeRead((void*)(ent + 0x140), pos, sizeof(pos))) {
+            static int nEchecs = 0;
+            if (nEchecs++ < 3) {
+                char cls[96] = "?";
+                GetClassNameFP(q, cls, sizeof(cls));
+                printf("[SITES] emplacement %u : entite introuvable (qword 0x%llX, classe %s) -> pas de tri\n",
+                    i, (unsigned long long)q, cls);
+            }
+            return false;
+        }
+        e[i].x = pos[0];
+        e[i].z = pos[2];
+    }
+    std::sort(e, e + n, [](const Empl& a, const Empl& b) { return a.x != b.x ? a.x < b.x : a.z < b.z; });
+    for (uint32_t i = 0; i < n; ++i) SafeWrite((void*)(tab + (uintptr_t)i * 0x10), e[i].brut, 16);
+    return true;
+}
+
+static uintptr_t hkTirerTable(uintptr_t sys, uintptr_t emplacements, uintptr_t table, uintptr_t p4)
+{
+    if (!SITES_TIRAGE_FIXE) return oTirerTable(sys, emplacements, table, p4);
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
+    uint32_t* etat = (uint32_t*)(base + 0x2A12D60);
+    uint32_t avantA = etat[0], avantB = etat[1];
+    // Compte lu AVANT : le tirage vide la liste des emplacements (1er test :
+    // "0 emplacement(s)").
+    uint32_t nEmpl = 0;
+    if (emplacements > 0x10000) SafeRead((void*)(emplacements + 8), &nEmpl, 4);
+    bool trie = TrierEmplacements(emplacements, nEmpl);
+    etat[0] = GRAINE_SITES_A;
+    etat[1] = GRAINE_SITES_B;
+    uintptr_t res = oTirerTable(sys, emplacements, table, p4);
+    etat[0] = avantA;
+    etat[1] = avantB;
+    char nom[96] = "?";
+    uintptr_t pn = 0;
+    if (table > 0x10000 && SafeRead((void*)table, &pn, 8) && pn > 0x10000) {
+        SafeRead((void*)pn, nom, sizeof(nom) - 1);
+        nom[sizeof(nom) - 1] = 0;
+    }
+    printf("[SITES] tirage fixe : table \"%s\", %u emplacement(s)%s\n", nom, nEmpl,
+        trie ? ", tries par position" : ", NON tries");
+    return res;
+}
+
 void InstallHooksExpeditions(uintptr_t modBase)
 {
     void* p = (void*)(modBase + 0x18A0A60);
@@ -1309,5 +1586,9 @@ void InstallHooksExpeditions(uintptr_t modBase)
            && MH_EnableHook(p) == MH_OK;
     printf("[EXP] hook envoi d'expedition (+18A0A60) %s%s\n", ok ? "OK" : "KO",
            EXPEDITIONS_RAPIDES ? " - DEBUG trajets de 15 min" : "");
+    void* t = (void*)(modBase + 0x18F2A30);
+    ok = MH_CreateHook(t, (void*)&hkTirerTable, (void**)&oTirerTable) == MH_OK && MH_EnableHook(t) == MH_OK;
+    printf("[SITES] hook tirage des sites (+18F2A30) %s%s\n", ok ? "OK" : "KO",
+           SITES_TIRAGE_FIXE ? " - tirage fixe" : "");
 }
 

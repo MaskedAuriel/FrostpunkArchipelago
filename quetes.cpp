@@ -28,6 +28,7 @@
 #include "temperature.h"   // TemperatureNomActe
 #include "evenements.h"    // g_nomEvtEnCours
 #include "archipelago.h"   // SendQuestCheck
+#include "scooting.h"      // ScootingReleverSites
 #include "known_quests.h"  // KNOWN_QUESTS (genere par outils\quetes_excel.py)
 #include "MinHook.h"
 #include <cstring>
@@ -1137,4 +1138,11 @@ void QuetesPompe()
     g_releveDemande = false;
     Releve();
     printf("[QUETE] releve termine\n");
+    ScootingReleverSites();
+    ScootingReleverTablesDeSites();
+}
+
+void TraduireCleJeu(uintptr_t adrCle, char* out, int taille)
+{
+    Traduire(adrCle, out, taille);
 }

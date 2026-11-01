@@ -1,0 +1,211 @@
+BUILDERS	02. Killed Moose
+BUILDERS	04. [food] Moose Hunting Grounds
+BUILDERS	09. Fish Skin and Bladders
+BUILDERS	12. [food] Lake Full of Fish
+BUILDERS	13. Lower Stream Course
+BUILDERS	16. [food] Stream Head
+BUILDERS	21. Avalanche of Stones
+BUILDERS	23. Avalanche Origin
+BUILDERS	28. Generator South
+BUILDERS	31. Collapsed Mine
+BUILDERS	35. Trail Breaks off
+BUILDERS	38. Three Graves
+BUILDERS	40. Closed Tavern
+BUILDERS	42. Natures Sculpture
+BUILDERS	44. Twisted Rails
+BUILDERS	45. Rock Arch
+BUILDERS	46. EIC Steam Cores Store
+BUILDERS	47. Trappers Cabin
+BUILDERS	48. Bald Hill
+BUILDERS	49. EIC Train Station
+BUILDERS	50. Railroad Siding
+BUILDERS	51. Broken Snowpiercer
+BUILDERS	58. Field Kitchen
+BUILDERS	59. Cove by the Stream
+BUILDERS	60. [food] Cut-off Herd of Caribous
+BUILDERS	61. Workers Camp
+BUILDERS	62. Transport Lost
+BUILDERS	63. Convoy in Distress
+BUILDERS	64. Ice Plateau
+BUILDERS	65. Generator Gamma
+BUILDERS	66. Polar Bear Cave
+DEFAULT	Site_001_Lost_Expedition
+DEFAULT	Site_002_Crash_Site
+DEFAULT	Site_003_Temporary_Settlement
+DEFAULT	Site_004_Camp_of_the_Dead
+DEFAULT	Site_005_Dreadnought_Landing
+DEFAULT	Site_006_Frozen_Convoy
+DEFAULT	Site_007_City_Ruins
+DEFAULT	Site_008_Abandoned_Weather_Station
+DEFAULT	Site_009_Geothermal_Vent
+DEFAULT	Site_010_Unfinished_Shelter
+DEFAULT	Site_011_Ice_Corridor
+DEFAULT	Site_012gc_Bear_Cave
+DEFAULT	Site_013_Observatory_Ruins
+DEFAULT	Site_014_Fugitives_Camp
+DEFAULT	Site_015_Coal_Mine
+DEFAULT	Site_016_Tesla_City
+DEFAULT	Site_017_Inventors_End
+DEFAULT	Site_018_Fishermen_Village
+DEFAULT	Site_019_Icebound_Dreadnought
+DEFAULT	Site_020_Research_Station
+DEFAULT	Site_021_Rebels_Colony
+DEFAULT	Site_022_Burned_Bridge
+DEFAULT	Site_023_Miners_Shack
+DEFAULT	Site_024_Grisly_Grove
+DEFAULT	Site_049_A0
+DEFAULT	Site_050_A1
+DEFAULT	Site_051_A2
+DEFAULT	Site_052_A3
+DEFAULT	Site_053_B0
+DEFAULT	Site_054_B1
+DEFAULT	Site_055_B2
+DEFAULT	Site_056_B3
+DEFAULT	Site_057_C0
+DEFAULT	Site_058_C1
+DEFAULT	Site_059_C2
+DEFAULT	Site_060_C3
+DEFAULT	[t-plain][landmark]site09
+DEFAULT	[t-plain][landmark]site10
+DEFAULT	[t-plain]resources01
+DEFAULT	[t-plain]resources02
+DEFAULT	[t-plain]resources03
+DEFAULT	[t-plain]resources04
+REFUGEES	Site_015_Coal_Mine
+REFUGEES	[lordCamp] Camp_A
+REFUGEES	[lordCamp] Camp_B
+REFUGEES	[lordCamp] Camp_C
+REFUGEES	[outpost-wood]Frozen_Forest
+REFUGEES	[outpost]Fishermen_Village
+REFUGEES	[ref]Black_Spire
+REFUGEES	[ref]Black_Spire-dead
+REFUGEES	[ref]Builder_Camp
+REFUGEES	[ref]Landing_Place
+REFUGEES	[ref]Ocean_Liner
+REFUGEES	[ref]Radio_Mast
+REFUGEES	[ref]Red_Flag_Camp
+REFUGEES	[ref]Trail_Bend
+REFUGEES	[ref]Trail_Bend-dead
+REFUGEES	[ref]White_Pass
+REFUGEES	[ref]White_Pass-dead
+REFUGEES	[ref]Wretched_Hulks
+REFUGEES	[t-coast]Canning_Factory
+REFUGEES	[t-coast]Fishing_Boat
+REFUGEES	[t-mountains][steamcore]Rockslide
+REFUGEES	[t-plain]Hangmans_Hill
+REFUGEES	[t-plain][landmark]site01
+REFUGEES	[t-plain][landmark]site04
+REFUGEES	[t-plain][landmark]site06
+REFUGEES	[t-plain][landmark]site08
+REFUGEES	[t-plain][steamcore]Crash_Site
+REFUGEES	[t-plain][steamcore]Iron_Bank
+REFUGEES	[t-plain][steamcore]Yellow_Cat
+REFUGEES	[t-plain][steamcore]site02
+REFUGEES	[t-plain][steamcore]site05
+REFUGEES	[t-plain]resources01
+REFUGEES	[t-plain]resources02
+REFUGEES	[t-plain]resources03
+REFUGEES	[t-plain]resources04
+REFUGEES	[t-plain]resources05
+Reconquest	02. Demolished Tavern
+Reconquest	03. Mountain Shelter
+Reconquest	04. Skull Cave
+Reconquest	05. Abandoned Fishery
+Reconquest	06. Storm Watch
+Reconquest	07. Stone Wall
+Reconquest	08. Tower Ruins
+Reconquest	09. Secluded Canyon
+Reconquest	10. Ark Springs
+Reconquest	11. Windy Beach
+Reconquest	12. City of Rats
+Reconquest	13. Sunken Dreadnought
+Reconquest	14. Bomb Crater
+Reconquest	15. Distant Colony
+Reconquest	16. Red Couloir
+Reconquest	17. Creve-Neige Ville
+Reconquest	18. Observatory Ruins
+Reconquest	20. Transshipment Station 01
+Reconquest	21. Frostham Asylum
+Reconquest	22. Fortified Hut
+Reconquest	23. Ice Caverns
+Reconquest	24. The Mine of the Lost Children
+Reconquest	25. Station Ruins
+Reconquest	26. Winterhome Ruins
+Reconquest	27. Steel Bridge
+Reconquest	28. Sturdy Shelter
+Reconquest	29. Natural Terrace
+Reconquest	30. Frozen Sea
+Reconquest	31. Ghost Ship
+Reconquest	32. Destroyed Automaton
+Reconquest	33. Drying Springs
+Reconquest	34. Grove of Bones
+Reconquest	35. Deep Breach
+Reconquest	36. Snow Crawler
+Reconquest	37. Trailer Wreck
+Reconquest	NewLondon
+Reconquest	TD1. Dilemma
+Reconquest	TD2. Dilemma
+Reconquest	TD3. Dilemma
+Reconquest	TG1. Generic
+Reconquest	TG2. Generic
+Reconquest	TG3. Generic
+Reconquest	TG4. Generic
+Reconquest	TG5. Generic
+Reconquest	TG6. Generic
+TechHaven	[NM-extra]Snowpiercer
+TechHaven	[NM]Expedition01
+TechHaven	[NM]Expedition02
+TechHaven	[NM]Expedition03
+TechHaven	[NM]NewManchester
+TechHaven	[expedition-extra]Snowcrawler
+TechHaven	[quest]Expedition01
+TechHaven	[quest]Expedition02
+TechHaven	[quest]Expedition03
+TechHaven	[quest]MistyValley
+TechHaven	[quest]SouthPass
+TechHaven	[t-mountains]resources01
+TechHaven	[t-mountains]resources02
+TechHaven	[t-mountains]resources03
+TechHaven	[t-plain][landmark]site03
+TechHaven	[t-plain][landmark]site04
+TechHaven	[t-plain][landmark]site05
+TechHaven	[t-plain][landmark]site06
+TechHaven	[t-plain][landmark]site07
+TechHaven	[t-plain][landmark]site08
+TechHaven	[t-plain][landmark]site11
+TechHaven	[t-plain][steamcore]site01
+TechHaven	[t-plain][steamcore]site02
+TechHaven	[t-plain][steamcore]site03
+TechHaven	[t-plain][steamcore]site04
+TechHaven	[t-plain][steamcore]site05
+TechHaven	[t-plain]resources01
+TechHaven	[t-plain]resources02
+TechHaven	[t-plain]resources03
+TechHaven	[t-plain]resources04
+TechHaven	[t-plain]resources06
+WINTERHOME	[dread01]_Dreadnought
+WINTERHOME	[dread02]_Dismantled_Dreadnought_1
+WINTERHOME	[dread03]_Dismantled_Dreadnought_2
+WINTERHOME	[lore01]_Weather_Station
+WINTERHOME	[lore02]_Coal_Mine
+WINTERHOME	[lore03]_Steel_Bridge
+WINTERHOME	[lore04]_Storm_Shelter
+WINTERHOME	[lore05]_Trail_South
+WINTERHOME	[lore06]_Snow_Cliff
+WINTERHOME	[lore07]_Cave_under_Hill
+WINTERHOME	[lore08]_Freshwater_Springs
+WINTERHOME	[lore09]_Frozen_Forest
+WINTERHOME	[lore10]_Monument_of_Hope
+WINTERHOME	[lore11]_Mass_Grave
+WINTERHOME	[lore12]_Last_Stand
+WINTERHOME	[lore13]_Iron Deposit
+WINTERHOME	[t-plain][landmark]site02
+WINTERHOME	[t-plain][landmark]site03
+WINTERHOME	[t-plain][landmark]site04
+WINTERHOME	[t-plain][landmark]site05
+WINTERHOME	[t-plain][landmark]site06
+WINTERHOME	[t-plain][landmark]site07
+WINTERHOME	[t-plain][landmark]site08
+WINTERHOME	[t-plain][landmark]site09
+WINTERHOME	[t-plain][landmark]site10
+WINTERHOME	[t-plain][landmark]site11

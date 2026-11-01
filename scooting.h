@@ -42,6 +42,12 @@ extern bool g_defEnregistree;
 extern volatile bool g_pret;
 void ScootingFournirContenuSites();
 int ExpeditionVisee();
+// F9 (thread du jeu) : une ligne "[SXLS]" par site d'exploration de la partie
+// (noms internes et affiches, contenu), pour outils\quetes_excel.py.
+void ScootingReleverSites();
+// F9 (thread du jeu) : toutes les tables de tirage des sites (tous scenarios)
+// et les sites possibles de chacune, lignes "[TXLS]".
+void ScootingReleverTablesDeSites();
 // Au demarrage : hook de l'envoi d'une expedition (FUN_1418a0a60) ; en debug
 // (EXPEDITIONS_RAPIDES), trajets ramenes a 15 minutes de jeu.
 void InstallHooksExpeditions(uintptr_t modBase);

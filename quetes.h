@@ -11,7 +11,12 @@
 void QuetesDemanderReleve();
 
 // Thread du jeu (hook du setter de ressources, a cote des autres pompes).
+// Fait aussi le releve des sites d'exploration (ScootingReleverSites).
 void QuetesPompe();
+
+// Thread du jeu : traduit la cle portee par le qword en 'adrCle' dans la
+// langue du jeu (UTF-8 sur une ligne, non-ASCII en \uXXXX), "-" si vide.
+void TraduireCleJeu(uintptr_t adrCle, char* out, int taille);
 
 // Trace en jeu : hook de FUN_1416e8570 (demarrer une quete), journal
 // "[QUETE] DEMARRAGE ..." avec l'evenement en cours et la pile d'appels.
