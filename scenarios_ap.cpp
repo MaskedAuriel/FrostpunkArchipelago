@@ -36,9 +36,17 @@
 // FUN_1410240d0(bouton, "LOCKED") puis FUN_1410240d0(bouton, "LOCKED_<nom>")
 // (nom = scn +0x00) : le second preset, propre au scenario, est presume
 // porter ce texte. -> pendant la creation du bouton d'un scenario verrouille
-// PAR LE MOD, le preset "LOCKED_<nom>" est saute ; l'arbre du bouton est
-// journalise (nom, classe, visible +0x270 bit 0, texte) pour retrouver
-// l'element si le texte reste.
+// PAR LE MOD, le preset "LOCKED_<nom>" etait saute (hook global de
+// FUN_1410240d0). Valide, mais les icones AP des lois ont disparu dans la
+// meme version (hook global des presets suspecte). Arbre releve :
+// SCENARIO_BUTTON > MENU_BUTTON_LAYOUT > MENU_OPTION_CONTAINER >
+// DISABLED_TEXT, TITLE_TEXT ("SCENARIO LOCKED"), MAIN_STORY_TEXT,
+// UNLOCK_SCENARIO_TEXT ("UNLOCKED ON DAY 20 OF A NEW HOME").
+// -> plus de hook des presets : apres la creation du bouton d'un scenario
+// verrouille par le mod, le texte de UNLOCK_SCENARIO_TEXT est remplace par un
+// espace (FUN_14111bef0 ; un texte vide ne remplace pas celui de la recette).
+// Le bouton est le nouvel enfant de la colonne **(panneau + 0xD8) (ajoute a
+// la fin, ou en tete pour le scenario principal).
 // ---------------------------------------------------------------------------
 #include "scenarios_ap.h"
 #include "archipelago.h"
@@ -51,14 +59,14 @@ namespace {
 // Regle n. 5 : 4 arguments declares (le jeu en passe 2).
 typedef uintptr_t (*PrerequisProfil_t)(uintptr_t profil, uintptr_t liste, uintptr_t p3, uintptr_t p4);
 typedef void      (*CreerBouton_t)(uintptr_t panneau, uintptr_t scn, uintptr_t debloque, uintptr_t indice);
-// FUN_1410240d0(element, &nom, recursif, ...) -> octet, 9 parametres : 10 declares.
-typedef uintptr_t (*JouerPreset_t)(uintptr_t el, uintptr_t* nom, uintptr_t p3, uintptr_t p4, uintptr_t p5,
-                                   uintptr_t p6, uintptr_t p7, uintptr_t p8, uintptr_t p9, uintptr_t p10);
+typedef void      (*PoserTexte_t)(uintptr_t texte, const wchar_t* chaine, uintptr_t cfg, uintptr_t p4);
 
 constexpr uintptr_t OFF_PREREQUIS_PROFIL = 0x1283EA0;   // FUN_141283ea0
 constexpr uintptr_t OFF_CREER_BOUTON     = 0x1B2CB40;   // FUN_141b2cb40
-constexpr uintptr_t OFF_JOUER_PRESET     = 0x10240D0;   // FUN_1410240d0
+constexpr uintptr_t OFF_POSER_TEXTE      = 0x111BEF0;   // FUN_14111bef0 : texte brut
+constexpr uintptr_t OFF_CFG_TEXTE        = 0x2BFD628;
 constexpr uintptr_t OFF_SCENARIOS_CONFIG = 0x2C34490;
+constexpr int PAN_COLONNE     = 0xD8;   // poignee de la colonne des boutons
 constexpr int CFG_SCENARIOS   = 0x88;
 constexpr int SCN_DEBLOCAGE   = 0x20;   // "Scenario unlock profile progress"
 constexpr int EL_NOM          = 0x1D8;
@@ -69,12 +77,7 @@ constexpr int TXT_TEXTE       = 0x3E8;  // texte affiche (vu sur UITextInput)
 
 PrerequisProfil_t oPrerequisProfil = nullptr;
 CreerBouton_t     oCreerBouton = nullptr;
-JouerPreset_t     oJouerPreset = nullptr;
 uintptr_t g_base = 0;
-
-// Creation en cours du bouton d'un scenario verrouille par le mod (thread du jeu).
-bool      g_boutonVerrouAP = false;
-uintptr_t g_boutonCree = 0;     // element qui a recu le preset "LOCKED"
 int       g_relevesArbre = 0;
 
 // Scenarios geres par Archipelago (noms internes).
@@ -206,22 +209,48 @@ void DecrireArbre(uintptr_t el, int prof)
     }
 }
 
-uintptr_t hkJouerPreset(uintptr_t el, uintptr_t* nom, uintptr_t p3, uintptr_t p4, uintptr_t p5,
-                        uintptr_t p6, uintptr_t p7, uintptr_t p8, uintptr_t p9, uintptr_t p10)
+bool NomElementEst(uintptr_t el, const char* nom)
 {
-    // Le preset est rejoue recursivement sur les enfants : seul l'appel du
-    // bouton lui-meme (premier vu) compte pour g_boutonCree.
-    if (g_boutonVerrouAP && nom) {
-        char n[96] = "";
-        uintptr_t pn = 0;
-        if (SafeRead((void*)nom, &pn, 8) && pn > 0x10000) ReadAscii(pn, n, sizeof(n));
-        if (strcmp(n, "LOCKED") == 0 && !g_boutonCree) g_boutonCree = el;
-        if (strncmp(n, "LOCKED_", 7) == 0) {
-            if (el == g_boutonCree) printf("[SCN] preset \"%s\" saute (condition du jeu)\n", n);
-            return 0;
-        }
+    char n[64] = "";
+    uintptr_t pn = 0;
+    if (!SafeRead((void*)(el + EL_NOM), &pn, 8) || pn <= 0x10000) return false;
+    ReadAscii(pn, n, sizeof(n));
+    return strcmp(n, nom) == 0;
+}
+
+// Premier descendant nomme 'nom' (profondeur d'abord), 'el' compris.
+uintptr_t ChercherDescendant(uintptr_t el, const char* nom, int prof)
+{
+    if (el < 0x10000 || prof > 10) return 0;
+    if (NomElementEst(el, nom)) return el;
+    uintptr_t enfant = 0;
+    SafeRead((void*)(el + EL_ENFANT), &enfant, 8);
+    for (int garde = 0; enfant > 0x10000 && garde < 64; ++garde) {
+        uintptr_t r = ChercherDescendant(enfant, nom, prof + 1);
+        if (r) return r;
+        if (!SafeRead((void*)(enfant + EL_FRERE), &enfant, 8)) break;
     }
-    return oJouerPreset(el, nom, p3, p4, p5, p6, p7, p8, p9, p10);
+    return 0;
+}
+
+uintptr_t Colonne(uintptr_t panneau)
+{
+    uintptr_t p = 0, col = 0;
+    if (!SafeRead((void*)(panneau + PAN_COLONNE), &p, 8) || p <= 0x10000 ||
+        !SafeRead((void*)p, &col, 8) || col <= 0x10000) return 0;
+    return col;
+}
+
+int ListerEnfants(uintptr_t el, uintptr_t* out, int max)
+{
+    int n = 0;
+    uintptr_t enfant = 0;
+    SafeRead((void*)(el + EL_ENFANT), &enfant, 8);
+    while (enfant > 0x10000 && n < max) {
+        out[n++] = enfant;
+        if (!SafeRead((void*)(enfant + EL_FRERE), &enfant, 8)) break;
+    }
+    return n;
 }
 
 void hkCreerBouton(uintptr_t panneau, uintptr_t scn, uintptr_t debloque, uintptr_t indice)
@@ -230,14 +259,37 @@ void hkCreerBouton(uintptr_t panneau, uintptr_t scn, uintptr_t debloque, uintptr
     bool verrouAP = (debloque & 0xFF) == 0 && LireNomScenario(scn, nom, sizeof(nom)) &&
                     EstScenarioAP(nom) && !ScenarioDebloque(nom);
     if (!verrouAP) { oCreerBouton(panneau, scn, debloque, indice); return; }
-    g_boutonVerrouAP = true;
-    g_boutonCree = 0;
+
+    uintptr_t col = Colonne(panneau);
+    uintptr_t avant[128];
+    int nAvant = col ? ListerEnfants(col, avant, 128) : 0;
     oCreerBouton(panneau, scn, debloque, indice);
-    g_boutonVerrouAP = false;
-    if (g_boutonCree && g_relevesArbre < 6) {
+    if (!col) return;
+
+    // Le nouvel enfant de la colonne = l'enveloppe du bouton cree.
+    uintptr_t apres[128], bouton = 0;
+    int nApres = ListerEnfants(col, apres, 128);
+    for (int i = 0; i < nApres && !bouton; ++i) {
+        bool vu = false;
+        for (int j = 0; j < nAvant && !vu; ++j) vu = apres[i] == avant[j];
+        if (!vu) bouton = apres[i];
+    }
+    uintptr_t texte = bouton ? ChercherDescendant(bouton, "UNLOCK_SCENARIO_TEXT", 0) : 0;
+    if (!texte) {
+        printf("[SCN] \"%s\" : UNLOCK_SCENARIO_TEXT introuvable (bouton 0x%llX)\n", nom, (unsigned long long)bouton);
+        return;
+    }
+    __try {
+        ((PoserTexte_t)(g_base + OFF_POSER_TEXTE))(texte, L" ", g_base + OFF_CFG_TEXTE, 0);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        printf("[SCN] EXCEPTION 0x%08lX en vidant la condition de \"%s\"\n", GetExceptionCode(), nom);
+        return;
+    }
+    if (g_relevesArbre < 6) {
         ++g_relevesArbre;
-        printf("[SCN] bouton verrouille de \"%s\" :\n", nom);
-        DecrireArbre(g_boutonCree, 0);
+        printf("[SCN] \"%s\" : condition du jeu effacee ; bouton :\n", nom);
+        DecrireArbre(bouton, 0);
     }
 }
 
@@ -271,7 +323,6 @@ void InstallHooksScenarios(uintptr_t modBase)
     struct { uintptr_t off; void* hk; void** orig; const char* nom; } h[] = {
         { OFF_PREREQUIS_PROFIL, (void*)&hkPrerequisProfil, (void**)&oPrerequisProfil, "des prerequis de profil" },
         { OFF_CREER_BOUTON, (void*)&hkCreerBouton, (void**)&oCreerBouton, "du bouton de scenario" },
-        { OFF_JOUER_PRESET, (void*)&hkJouerPreset, (void**)&oJouerPreset, "des presets d'interface" },
     };
     for (auto& x : h) {
         void* p = (void*)(modBase + x.off);

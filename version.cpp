@@ -33,6 +33,7 @@
 #include "lois_ap.h"
 #include "menu_ap.h"
 #include "scenarios_ap.h"
+#include "victoire.h"
 #include "temperature.h"
 #include "quetes.h"
 
@@ -193,6 +194,7 @@ DWORD WINAPI PayloadThread(LPVOID)
 	InstallHooksExpeditions(modBase);   // DEBUG : trajets d'expedition de 15 min
 	InstallMenuAP(modBase);   // ecran de connexion Archipelago du menu principal
 	InstallHooksScenarios(modBase);   // scenarios verrouilles tant qu'Archipelago ne les debloque pas
+	InstallHooksVictoire(modBase);    // fin de partie : checks de victoire selon le mode
 
 
 	ApChargerChecksDeTest();
@@ -255,11 +257,21 @@ DWORD WINAPI PayloadThread(LPVOID)
 		}
 
 		if (ToucheAppuyee(VK_F9) & 1) {
-			printf("[F9] appui detecte\n");
-			// Releve des quetes (repertoires, quetes, objectifs, effets,
-			// evenements), sur le thread du jeu. Le releve de temperature,
-			// exploite, n'est plus lie a une touche (2026-11-01).
-			QuetesDemanderReleve();
+			bool maj = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+			bool ctrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+			if (maj || ctrl) {
+				// Test de la fin de partie (2026-11-01) : Maj+F9 = victoire,
+				// Ctrl+F9 = defaite, par EndGame du jeu, sur le thread du jeu.
+				printf("[F9] %s+F9 : fin de partie de test (%s)\n", maj ? "Maj" : "Ctrl", maj ? "victoire" : "defaite");
+				VictoireDemanderTest(maj);
+			}
+			else {
+				printf("[F9] appui detecte\n");
+				// Releve des quetes (repertoires, quetes, objectifs, effets,
+				// evenements), sur le thread du jeu. Le releve de temperature,
+				// exploite, n'est plus lie a une touche (2026-11-01).
+				QuetesDemanderReleve();
+			}
 			printf("[F9] End\n");
 		}
 

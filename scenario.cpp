@@ -754,41 +754,10 @@ void ScanClassesDistinct(const char* filtre, int maxRegionScan)
     printf("[CLS] %d classe(s) distincte(s)\n", nd);
 }
 
-void CheckScenarioVictory()
-{
-    static uintptr_t sysCache = 0;
-    static bool      dejaSignale = false;
-
-    // Retrouver le systeme, avec cache tant qu'il reste valide.
-    if (sysCache) {
-        char cls[64] = { 0 };
-        if (!GetClassNameFP(sysCache, cls, sizeof(cls)) ||
-            !StrContains(cls, "ScenarioSystem"))
-            sysCache = 0;                     // invalide -> rescanner
-    }
-    if (!sysCache) {
-        sysCache = FindFirstObjectByClass("FrostpunkScenarioSystem");
-        dejaSignale = false;                  // nouvelle partie
-    }
-    if (!sysCache) return;
-
-    uint8_t vic = 0;
-    if (!SafeRead((void*)(sysCache + 0x78), &vic, 1)) return;
-
-    if (vic && !dejaSignale) {
-        dejaSignale = true;
-
-        // Identite du scenario gagne, pour le check.
-        uintptr_t scn = 0; char nom[64] = { 0 };
-        if (SafeRead((void*)(sysCache + 0x68), &scn, 8) && scn > 0x10000) {
-            uintptr_t p = 0;
-            if (SafeRead((void*)(scn + 0x00), &p, 8) && p > 0x10000)
-                SafeRead((void*)p, nom, sizeof(nom) - 1);
-        }
-        printf("[VICTOIRE] scenario %s remporte !\n", nom[0] ? nom : "?");
-    }
-    if (!vic) dejaSignale = false;            // reset pour la prochaine partie
-}
+// Victoire / defaite : voir victoire.cpp (hook de EndGame). L'ancienne
+// CheckScenarioVictory lisait ScenarioSystem +0x78, qui est
+// "Ignored_LastScenarioInSessionVictory" (souvenir de session), et n'etait
+// appelee nulle part : retiree le 2026-11-01, comme ScenarioJustWon.
 
 RunState g_run = {};
 
@@ -919,14 +888,6 @@ void CaptureRunState()
 
     r.valid = true;
     g_run = r;
-}
-
-bool ScenarioJustWon()
-{
-    if (!g_scnSysCache) return false;
-    uint8_t vic = 0;
-    if (!SafeRead((void*)(g_scnSysCache + 0x78), &vic, 1)) return false;
-    return vic != 0;
 }
 
 // Instance valide du systeme de difficulte, avec cache revalide.

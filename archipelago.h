@@ -56,6 +56,10 @@ void SendLawCheck(const char* tree, int rank, const char* lawName, bool effectPe
 // Quete de l'histoire du scenario accomplie (quetes.cpp, hook de la fin de
 // quete FUN_1416d22a0 ; known_quests.h). Popup "Check sent".
 void SendQuestCheck(const char* questName, const char* displayName);
+// Victoire d'un scenario (victoire.cpp, hook de EndGame FUN_141301490) : un
+// check par appel, nomme selon le mode de victoire ("<Scenario> - Victory",
+// "... (Hard)", "... (<ligne>: Hard)"). Popup "Check sent".
+void SendVictoryCheck(const char* checkName);
 
 // Bouton "Connect" du menu principal (menu_ap.cpp) : chaines UTF-8 saisies.
 // Appele sur le thread du jeu, hors partie. TODO reseau : ouvrir la connexion.

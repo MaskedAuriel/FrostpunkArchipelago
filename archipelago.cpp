@@ -187,6 +187,15 @@ void SendQuestCheck(const char* questName, const char* displayName)
     AfficherNotificationAP("Check sent", texte);
 }
 
+void SendVictoryCheck(const char* checkName)
+{
+    // 1. Envoi.  TODO reseau : transmettre le check au serveur.
+    printf("[AP CHECK] victoire : \"%s\"\n", checkName);
+
+    // 2. Popup.
+    AfficherNotificationAP("Check sent", checkName);
+}
+
 // Copie ASCII pour la console du jeu (UTF-8 non ASCII -> '?').
 static void AsciiPourJournal(const char* s, char* out, int maxlen)
 {

@@ -10,6 +10,7 @@
 #include "lois_ap.h"      // LoisAPPompe (effets des lois en attente d'item)
 #include "temperature.h"  // TemperaturePompe (montees de temperature AP)
 #include "quetes.h"       // QuetesPompe (releve F9)
+#include "victoire.h"     // VictoirePompe (fin de partie de test, Maj / Ctrl + F9)
 
 volatile bool g_traceRes = false;
 
@@ -371,6 +372,7 @@ static int32_t hkModifyResource(uintptr_t self, uintptr_t guidPtr,
             LoisAPPompe();
             TemperaturePompe();
             QuetesPompe();
+            VictoirePompe();
         }
     }
 
