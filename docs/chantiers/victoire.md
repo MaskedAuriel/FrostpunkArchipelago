@@ -78,3 +78,42 @@
   `+0xB8` ; collection des fins `DAT_142c38e70`), prend la 1re du type voulu
   et appelle `EndGame(*(base + 0x2C30158), fin, 0)` (passe par le hook).
   **La partie se termine vraiment** (sauvegarder avant). Non testé.
+  **1er test Maj+F9 (2026-11-02, Refugees puis A New Home)** : 12 fins
+  lues dans la config (adresse confirmée) — victoires `Main Story Ending`,
+  `Tech Haven Ending`, `Refugees Ending`, `Winterhome Ending`, `Builders
+  Ending`, `Builders Ending - Unfinished`, `DLC3 - Help`, `DLC3 -
+  TakePopulation` ; défaites `Fail`, `Builders Ending - Fail`, `DLC3 - Help
+  Unfinished`, `DLC3 - TakePopulation Unfinished`. EndGame passé par le hook
+  (`VICTOIRE (scenario REFUGEES)`, puis `DEFAULT`). **4 lignes visibles**
+  dans les deux scénarios : « People's needs », « Economy », « Weather »,
+  « Society's attitude » ; mais **niveau inconnu partout** → aucun check, et
+  id de ligne faux (`DifficultyN`, `Name` : la clé `DifficultyName` est
+  générique). Cause (décompilé `FUN_141308380`) : le champ « Difficulty »
+  d'un niveau de curseur est un **tableau de liens**
+  (`Dynarray<EntryLink<FrostpunkDifficultyEntry>>` : ptr `+0x00`, compte
+  `+0x08`, liens de 0x10), pas un lien unique : un curseur règle plusieurs
+  réglages. → niveau = celui dont **tous** les liens sont en vigueur ; id de
+  ligne = noms internes des réglages visés (`FrostpunkDifficultySettingEntry
+  +0x00`, trouvés par la liste « Difficulties » de chaque réglage en
+  vigueur), joints par `+`. Non testé.
+  **2e test (2026-11-02) : plantage**, journal coupé au milieu de la liste
+  des fins (relais perdu), jeu fermé. Cause présumée : id de ligne (plusieurs
+  réglages joints) > 64 caractères → `strcat_s` / `sprintf_s` / `strcpy_s`
+  sur un tampon trop petit = gestionnaire de paramètre invalide du CRT, qui
+  **termine le processus** (pas une exception SEH : `__try` ne la rattrape
+  pas). → id 192, nom de check 256, `_TRUNCATE` partout. **À retenir pour
+  tout le mod : jamais de `*_s` sans `_TRUNCATE` sur une donnée lue du
+  jeu.** Non testé.
+  **3e test (2026-11-02, Refugees, Medium partout) : VALIDÉ.** Plus de
+  plantage. Lignes : `Health+Nutrition` (« People's needs »),
+  `Economy_Coal+Economy_Others+Technology+Economy_Food+Economy_StartingResources
+  +Frostland_Resources` (« Economy »), `Weather`, `Hope+Discontent`
+  (« Society's attitude »), toutes au niveau Medium ; niveau général
+  Medium ; mode Detail → 8 checks (Easy + Medium par ligne, cumulatif).
+  Reste : noms de checks trop longs pour « Economy » (id = réglages joints).
+  → **Noms courts fixes** (décision de l'auteur, 2026-11-02) : table
+  `NOMS_LIGNES` par 1er réglage de la ligne — `Health` → « People's
+  needs », `Economy_Coal` → « Economy », `Weather` → « Weather », `Hope` →
+  « Society's attitude » (sinon l'id) ; checks `"<Scénario> - Victory
+  (<nom court>: <niveau>)"`. Journal : nom court, réglages et nom affiché.
+  Non testé.

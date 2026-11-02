@@ -89,7 +89,7 @@ EndGame_t oEndGame = nullptr;
 uintptr_t g_base = 0;
 
 // Checks deja envoyes pendant cette session (le serveur dedoublonne aussi).
-char g_envoyes[256][96];
+char g_envoyes[256][256];
 int  g_nEnvoyes = 0;
 
 struct Guid { uint64_t a, b; };
@@ -122,8 +122,10 @@ uintptr_t ScenarioEnCours(char* nom, int taille, Guid& guid)
     return scn;
 }
 
-// GUID des difficultes en vigueur (une par reglage).
-int DifficultesEnVigueur(Guid* out, int max)
+// Difficultes en vigueur : une par reglage, {reglage, GUID de la difficulte}.
+struct EnVigueur { uintptr_t reglage; Guid dif; };
+
+int DifficultesEnVigueur(EnVigueur* out, int max)
 {
     uintptr_t sys = FindDifficultySystem(), tab = 0;
     uint32_t n = 0;
@@ -131,11 +133,32 @@ int DifficultesEnVigueur(Guid* out, int max)
         tab <= 0x10000 || n > 64) return 0;
     int k = 0;
     for (uint32_t i = 0; i < n && k < max; ++i) {
-        uintptr_t dif = 0;
-        if (!SafeRead((void*)(tab + (uintptr_t)i * 0x10 + 8), &dif, 8) || dif <= 0x10000) continue;
-        if (SafeRead((void*)(dif + 0x08), &out[k], sizeof(Guid)) && !GuidNul(out[k])) ++k;
+        uintptr_t reg = 0, dif = 0;
+        if (!SafeRead((void*)(tab + (uintptr_t)i * 0x10), &reg, 8) ||
+            !SafeRead((void*)(tab + (uintptr_t)i * 0x10 + 8), &dif, 8) || dif <= 0x10000) continue;
+        out[k].reglage = reg;
+        if (SafeRead((void*)(dif + 0x08), &out[k].dif, sizeof(Guid)) && !GuidNul(out[k].dif)) ++k;
     }
     return k;
+}
+
+// Reglage (FrostpunkDifficultySettingEntry) qui contient la difficulte 'g'
+// dans sa liste "Difficulties" (+0x18, compte +0x20), ou 0.
+uintptr_t ReglageDe(const Guid& g, const EnVigueur* ev, int nv)
+{
+    for (int m = 0; m < nv; ++m) {
+        uintptr_t reg = ev[m].reglage, lst = 0;
+        int32_t nl = 0;
+        if (reg <= 0x10000 || !SafeRead((void*)(reg + 0x18), &lst, 8) || !SafeRead((void*)(reg + 0x20), &nl, 4) ||
+            lst <= 0x10000 || nl <= 0 || nl > 32) continue;
+        for (int j = 0; j < nl; ++j) {
+            uintptr_t d = 0;
+            Guid gd{};
+            if (SafeRead((void*)(lst + (uintptr_t)j * 8), &d, 8) && d > 0x10000 &&
+                SafeRead((void*)(d + 0x08), &gd, sizeof(gd)) && GuidEgal(gd, g)) return reg;
+        }
+    }
+    return 0;
 }
 
 bool ListeContient(uintptr_t champ, const Guid& g, bool* vide)
@@ -154,12 +177,36 @@ bool ListeContient(uintptr_t champ, const Guid& g, bool* vide)
 }
 
 // Une ligne de sous-difficulte du scenario, avec le niveau joue.
+// 2e test (2026-11-02) : plantage sans trace. Cause presumee : l'id (noms de
+// plusieurs reglages joints) depassait 64 caracteres ; strcat_s / sprintf_s /
+// strcpy_s sur un tampon trop petit appellent le gestionnaire de parametre
+// invalide du CRT, qui TERMINE le processus (pas une exception SEH : le
+// __try ne la rattrape pas). -> tampons agrandis et troncature partout.
+// Nom court (anglais, texte en jeu) d'une ligne, par le 1er reglage du curseur
+// (decision de l'auteur du 2026-11-02 : les ids joints etaient trop longs).
+// Repris de l'interface, mais fixe : independant de la langue du jeu.
+struct NomDeLigne { const char* premierReglage; const char* nom; };
+const NomDeLigne NOMS_LIGNES[] = {
+    { "Health",       "People's needs" },
+    { "Economy_Coal", "Economy" },
+    { "Weather",      "Weather" },
+    { "Hope",         "Society's attitude" },
+};
+
 struct Ligne {
-    char id[64];        // dernier segment de la cle (stable, nom du check)
+    char id[192];       // noms internes des reglages du curseur, joints par '+' (stable)
+    char nom[64];       // nom court du check (NOMS_LIGNES, sinon l'id)
     char affiche[96];   // nom traduit (journal, popup)
     int  niveau;        // 0..3, -1 si aucun niveau ne correspond
 };
 
+// 1er test (2026-11-02) : tous les niveaux "inconnu". Le champ "Difficulty"
+// d'un niveau de curseur (FUN_141308380) est un TABLEAU de liens
+// (Dynarray<EntryLink<FrostpunkDifficultyEntry>> : ptr +0x00, compte +0x08,
+// liens de 0x10) : un curseur peut regler plusieurs reglages. Un niveau est
+// celui dont TOUS les liens sont en vigueur. Et la cle DifficultyName est
+// generique ("…/DifficultyName", "…/Name") : l'id de la ligne devient le
+// nom interne des reglages vises (FrostpunkDifficultySettingEntry +0x00).
 int LignesDuScenario(const Guid& scn, Ligne* out, int max)
 {
     uintptr_t tab = 0;
@@ -170,8 +217,8 @@ int LignesDuScenario(const Guid& scn, Ligne* out, int max)
         printf("[FIN] curseurs de difficulte illisibles\n");
         return 0;
     }
-    Guid enVigueur[64];
-    int nv = DifficultesEnVigueur(enVigueur, 64);
+    EnVigueur ev[64];
+    int nv = DifficultesEnVigueur(ev, 64);
     int k = 0;
     for (int i = 0; i < n && k < max; ++i) {
         uintptr_t c = tab + (uintptr_t)i * CURSEUR_TAILLE;
@@ -182,16 +229,40 @@ int LignesDuScenario(const Guid& scn, Ligne* out, int max)
         if (!visible) continue;
 
         Ligne& l = out[k];
-        char cle[128] = "";
-        LireTexte(c + CURSEUR_NOM, cle, sizeof(cle));
-        const char* seg = strrchr(cle, '/');
-        strcpy_s(l.id, sizeof(l.id), seg ? seg + 1 : (cle[0] ? cle : "?"));
+        l.id[0] = 0;
         TraduireCleJeu(c + CURSEUR_NOM, l.affiche, sizeof(l.affiche));
         l.niveau = -1;
-        for (int j = 0; j < NB_NIVEAUX && l.niveau < 0; ++j) {
-            Guid g{};
-            if (!SafeRead((void*)(c + CURSEUR_NIVEAUX + j * NIVEAU_TAILLE), &g, sizeof(g)) || GuidNul(g)) continue;
-            for (int m = 0; m < nv; ++m) if (GuidEgal(g, enVigueur[m])) { l.niveau = j; break; }
+        for (int j = 0; j < NB_NIVEAUX; ++j) {
+            uintptr_t niv = c + CURSEUR_NIVEAUX + (uintptr_t)j * NIVEAU_TAILLE, liens = 0;
+            int32_t nl = 0;
+            if (!SafeRead((void*)niv, &liens, 8) || !SafeRead((void*)(niv + 8), &nl, 4) ||
+                liens <= 0x10000 || nl <= 0 || nl > 16) continue;
+            bool tous = true;
+            for (int q = 0; q < nl; ++q) {
+                Guid g{};
+                bool present = false;
+                if (SafeRead((void*)(liens + (uintptr_t)q * 0x10), &g, sizeof(g)) && !GuidNul(g))
+                    for (int m = 0; m < nv && !present; ++m) present = GuidEgal(g, ev[m].dif);
+                if (!present) tous = false;
+                // Id de la ligne : reglages du 1er niveau, dans l'ordre des liens.
+                if (j == 0 && !GuidNul(g)) {
+                    uintptr_t reg = ReglageDe(g, ev, nv);
+                    char nr[48] = "?";
+                    if (reg) LireTexte(reg, nr, sizeof(nr));
+                    if (l.id[0]) strncat_s(l.id, sizeof(l.id), "+", _TRUNCATE);
+                    strncat_s(l.id, sizeof(l.id), nr, _TRUNCATE);
+                }
+            }
+            if (tous && l.niveau < 0) l.niveau = j;
+        }
+        if (!l.id[0]) strncpy_s(l.id, sizeof(l.id), l.affiche[0] ? l.affiche : "?", _TRUNCATE);
+        strncpy_s(l.nom, sizeof(l.nom), l.id, _TRUNCATE);
+        for (const NomDeLigne& nl : NOMS_LIGNES) {
+            size_t n = strlen(nl.premierReglage);
+            if (strncmp(l.id, nl.premierReglage, n) == 0 && (l.id[n] == 0 || l.id[n] == '+')) {
+                strncpy_s(l.nom, sizeof(l.nom), nl.nom, _TRUNCATE);
+                break;
+            }
         }
         ++k;
     }
@@ -205,7 +276,7 @@ void EnvoyerUneFois(const char* check)
             printf("[FIN] check \"%s\" deja envoye dans cette session\n", check);
             return;
         }
-    if (g_nEnvoyes < 256) strcpy_s(g_envoyes[g_nEnvoyes++], sizeof(g_envoyes[0]), check);
+    if (g_nEnvoyes < 256) strncpy_s(g_envoyes[g_nEnvoyes++], sizeof(g_envoyes[0]), check, _TRUNCATE);
     SendVictoryCheck(check);
 }
 
@@ -215,30 +286,31 @@ void Victoire(const ScenarioAP& s, const Guid& scn)
     int n = LignesDuScenario(scn, lignes, MAX_LIGNES);
     int general = n > 0 ? NB_NIVEAUX - 1 : -1;
     for (int i = 0; i < n; ++i) {
-        printf("[FIN]   ligne \"%s\" (\"%s\") : niveau %s\n", lignes[i].id, lignes[i].affiche,
-               lignes[i].niveau >= 0 ? NOMS_NIVEAUX[lignes[i].niveau] : "inconnu");
+        printf("[FIN]   ligne \"%s\" (reglages %s, affiche \"%s\") : niveau %s\n", lignes[i].nom, lignes[i].id,
+               lignes[i].affiche, lignes[i].niveau >= 0 ? NOMS_NIVEAUX[lignes[i].niveau] : "inconnu");
         if (lignes[i].niveau < general) general = lignes[i].niveau;
     }
     printf("[FIN]   %d ligne(s), niveau general = %s, mode %s\n", n,
            general >= 0 ? NOMS_NIVEAUX[general] : "inconnu",
            MODE_TEST == ModeVictoire::Complete ? "Complete" : MODE_TEST == ModeVictoire::General ? "General" : "Detail");
 
-    char check[96];
+    char check[256];
     switch (VictoireMode()) {
     case ModeVictoire::Complete:
-        sprintf_s(check, "%s - Victory", s.affiche);
+        _snprintf_s(check, sizeof(check), _TRUNCATE, "%s - Victory", s.affiche);
         EnvoyerUneFois(check);
         break;
     case ModeVictoire::General:
         for (int j = 0; j <= general; ++j) {
-            sprintf_s(check, "%s - Victory (%s)", s.affiche, NOMS_NIVEAUX[j]);
+            _snprintf_s(check, sizeof(check), _TRUNCATE, "%s - Victory (%s)", s.affiche, NOMS_NIVEAUX[j]);
             EnvoyerUneFois(check);
         }
         break;
     case ModeVictoire::Detail:
         for (int i = 0; i < n; ++i)
             for (int j = 0; j <= lignes[i].niveau; ++j) {
-                sprintf_s(check, "%s - Victory (%s: %s)", s.affiche, lignes[i].id, NOMS_NIVEAUX[j]);
+                _snprintf_s(check, sizeof(check), _TRUNCATE, "%s - Victory (%s: %s)", s.affiche, lignes[i].nom,
+                            NOMS_NIVEAUX[j]);
                 EnvoyerUneFois(check);
             }
         break;
