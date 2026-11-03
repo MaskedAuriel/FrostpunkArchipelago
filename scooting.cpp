@@ -7,8 +7,10 @@
 #include "archipelago.h"
 #include "quetes.h"         // TraduireCleJeu
 #include "lois_ap.h"        // icones AP des marqueurs de site
+#include "lois.h"           // LoisDecrireExigences (conditions de tirage)
 #include <intrin.h>
 #include <algorithm>
+#include <cmath>
 
 // ============================================================================
 //  Etat interne
@@ -33,6 +35,8 @@ struct SiteCache {
     uintptr_t bloc;
     char      nom[128];
     int32_t   dernierEtat;
+    int8_t    carteDecouvert;    // WorldMapEntityComponent +0x30 au dernier tick (-1 = inconnu)
+    int8_t    carteVisible;      // +0x48
 };
 
 static ExpCache  g_exps[16];
@@ -202,6 +206,75 @@ static void ViderCargaison(uintptr_t comp)
     }
 }
 
+// ---------------------------------------------------------------------------
+// Visibilite des sites sur la carte du monde (2026-11-03, pour rattacher
+// chaque site a la region logique de l'apworld ou il devient visible).
+// Decompiles du 2026-11-03 :
+//   FrostpunkWorldMapEntityComponent (reflexion FUN_14197cbd0, 0x78) :
+//   +0x30 Discovered (bool), +0x38 DiscoveryTime, +0x48 Visible (bool),
+//   +0x4C SquaredDistanceToCity (float), +0x50 DisabledResons.
+//   Type du composant : FUN_14132fd90() ; composant = *(entite + 0x2A0 +
+//   type x 8).
+//   FrostpunkWorldMapEntityComponentTemplate (FUN_14197d2f0, 0x30) :
+//   +0x28 "Initially revealed", +0x29 "Revealed in sight range".
+//   FrostpunkExpeditionSiteComponent (FUN_141a157b0) : +0xE0
+//   AdditionalConnections, +0xF8 "Reveals" (SafePtrDynarray<Entity> : sites
+//   reveles par l'exploration de celui-ci), +0xD8 SiteInspected.
+//   Effets : FrostpunkRevealWorldMapEntityEffect (0x18, sans champ : revele
+//   l'entite du contexte), FrostpunkAddSiteRevealsEffect (+0x18 "Sites to
+//   reveal templates", GUID de gabarits au pas de 0x10).
+// ---------------------------------------------------------------------------
+constexpr uintptr_t OFF_TYPE_ENTITE_CARTE = 0x132FD90;
+constexpr int WM_DECOUVERT = 0x30, WM_VISIBLE = 0x48, WM_DIST2 = 0x4C;
+constexpr int WMT_REVELE_INIT = 0x28, WMT_REVELE_VUE = 0x29;
+constexpr int SITE_REVELE = 0xF8;
+
+static uintptr_t ComposantCarteDuSite(uintptr_t compSite)
+{
+    static int type = -1;
+    if (type == -1) {
+        uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
+        __try { type = ((int(*)())(base + OFF_TYPE_ENTITE_CARTE))(); }
+        __except (EXCEPTION_EXECUTE_HANDLER) { type = -2; }
+        printf("[SREV] type du composant de carte : %d\n", type);
+    }
+    if (type < 0 || type >= 512) return 0;
+    uintptr_t ent = 0, wm = 0;
+    if (!SafeRead((void*)(compSite + 0x18), &ent, 8) || ent <= 0x10000) return 0;
+    if (!SafeRead((void*)(ent + 0x2A0 + (uintptr_t)type * 8), &wm, 8) || wm <= 0x10000) return 0;
+    return ClasseExacte(wm, "FrostpunkWorldMapEntityComponent") ? wm : 0;
+}
+
+// Gabarit du composant de carte : cherche dans les premiers qwords (+0x20
+// presume, comme le composant de site).
+static uintptr_t GabaritCarte(uintptr_t wm)
+{
+    for (int off = 0x08; off <= 0x40; off += 8) {
+        uintptr_t t = 0;
+        if (SafeRead((void*)(wm + off), &t, 8) && t > 0x10000 &&
+            ClasseExacte(t, "FrostpunkWorldMapEntityComponentTemplate")) return t;
+    }
+    return 0;
+}
+
+// Trace en jeu : chaque site qui devient decouvert ou visible (et
+// l'inverse). Lecture seule, thread du mod.
+static void SurveillerVisibilite()
+{
+    for (int i = 0; i < g_nSites; ++i) {
+        uintptr_t wm = ComposantCarteDuSite(g_sites[i].comp);
+        if (!wm) continue;
+        uint8_t dec = 0, vis = 0;
+        if (!SafeRead((void*)(wm + WM_DECOUVERT), &dec, 1) || !SafeRead((void*)(wm + WM_VISIBLE), &vis, 1)) continue;
+        int8_t d = dec ? 1 : 0, v = vis ? 1 : 0;
+        if (g_sites[i].carteDecouvert >= 0 && (d != g_sites[i].carteDecouvert || v != g_sites[i].carteVisible))
+            printf("[SREV] CHANGE \"%s\" (%s) : decouvert %d -> %d, visible %d -> %d\n", g_sites[i].nom,
+                g_run.valid ? g_run.scenario : "?", g_sites[i].carteDecouvert, d, g_sites[i].carteVisible, v);
+        g_sites[i].carteDecouvert = d;
+        g_sites[i].carteVisible = v;
+    }
+}
+
 static void SurveillerSites()
 {
     if (!g_apDonneesActif) return;
@@ -315,6 +388,7 @@ static void RecenserSites()
         SiteCache& s = g_sites[g_nSites];
         s.comp = objs[i]; s.bloc = bloc; s.nom[0] = 0;
         s.dernierEtat = -1;
+        s.carteDecouvert = s.carteVisible = -1;
         SafeRead((void*)(objs[i] + 0x34), &s.dernierEtat, 4);   // etat courant : pas de faux positif
         uintptr_t tpl = 0;
         SafeRead((void*)(objs[i] + 0x20), &tpl, 8);
@@ -508,6 +582,7 @@ void ScootingInit()
         SiteCache& s = g_sites[g_nSites];
         s.comp = bufSites[i]; s.bloc = bloc; s.nom[0] = 0;
         s.dernierEtat = -1;
+        s.carteDecouvert = s.carteVisible = -1;
         SafeRead((void*)(bufSites[i] + 0x34), &s.dernierEtat, 4);
         uintptr_t tpl = 0;
         SafeRead((void*)(bufSites[i] + 0x20), &tpl, 8);
@@ -640,6 +715,7 @@ void ScootingTick()
     }
 
     SurveillerSites();
+    SurveillerVisibilite();
 
     for (int i = 0; i < g_nExps; ++i) {
         if (!g_exps[i].valide) continue;
@@ -1354,6 +1430,148 @@ void ScootingReleverSites()
         if (SafeRead((void*)(objs[i] + 0x18), &ent, 8) && ent > 0x10000) SafeRead((void*)(ent + 0x140), pos, sizeof(pos));
         printf("[SPOS]\t%s\t%s\t%.1f\t%.1f\n", scenario, nom, pos[0], pos[2]);
     }
+
+    // Visibilite (2026-11-03) : une ligne "[SREV]\tV" par site : decouvert,
+    // visible, "Initially revealed", "Revealed in sight range" (-1 =
+    // illisible), distance a la ville ; puis "[SREV]\tR\t<site>\t<cible>" pour
+    // chaque site de sa liste "Reveals" (reveles par son exploration).
+    static uintptr_t ents[512];
+    static char noms[512][128];
+    int ne = 0;
+    for (int i = 0; i < n && ne < 512; ++i) {
+        if (!EstSiteComponent(objs[i])) continue;
+        uintptr_t tpl = 0;
+        ents[ne] = 0;
+        SafeRead((void*)(objs[i] + 0x18), &ents[ne], 8);
+        SafeRead((void*)(objs[i] + 0x20), &tpl, 8);
+        strcpy_s(noms[ne], "?");
+        NomDuGabarit(tpl, noms[ne], sizeof(noms[ne]));
+        ++ne;
+    }
+    auto nomEntite = [&](uintptr_t e) -> const char* {
+        if (e <= 0x10000) return nullptr;
+        for (int k = 0; k < ne; ++k) if (ents[k] == e) return noms[k];
+        return nullptr;
+    };
+    int nWm = 0, nTpl = 0;
+    for (int i = 0, s = 0; i < n; ++i) {
+        if (!EstSiteComponent(objs[i])) continue;
+        const char* nom = s < ne ? noms[s] : "?";
+        ++s;
+        uintptr_t wm = ComposantCarteDuSite(objs[i]);
+        int dec = -1, vis = -1, rInit = -1, rVue = -1;
+        float dist2 = -1.0f;
+        if (wm) {
+            ++nWm;
+            uint8_t b = 0;
+            if (SafeRead((void*)(wm + WM_DECOUVERT), &b, 1)) dec = b ? 1 : 0;
+            if (SafeRead((void*)(wm + WM_VISIBLE), &b, 1)) vis = b ? 1 : 0;
+            SafeRead((void*)(wm + WM_DIST2), &dist2, 4);
+            uintptr_t t = GabaritCarte(wm);
+            if (t) {
+                ++nTpl;
+                if (SafeRead((void*)(t + WMT_REVELE_INIT), &b, 1)) rInit = b ? 1 : 0;
+                if (SafeRead((void*)(t + WMT_REVELE_VUE), &b, 1)) rVue = b ? 1 : 0;
+            }
+        }
+        printf("[SREV]\tV\t%s\t%s\t%d\t%d\t%d\t%d\t%.0f\n", scenario, nom, dec, vis, rInit, rVue,
+            dist2 >= 0 ? sqrtf(dist2) : -1.0f);
+        uintptr_t arr = 0; uint32_t cnt = 0;
+        if (!SafeRead((void*)(objs[i] + SITE_REVELE), &arr, 8) || !SafeRead((void*)(objs[i] + SITE_REVELE + 8), &cnt, 4) ||
+            arr <= 0x10000 || cnt > 64) cnt = 0;
+        for (uint32_t k = 0; k < cnt; ++k) {
+            // SafePtr<Entity> : essaye comme entite, puis comme poignee
+            // (qword +0 = entite, cf. LirePoignee).
+            uintptr_t q = 0, q2 = 0;
+            SafeRead((void*)(arr + (uintptr_t)k * 8), &q, 8);
+            const char* cible = nomEntite(q);
+            if (!cible && q > 0x10000 && SafeRead((void*)q, &q2, 8)) cible = nomEntite(q2);
+            char brut[40];
+            if (!cible) { sprintf_s(brut, "?0x%llX", (unsigned long long)q); cible = brut; }
+            printf("[SREV]\tR\t%s\t%s\t%s\n", scenario, nom, cible);
+        }
+    }
+    printf("[SREV] %d site(s), %d composant(s) de carte, %d gabarit(s) de carte\n", ne, nWm, nTpl);
+}
+
+// Sites designes par un nom d'entite (FrostpunkEntitiesByNameSelector,
+// 2026-11-03 : les revelations visent "DefaultRandomizationPoint_NNN", nom
+// de l'emplacement de tirage). Decompile FUN_1415fd000 (selection) :
+// FUN_141017230(gestionnaire d'entites *(base + 0x2B2DE98), &nom, &sortie)
+// remplit un Dynarray d'entites {ptr, compte, capacite, allocateur} depuis
+// l'index des noms (gestionnaire +0x130 / +0x138). Liberation comme le jeu :
+// FUN_140e27c00(ptr) si l'allocateur est nul. Thread du jeu (F9).
+// Correspondance : entite du composant de site (+0x18), sinon site a la meme
+// position (entite +0x140).
+typedef void (*EntitesParNom_t)(uintptr_t, uintptr_t, void*);
+struct DynEntites { uintptr_t ptr; int32_t n, cap; uintptr_t alloc; };
+
+static bool AppelerEntitesParNom(uintptr_t fn, uintptr_t mgr, uintptr_t adrNom, DynEntites* d)
+{
+    __try { ((EntitesParNom_t)fn)(mgr, adrNom, d); return true; }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+
+void ScootingSitesDuNom(uintptr_t adrNom, char* out, int taille)
+{
+    out[0] = 0;
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL), mgr = 0;
+    if (!SafeRead((void*)(base + 0x2B2DE98), &mgr, 8) || mgr <= 0x10000) { strcpy_s(out, taille, "?gestionnaire"); return; }
+    DynEntites d{};
+    if (!AppelerEntitesParNom(base + 0x1017230, mgr, adrNom, &d)) { strcpy_s(out, taille, "?appel"); return; }
+    static uintptr_t objs[512];
+    int n = ComposantsDuSysteme(IdSysteme::ExpeditionSite, "FrostpunkExpeditionSiteComponent", objs, 512);
+    for (int i = 0; i < d.n && i < 16 && d.ptr > 0x10000; ++i) {
+        uintptr_t ent = 0;
+        SafeRead((void*)(d.ptr + (uintptr_t)i * 8), &ent, 8);
+        float pos[3] = {};
+        bool aPos = ent > 0x10000 && SafeRead((void*)(ent + 0x140), pos, sizeof(pos));
+        char nom[128] = "";
+        const char* comment = "";
+        for (int k = 0; k < n && !nom[0]; ++k) {
+            if (!EstSiteComponent(objs[k])) continue;
+            uintptr_t e = 0, tpl = 0;
+            SafeRead((void*)(objs[k] + 0x18), &e, 8);
+            SafeRead((void*)(objs[k] + 0x20), &tpl, 8);
+            if (e == ent) { NomDuGabarit(tpl, nom, sizeof(nom)); break; }
+        }
+        for (int k = 0; k < n && !nom[0] && aPos; ++k) {
+            if (!EstSiteComponent(objs[k])) continue;
+            uintptr_t e = 0, tpl = 0;
+            float p[3] = {};
+            SafeRead((void*)(objs[k] + 0x18), &e, 8);
+            SafeRead((void*)(objs[k] + 0x20), &tpl, 8);
+            if (e > 0x10000 && SafeRead((void*)(e + 0x140), p, sizeof(p)) &&
+                fabsf(p[0] - pos[0]) < 1.0f && fabsf(p[2] - pos[2]) < 1.0f) {
+                NomDuGabarit(tpl, nom, sizeof(nom));
+                comment = " (meme position)";
+            }
+        }
+        char item[200];
+        if (nom[0]) sprintf_s(item, "%s%s%s", out[0] ? ", " : "", nom, comment);
+        else {
+            char cls[96] = "?";
+            GetClassNameFP(ent, cls, sizeof(cls));
+            sprintf_s(item, "%s?%s (%.0f, %.0f)", out[0] ? ", " : "", cls, pos[0], pos[2]);
+        }
+        strncat_s(out, taille, item, _TRUNCATE);
+    }
+    if (d.n == 0) strcpy_s(out, taille, "(aucune entite dans cette partie)");
+    if (d.ptr > 0x10000 && d.cap > 0 && !d.alloc) ((void (*)(uintptr_t))(base + 0xE27C00))(d.ptr);
+}
+
+// Nom de gabarit d'un GUID (pool des gabarits, recherche pure) : pour les
+// effets FrostpunkAddSiteRevealsEffect du releve des quetes.
+static uintptr_t StubParGuidSur(uintptr_t pool, const uint8_t* guid);
+bool ScootingNomGabaritParGuid(const uint8_t* guid, char* out, int taille)
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
+    uintptr_t stub = StubParGuidSur(base + 0x2B2E710, guid), pnom = 0;
+    strcpy_s(out, taille, "?");
+    if (stub <= 0x10000 || !SafeRead((void*)(stub + 8), &pnom, 8) || pnom <= 0x10000) return false;
+    SafeRead((void*)pnom, out, taille - 1);
+    out[taille - 1] = 0;
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -1553,6 +1771,62 @@ static bool TrierEmplacements(uintptr_t emplacements, uint32_t n)
     return true;
 }
 
+// Trace des candidats du tirage (2026-11-03 : Last Autumn a tire "53. Goods
+// Station" au lieu de "49. EIC Train Station" malgre la graine fixe).
+// Decompile FUN_1418f2a30 : chaque gabarit de la table (+0x18, GUID au pas
+// de 0x10) -> composant de site (FUN_1411180b0(stub, FUN_14148c130(), 1)) ;
+// si ses "conditions de tirage" (+0x400, compte +0x408) existent ET que
+// DAT_142a2afa4 == 1, elles sont evaluees (FUN_141696fe0) et le candidat est
+// ECARTE si elles sont fausses. Appele apres l'original : les gabarits sont
+// alors charges. Ligne "[STIR] <table> <i> <site> conditions=N : ...".
+typedef int       (*TypeCompSite_t)();
+typedef uintptr_t (*CompDuStub_t)(uintptr_t, int, int);
+
+// 1er essai du 2026-11-03 : conditions=-1 partout, le stub etait passe tel
+// quel. FUN_141035c50 = FUN_14111c700(stub) = gabarit d'entite CHARGE, lu en
+// stub +0x38 ; c'est lui que FUN_1418f2a30 donne a FUN_1411180b0. Dernier
+// argument 0 : pas de creation du composant s'il manque.
+static uintptr_t GabaritSiteDuStub(uintptr_t stub)
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL), gabarit = 0;
+    if (!SafeRead((void*)(stub + 0x38), &gabarit, 8) || gabarit <= 0x10000) return 0;
+    __try {
+        int type = ((TypeCompSite_t)(base + 0x148C130))();
+        return ((CompDuStub_t)(base + 0x11180B0))(gabarit, type, 0);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+
+static void JournaliserCandidats(uintptr_t table, const char* nomTable)
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
+    uintptr_t gab = 0; uint32_t nGab = 0; int32_t evalue = -1;
+    SafeRead((void*)(base + 0x2A2AFA4), &evalue, 4);
+    if (!SafeRead((void*)(table + 0x18), &gab, 8) || !SafeRead((void*)(table + 0x20), &nGab, 4) ||
+        gab <= 0x10000 || nGab > 1024) return;
+    printf("[STIR] table \"%s\" : %u candidat(s), evaluation des conditions = %d\n", nomTable, nGab, evalue);
+    for (uint32_t k = 0; k < nGab; ++k) {
+        uint8_t guid[16] = {};
+        SafeRead((void*)(gab + (uintptr_t)k * 0x10), guid, 16);
+        uintptr_t stub = StubParGuidSur(base + 0x2B2E710, guid), pnom = 0;
+        char nom[128] = "?";
+        if (stub > 0x10000 && SafeRead((void*)(stub + 8), &pnom, 8) && pnom > 0x10000) {
+            SafeRead((void*)pnom, nom, sizeof(nom) - 1);
+            nom[sizeof(nom) - 1] = 0;
+        }
+        uintptr_t tpl = stub > 0x10000 ? GabaritSiteDuStub(stub) : 0;
+        int32_t nCond = -1, prio = -1;
+        static char cond[2048];
+        cond[0] = 0;
+        if (tpl > 0x10000) {
+            SafeRead((void*)(tpl + 0x408), &nCond, 4);
+            SafeRead((void*)(tpl + 0x430), &prio, 4);
+            if (nCond > 0 && nCond < 64) LoisDecrireExigences(tpl + 0x400, cond, sizeof(cond));
+        }
+        printf("[STIR]\t%s\t%u\t%s\tconditions=%d\tpriorite=%d\t%s\n", nomTable, k, nom, nCond, prio, cond);
+    }
+}
+
 static uintptr_t hkTirerTable(uintptr_t sys, uintptr_t emplacements, uintptr_t table, uintptr_t p4)
 {
     if (!SITES_TIRAGE_FIXE) return oTirerTable(sys, emplacements, table, p4);
@@ -1577,6 +1851,71 @@ static uintptr_t hkTirerTable(uintptr_t sys, uintptr_t emplacements, uintptr_t t
     }
     printf("[SITES] tirage fixe : table \"%s\", %u emplacement(s)%s\n", nom, nEmpl,
         trie ? ", tries par position" : ", NON tries");
+    if (table > 0x10000) JournaliserCandidats(table, nom);
+    return res;
+}
+
+// ---------------------------------------------------------------------------
+// Variante de carte FIXE (2026-11-03). Last Autumn : 2 parties neuves, 1
+// position de site commune sur 31 -> ce ne sont pas les memes emplacements.
+// Decompile FUN_14131de20(parametres, scenario) = application des reglages
+// d'un scenario a la creation de la partie : pour chaque liste du scenario
+// (disposition de ville +0x1D8, disposition de carte +0x208, et autres
+// listes +0xE8, +0x198, +0x150, +0x168, +0x118, +0x138, +0x1B0, +0x100,
+// +0x180 ; elements de 0x10), un element tire au hasard par le generateur
+// global DAT_142a12d60 / 64 ; parametres +0xA0 = disposition de carte, +0xA8
+// = sa variante, tiree par FUN_14160c0f0 (disposition +0x20, elements de
+// 0x58, compte +0x28). La variante decide quels emplacements de tirage
+// existent. Graine fixe le temps de l'appel pour les 6 scenarios AP (cela
+// fige aussi les autres choix de la fonction, dont la disposition de la
+// ville), etat d'origine rendu apres. Log "[SITES] reglages ...".
+// ---------------------------------------------------------------------------
+typedef uintptr_t (*ReglagesScenario_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
+static ReglagesScenario_t oReglagesScenario = nullptr;
+static const uint32_t GRAINE_VARIANTE_A = 0x3243F6A8, GRAINE_VARIANTE_B = 0x5A308D31;   // non nulles
+
+static bool ScenarioAP(const char* nom)
+{
+    static const char* const AP[] = { "DEFAULT", "TechHaven", "REFUGEES", "WINTERHOME", "BUILDERS", "Reconquest" };
+    for (const char* s : AP) if (strcmp(nom, s) == 0) return true;
+    return false;
+}
+
+static void NomEntree(uintptr_t entree, char* out, int taille)
+{
+    uintptr_t pn = 0;
+    strcpy_s(out, taille, "?");
+    if (entree > 0x10000 && SafeRead((void*)entree, &pn, 8) && pn > 0x10000) {
+        SafeRead((void*)pn, out, taille - 1);
+        out[taille - 1] = 0;
+        for (int k = 0; out[k]; ++k) if (out[k] < 0x20 || out[k] > 0x7E) { out[k] = 0; break; }
+    }
+}
+
+static uintptr_t hkReglagesScenario(uintptr_t params, uintptr_t scenario, uintptr_t p3, uintptr_t p4)
+{
+    char nom[64];
+    NomEntree(scenario, nom, sizeof(nom));
+    bool fixe = SITES_TIRAGE_FIXE && scenario > 0x10000 && ScenarioAP(nom);
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
+    uint32_t* etat = (uint32_t*)(base + 0x2A12D60);
+    uint32_t avantA = etat[0], avantB = etat[1];
+    if (fixe) { etat[0] = GRAINE_VARIANTE_A; etat[1] = GRAINE_VARIANTE_B; }
+    uintptr_t res = oReglagesScenario(params, scenario, p3, p4);
+    if (fixe) { etat[0] = avantA; etat[1] = avantB; }
+    if (scenario > 0x10000 && params > 0x10000) {
+        uintptr_t disp = 0, variante = 0;
+        int32_t nDisp = 0, nVar = 0;
+        SafeRead((void*)(scenario + 0x210), &nDisp, 4);
+        SafeRead((void*)(params + 0xA0), &disp, 8);
+        SafeRead((void*)(params + 0xA8), &variante, 8);
+        if (disp > 0x10000) SafeRead((void*)(disp + 0x28), &nVar, 4);
+        char nDispNom[96], nVarNom[96];
+        NomEntree(disp, nDispNom, sizeof(nDispNom));
+        NomEntree(variante, nVarNom, sizeof(nVarNom));
+        printf("[SITES] reglages \"%s\" : disposition de carte \"%s\" (%d possible(s)), variante \"%s\" (%d possible(s))%s\n",
+            nom, nDispNom, nDisp, nVarNom, nVar, fixe ? " - graine fixe" : "");
+    }
     return res;
 }
 
@@ -1829,5 +2168,9 @@ void InstallHooksExpeditions(uintptr_t modBase)
     ok = MH_CreateHook(t, (void*)&hkTirerTable, (void**)&oTirerTable) == MH_OK && MH_EnableHook(t) == MH_OK;
     printf("[SITES] hook tirage des sites (+18F2A30) %s%s\n", ok ? "OK" : "KO",
            SITES_TIRAGE_FIXE ? " - tirage fixe" : "");
+    void* r = (void*)(modBase + 0x131DE20);
+    ok = MH_CreateHook(r, (void*)&hkReglagesScenario, (void**)&oReglagesScenario) == MH_OK && MH_EnableHook(r) == MH_OK;
+    printf("[SITES] hook reglages du scenario (+131DE20) %s%s\n", ok ? "OK" : "KO",
+           SITES_TIRAGE_FIXE ? " - variante de carte fixe" : "");
 }
 

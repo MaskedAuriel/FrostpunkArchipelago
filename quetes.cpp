@@ -310,8 +310,151 @@ const char* g_dilCourant = nullptr;
 const char* g_repDilCourant = nullptr;
 uintptr_t   g_adrDilCourant = 0;
 
+// Effets qui revelent des sites ou des entites de la carte (2026-11-03, pour
+// rattacher les sites aux regions de l'apworld) : FrostpunkRevealWorldMap
+// EntityEffect (sans champ : entite du contexte), FrostpunkAddSiteReveals
+// Effect (+0x18 GUID de gabarits de sites, pas 0x10, compte +0x20),
+// FrostpunkCreateWorldMapEntityEffect. Ligne "[SREV]\tE\t<classe>\t<rep>\t
+// <source>\t<moment>\t<cibles>", puis les declencheurs de l'evenement.
+uintptr_t g_dernierEvtRevele = 0;
+
+void NoterEffetRevelation(uintptr_t obj, const char* cls, uintptr_t evt, const char* nomEvt, const char* nomRep)
+{
+    const char* moment = "";
+    if (g_loiCourante)            { nomEvt = g_loiCourante; nomRep = "Lois"; }
+    else if (g_dilCourant)        { nomEvt = g_dilCourant; nomRep = g_repDilCourant; }
+    else if (g_queteCourante >= 0) moment = g_quandCourant;
+    char cibles[1024] = "";
+    if (strstr(cls, "AddSiteRevealsEffect")) {
+        uintptr_t tab = 0; int n = 0;
+        if (LireTableau(obj + 0x18, tab, n) && n <= 64)
+            for (int k = 0; k < n; ++k) {
+                uint8_t g[16] = {};
+                char nom[128];
+                SafeRead((void*)(tab + (uintptr_t)k * 0x10), g, 16);
+                ScootingNomGabaritParGuid(g, nom, sizeof(nom));
+                if (cibles[0]) strncat_s(cibles, ", ", _TRUNCATE);
+                strncat_s(cibles, nom, _TRUNCATE);
+            }
+    }
+    printf("[SREV]\tE\t%s\t%s\t%s\t%s\t%s\n", cls, nomRep ? nomRep : "?", nomEvt ? nomEvt : "?", moment, cibles);
+    if (evt && !g_loiCourante && !g_dilCourant && evt != g_dernierEvtRevele) {
+        g_dernierEvtRevele = evt;
+        printf("[SREV] declencheurs de l'evenement \"%s\" (repertoire %s) :\n", nomEvt, nomRep);
+        LoisDecrireEvenement(evt, "[SREV]");
+    }
+}
+
+// Cible des revelations (2026-11-03) : RevealWorldMapEntityEffect revele
+// l'entite du CONTEXTE, posee par un effet parent a selecteur (ex.
+// FrostpunkSelectEffect : +0x18 Selector, +0x50 Effects). Selecteurs
+// (frostpunkgamecontextselectorsubclasses.h) : FrostpunkExpeditionSites
+// Selector (FUN_1415f8ed0) +0x18 GUID du gabarit de site ; FrostpunkEntities
+// ByNameSelector (FUN_1415f8ac0) +0x18 "Entity name" ; FrostpunkEntitiesWith
+// TagSelector +0x18 ; FrostpunkUnionSelector (composants). Ligne
+// "[SREV]\tC\t<rep>\t<source>\t<moment>\t<classe de l'effet>\t<selecteur>".
+bool ClasseFrostpunk(uintptr_t p, char* cls, int taille)
+{
+    cls[0] = 0;
+    return p > 0x10000 && GetClassNameFP(p, cls, taille) && strncmp(cls, "Frostpunk", 9) == 0;
+}
+
+bool ContientRevelation(uintptr_t eff, int prof)
+{
+    if (prof > 4) return false;
+    for (int off = 0x18; off <= 0x78; off += 8) {
+        uintptr_t tab = 0; uint32_t n = 0;
+        if (!SafeRead((void*)(eff + off), &tab, 8) || !SafeRead((void*)(eff + off + 8), &n, 4)) continue;
+        if (tab <= 0x10000 || n == 0 || n > 64) continue;
+        for (uint32_t i = 0; i < n; ++i) {
+            uintptr_t p = 0;
+            char c[96];
+            if (!SafeRead((void*)(tab + (uintptr_t)i * 8), &p, 8) || !ClasseFrostpunk(p, c, sizeof(c))) continue;
+            if (strstr(c, "RevealWorldMapEntityEffect") || strstr(c, "AddSiteRevealsEffect")) return true;
+            if (ContientRevelation(p, prof + 1)) return true;
+        }
+    }
+    return false;
+}
+
+// Texte en 'adr' : 8 bits, sinon UTF-16 (ASCII seulement).
+void TexteSelecteur(uintptr_t adr, char* out, int taille)
+{
+    if (LireTexte(adr, out, taille) && out[0]) return;
+    uintptr_t p = 0;
+    wchar_t w[128] = {};
+    out[0] = 0;
+    if (!SafeRead((void*)adr, &p, 8) || p <= 0x10000 || !SafeRead((void*)p, w, sizeof(w) - 2)) return;
+    int k = 0;
+    for (; k < taille - 1 && k < 127 && w[k] >= 0x20 && w[k] < 0x7F; ++k) out[k] = (char)w[k];
+    out[k] = 0;
+}
+
+void DecrireSelecteur(uintptr_t sel, char* out, int taille, int prof)
+{
+    char cls[96], t[160] = "";
+    if (prof > 3 || !ClasseFrostpunk(sel, cls, sizeof(cls))) return;
+    if (strstr(cls, "ExpeditionSitesSelector")) {
+        uint8_t g[16] = {};
+        SafeRead((void*)(sel + 0x18), g, 16);
+        ScootingNomGabaritParGuid(g, t, sizeof(t));
+    } else if (strstr(cls, "ByNameSelector") || strstr(cls, "WithTagSelector")) {
+        TexteSelecteur(sel + 0x18, t, sizeof(t));
+    }
+    // Nom d'entite -> site(s) de la partie courante (emplacement de tirage).
+    char sites[400] = "";
+    if (strstr(cls, "ByNameSelector")) {
+        char s[380];
+        ScootingSitesDuNom(sel + 0x18, s, sizeof(s));
+        sprintf_s(sites, " -> %s", s);
+    }
+    char item[800];
+    sprintf_s(item, "%s%s%s%s%s", out[0] ? " + " : "", cls + 9, t[0] ? "=" : "", t, sites);
+    strncat_s(out, taille, item, _TRUNCATE);
+    // Selecteurs imbriques (union...) : pointeurs directs et tableaux.
+    for (int off = 0x18; off <= 0x60; off += 8) {
+        uintptr_t p = 0;
+        char c[96];
+        if (!SafeRead((void*)(sel + off), &p, 8)) continue;
+        if (ClasseFrostpunk(p, c, sizeof(c)) && strstr(c, "Selector")) { DecrireSelecteur(p, out, taille, prof + 1); continue; }
+        uint32_t n = 0;
+        if (p <= 0x10000 || !SafeRead((void*)(sel + off + 8), &n, 4) || n == 0 || n > 16) continue;
+        for (uint32_t i = 0; i < n; ++i) {
+            // Elements : pointeurs, ou composants embarques (pointeur en +0x00
+            // ou +0x08 de chaque element de 0x10..0x20 : on essaie le 1er qword).
+            uintptr_t q = 0;
+            if (SafeRead((void*)(p + (uintptr_t)i * 8), &q, 8) && ClasseFrostpunk(q, c, sizeof(c)) && strstr(c, "Selector"))
+                DecrireSelecteur(q, out, taille, prof + 1);
+        }
+    }
+}
+
+void NoterCibleRevelation(uintptr_t obj, const char* cls, const char* nomEvt, const char* nomRep)
+{
+    uintptr_t sel = 0;
+    char c[96];
+    for (int off = 0x18; off <= 0x78 && !sel; off += 8) {
+        uintptr_t p = 0;
+        if (SafeRead((void*)(obj + off), &p, 8) && ClasseFrostpunk(p, c, sizeof(c)) && strstr(c, "Selector")) sel = p;
+    }
+    if (!sel || !ContientRevelation(obj, 0)) return;
+    const char* moment = "";
+    if (g_loiCourante)             { nomEvt = g_loiCourante; nomRep = "Lois"; }
+    else if (g_dilCourant)         { nomEvt = g_dilCourant; nomRep = g_repDilCourant; }
+    else if (g_queteCourante >= 0) moment = g_quandCourant;
+    static char desc[1024];
+    desc[0] = 0;
+    DecrireSelecteur(sel, desc, sizeof(desc), 0);
+    printf("[SREV]\tC\t%s\t%s\t%s\t%s\t%s\n", nomRep ? nomRep : "?", nomEvt ? nomEvt : "?", moment, cls, desc);
+}
+
 void VisiterEffet(uintptr_t obj, const char* cls, uintptr_t evt, const char* nomEvt, const char* nomRep)
 {
+    if (strstr(cls, "RevealWorldMapEntityEffect") || strstr(cls, "AddSiteRevealsEffect") ||
+        strstr(cls, "CreateWorldMapEntityEffect"))
+        NoterEffetRevelation(obj, cls, evt, nomEvt, nomRep);
+    else if (strstr(cls, "Effect"))
+        NoterCibleRevelation(obj, cls, nomEvt, nomRep);
     bool acte = strstr(cls, "StartGameActEffect") != nullptr;
     bool lance = strstr(cls, "StartQuestEffect") != nullptr;
     bool termine = strstr(cls, "FinishQuestEffect") != nullptr;
@@ -680,6 +823,7 @@ void Releve()
     // 1) Liens depuis les evenements (dilemmes et branches compris).
     g_nLiens = 0;
     g_dernierEvt = 0;
+    g_dernierEvtRevele = 0;
     LoisParcourirEvenements(VisiterEffet);
     int nEvt = g_nLiens;
     // 2) Liens depuis les effets des quetes.

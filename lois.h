@@ -46,3 +46,6 @@ void LoisParcourirEffets(uintptr_t adrTableau, VisiteurEffet_t visiteur, const c
 
 // Declencheurs et conditions d'un evenement, en lignes prefixees par 'prefixe'.
 void LoisDecrireEvenement(uintptr_t evt, const char* prefixe);
+
+// Liste d'exigences / de conditions {ptr, compte} decrite en une ligne.
+void LoisDecrireExigences(uintptr_t adrTableau, char* out, int taille);

@@ -1380,3 +1380,9 @@ void DiagLois()
     }
     printf("[LOIS] etats non nuls : %s\n", ligne[0] ? ligne : "(aucun)");
 }
+void LoisDecrireExigences(uintptr_t adrTableau, char* out, int taille)
+{
+    out[0] = 0;
+    DecrireListeExigences(adrTableau, out, taille, 0, " ; ");
+}
+

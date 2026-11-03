@@ -45,6 +45,11 @@ int ExpeditionVisee();
 // F9 (thread du jeu) : une ligne "[SXLS]" par site d'exploration de la partie
 // (noms internes et affiches, contenu), pour outils\quetes_excel.py.
 void ScootingReleverSites();
+// Nom interne du gabarit d'un GUID (pool des gabarits, sans chargement).
+bool ScootingNomGabaritParGuid(const uint8_t* guid, char* out, int taille);
+// F9 (thread du jeu) : sites de la partie designes par le nom d'entite pointe
+// par 'adrNom' (NameString, ex. "DefaultRandomizationPoint_037").
+void ScootingSitesDuNom(uintptr_t adrNom, char* out, int taille);
 // F9 (thread du jeu) : toutes les tables de tirage des sites (tous scenarios)
 // et les sites possibles de chacune, lignes "[TXLS]".
 void ScootingReleverTablesDeSites();

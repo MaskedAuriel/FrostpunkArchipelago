@@ -137,3 +137,161 @@
   taille nulle (revérifiée à chaque mise à jour) ; copie retrouvée par son
   animateur nul (pas de doublon). Type : `IconeCheckDeTest(nom du site, 0)`
   (TEMPORAIRE), `icon_done` dès l'état `+0x34` ≥ 2. Log `[SITEUI]`.
+- **Apparition des sites (2026-11-03, demande de la session apworld : rattacher
+  chaque site à la région logique où il devient visible ; non testé)**.
+  Les 211 sites existent tous dès la partie neuve (relevés F9) : la question
+  est leur **visibilité**. Décompilés du 2026-11-03 :
+  `FrostpunkWorldMapEntityComponent` (réflexion `FUN_14197cbd0`, 0x78) :
+  `+0x30` Discovered, `+0x38` DiscoveryTime, `+0x48` Visible, `+0x4C`
+  SquaredDistanceToCity ; type = `FUN_14132fd90()`, composant = `*(entité +
+  0x2A0 + type × 8)`. Gabarit `FrostpunkWorldMapEntityComponentTemplate`
+  (`FUN_14197d2f0`) : `+0x28` **Initially revealed**, `+0x29` **Revealed in
+  sight range**. Site (`FUN_141a157b0`) : `+0xF8` **Reveals**
+  (`SafePtrDynarray<Entity>` : sites révélés par son exploration), `+0xE0`
+  AdditionalConnections. Emplacement de tirage
+  (`FrostpunkWorldMapRandomizationComponentTemplate`, `FUN_141ab74a0`) :
+  `+0x58` Reveals (noms d'emplacements), `+0x7C` Initially revealed. Effets :
+  `FrostpunkRevealWorldMapEntityEffect` (sans champ : révèle l'entité du
+  contexte), `FrostpunkAddSiteRevealsEffect` (`+0x18` GUID de gabarits),
+  `FrostpunkCreateWorldMapEntityEffect`.
+  Quatre façons d'apparaître : (1) révélé au départ ; (2) à portée de vue
+  (ville / éclaireurs) ; (3) par l'exploration d'un autre site (liste
+  Reveals) ; (4) par un effet d'événement / quête / dilemme.
+  → **F9** (`ScootingReleverSites`) : `[SREV]\tV\t<scénario>\t<site>\t
+  <découvert>\t<visible>\t<révélé au départ>\t<à portée de vue>\t<distance>`
+  et `[SREV]\tR\t<scénario>\t<site>\t<site révélé>` ; relevé des quêtes :
+  `[SREV]\tE\t<classe>\t<répertoire>\t<source>\t<moment>\t<cibles>` + déclencheurs
+  de l'événement. **Trace en jeu** (`SurveillerVisibilite`, tick) :
+  `[SREV] CHANGE "<site>" (<scénario>) : decouvert a -> b, visible c -> d`,
+  à lire avec les `[QUETEAP] FIN` du même journal.
+  **1er relevé (2026-11-03, parties neuves ; REFUGEES absent : aucun F9
+  dans ce scénario avec la nouvelle DLL)** : composants de carte et gabarits
+  lus pour tous les sites (type du composant = 53). « Initially revealed » et
+  « Revealed in sight range » valent 0 partout sauf `NewLondon` (On the
+  Edge) : la portée de vue ne révèle rien ; ce sont les **listes Reveals**
+  (140 liens) qui font apparaître la carte. Visibles au départ : A New Home
+  2 (`Site_001`, `Site_002`), The Arks 1 (`[quest]Expedition01`),
+  Winterhome 5, Last Autumn 1 (`02. Killed Moose`), On the Edge 4. Fermeture
+  par les listes Reveals (= région `Start`, l'exploration ne demande que le
+  Beacon / Forager Quarters) : A New Home 30 / 42, The Arks 10 / 31,
+  Winterhome 24 / 26, Last Autumn 23 / 31, On the Edge 14 / 45. Sites
+  « racines » (cachés et révélés par aucun site) : A New Home `Site_049_A0`,
+  `053_B0`, `057_C0` (chaînes A / B / C) ; The Arks `[quest]SouthPass`,
+  `[quest]MistyValley`, `[NM]Expedition01` ; Winterhome `[lore05]_Trail_South`,
+  `[t-plain][landmark]site08` ; Last Autumn `61. Workers Camp`, `42. Natures
+  Sculpture`, `66. Polar Bear Cave` ; On the Edge `29. Natural Terrace`,
+  `08. Tower Ruins`, `20. Transshipment Station 01`, `23. Ice Caverns` (cibles
+  des `AddSiteRevealsEffect` de `[3] Food settlement` et `[5] Prepare for
+  confrontation`, effets initiaux) et les 9 `TG* Generic` / `TD* Dilemma`
+  (aucune source trouvée). Les `RevealWorldMapEntityEffect` révèlent l'entité
+  du **contexte** : leur cible n'est pas lisible statiquement. Sources
+  candidates par scénario : A New Home `[ENDGAME] 002b … SURVIVORS`
+  (initiaux), `U: Refugees in the City3` ; The Arks `003 EXPLORE THE
+  FROSTLAND` (initiaux, succès), `005 NEW MANCHESTER - FINDING THE WAY`
+  (initiaux) ; Winterhome `E: Trail South Discovered`, `003 PREPARE
+  EVACUATION` (initiaux) ; Last Autumn `003 GENERATOR CONSTRUCTION SITE`
+  (succès), `New Allerton` (initiaux), dilemmes `[Act III] Missing lookout
+  II`, `[Telegram] 2`, `[Telegram] 4a`. → table provisoire
+  **`outils\sites_apparition.tsv`** (région `Start` certaine ; le reste
+  « A CONFIRMER », avec la chaîne et la source candidate).
+  **Écart de carte figée** : Last Autumn tire ici `53. Goods Station` au lieu
+  de `49. EIC Train Station` (`known_sites.h`, `carte_fixe.tsv`).
+  Last Autumn : le Beacon est remplacé par le **Forager Quarters** (même
+  rôle, réponse de l'auteur du 2026-11-03).
+  **v2 (2026-11-03, non testé)** : (1) **cible des révélations** : le
+  contexte vient d'un effet parent à sélecteur (`FrostpunkSelectEffect`
+  `+0x18` Selector, `+0x50` Effects). Sélecteurs décompilés :
+  `FrostpunkExpeditionSitesSelector` (`FUN_1415f8ed0`, `+0x18` GUID du
+  gabarit de site), `FrostpunkEntitiesByNameSelector` (`FUN_1415f8ac0`,
+  `+0x18` « Entity name »), `…WithTagSelector`, `FrostpunkUnionSelector`. F9 :
+  `[SREV]\tC\t<rép.>\t<source>\t<moment>\t<effet>\t<sélecteur=cible>` pour
+  tout effet à sélecteur qui contient (≤ 4 niveaux) une révélation.
+  (2) **Tirage de Last Autumn** : décompilé `FUN_1418f2a30` : chaque candidat
+  est écarté si ses **conditions de tirage** (gabarit de site `+0x400`,
+  compte `+0x408`) sont fausses, évaluées seulement si `DAT_142a2afa4 == 1`
+  (`FUN_141696fe0`) — hasard hors graine possible : l'état de la partie.
+  Trace après chaque tirage : `[STIR] table … : N candidat(s), evaluation des
+  conditions = X` puis `[STIR]\t<table>\t<i>\t<site>\tconditions=N\t
+  priorite=P\t<conditions>`.
+  **Relevé v2 (2026-11-03)** : Last Autumn, 2 parties neuves : **49 dans
+  l'une, 53 dans l'autre** (le tirage varie bien) ; `evaluation des
+  conditions = 1` mais `conditions=-1` partout (lecture fausse : le stub
+  passé au lieu du gabarit chargé `stub +0x38` → corrigé). Cibles des
+  révélations lues (`[SREV] C`) : presque toutes par
+  **`EntitiesByNameSelector=DefaultRandomizationPoint_NNN`** (nom de
+  l'**emplacement** de tirage), quelques-unes par nom de site
+  (`Site_036_Crows_Nest_000`, `Dreadnought`) ou par gabarit
+  (`ExpeditionSitesSelector` : On the Edge `[3] Food settlement` →
+  `04. Skull Cave` ; `[5] Prepare for confrontation` → `07. Stone Wall`,
+  `18. Observatory Ruins`, `22. Fortified Hut` : sites dont la liste Reveals
+  reçoit Natural Terrace / Tower Ruins / Transshipment / Ice Caverns).
+  Décompilé `FUN_1415fd000` (sélection par nom) : `FUN_141017230(*(base +
+  0x2B2DE98), &nom, &sortie)` (index des noms du gestionnaire d'entités) →
+  **F9 v3** : `… -> <site>` résolu dans la partie courante
+  (`ScootingSitesDuNom` : entité du site, sinon même position).
+  **Refugees** (1er relevé) : 1 site visible au départ (`[ref]Builder_Camp`),
+  14 / 36 atteints par les Reveals. **Paires exclusives** sur la carte :
+  `[ref]Trail_Bend` / `-dead`, `[ref]Black_Spire` / `-dead`,
+  `[ref]White_Pass` / `-dead` (variantes selon un dilemme, ex.
+  `Survivors09 - BlackSpire` / `-noBeacon`) : **un seul des deux** apparaîtra
+  dans une partie → un check par paire au plus (à signaler à l'apworld).
+  **Relevé v3 (2026-11-03, 6 scénarios, Last Autumn ×2)** : (1) conditions
+  de tirage lues : **aucune** dans Last Autumn (seuls les `[steamcore]` de
+  The Arks / Refugees en ont une), et les 2 parties n'ont qu'**1 position
+  sur 31 en commun** : ce ne sont pas les mêmes emplacements. Cause
+  (décompilés) : **`FUN_14131de20(paramètres, scénario)`** applique les
+  réglages du scénario à la création de la partie et tire au hasard
+  (générateur global) un élément de chaque liste : dispositions de ville
+  `+0x1D8`, de carte `+0x208`, autres listes ; paramètres `+0xA0` =
+  disposition de carte, `+0xA8` = **variante** tirée par
+  **`FUN_14160c0f0`** (disposition `+0x20`, éléments de 0x58, compte
+  `+0x28`). La variante décide quels emplacements existent. → hook
+  **`hkReglagesScenario`** (scooting.cpp) : graine fixe le temps de l'appel
+  pour les 6 scénarios AP (fige aussi la disposition de la ville), log
+  `[SITES] reglages "<scénario>" : disposition de carte … (N possible(s)),
+  variante … (N possible(s))`. Non testé. **La carte figée de Last Autumn
+  est à refaire** (`known_sites.h`, `carte_fixe.tsv`).
+  (2) **Cibles résolues** (`-> site`) : toutes les racines ont une source,
+  sauf Winterhome `[t-plain][landmark]site08`. A New Home A0 / B0 / C0 ←
+  `[ENDGAME] 002b … SURVIVORS` (début) ou `U: Refugees in the City3` ; The
+  Arks SouthPass / MistyValley ← `003 EXPLORE THE FROSTLAND` (début),
+  `[NM]Expedition01` ← `005 NEW MANCHESTER - FINDING THE WAY` (début) ;
+  Winterhome `Trail_South` ← `E: Trail South Discovered` ; Last Autumn
+  Natures Sculpture ← `003 GENERATOR CONSTRUCTION SITE` (succès) /
+  `[Telegram] 2`, `4a`, Workers Camp ← `New Allerton` (début) / `[Telegram]
+  4a`, Polar Bear Cave ← `[Act III] Missing lookout II` ; On the Edge
+  `TG1-6` / `TD1-3` ← quêtes optionnelles `[TradeRoutes]` (Ark Springs,
+  Creve-Neige, Children's Mine) ; Refugees : `Trail_Bend`, `Landing_Place`,
+  `White_Pass`, `Black_Spire` ← dilemmes `[1][OurPeople] Survivors04 / 06 /
+  07 / 09`, variantes `-dead` ← `Our People - timeout`, `Radio_Mast` ←
+  `[3][Lords] Radio Mast`, `[lordCamp] Camp_A/B/C` ← événements des Lords.
+  → **table v2 `outils\sites_apparition.tsv`** (région `Start` sûre,
+  A New Home A/B/C = `apres 006 REFUGEES`, le reste « A VALIDER » avec la
+  question posée ; Last Autumn « A REFAIRE »).
+  **Variante fixe VALIDÉE le 2026-11-03** (Last Autumn, 2 parties neuves) :
+  `[SITES] reglages "BUILDERS" : disposition de carte "Builders" (1
+  possible(s)), variante "Builders Random A" (2 possible(s)) - graine fixe`
+  les deux fois, mêmes 31 sites aux mêmes positions. Carte figée régénérée
+  (`quetes_excel.py`) : Last Autumn a `53. Goods Station`, plus `49. EIC
+  Train Station` (`known_sites.h` : seules les lignes BUILDERS changent).
+  **Décisions de l'auteur (2026-11-03)** : The Arks `003 EXPLORE THE
+  FROSTLAND` et `005 NEW MANCHESTER - FINDING THE WAY` → après `001 FIND
+  FACTORY PLANS` ; On the Edge : Natural Terrace et les sites de `[5] Prepare
+  for confrontation` → même région que `[3] Food settlement` (après) ;
+  Refugees : sites `[1][OurPeople]` → après `001 SAVE YOUR PEOPLE`, **un seul
+  check par paire exclusive**, camps des Lords et Radio Mast → après `003
+  FACE THE LORDS` ; Last Autumn : Workers Camp et Polar Bear Cave → après
+  `006 GENERATOR FINALIZATION` ; Winterhome `Trail_South` et `site08`
+  (« Broken Tree », aucune source au relevé) → dernière section, après
+  `004A FINAL HOURS` ; On the Edge `TG*` / `TD*` (routes commerciales
+  optionnelles) → après `[3] Food settlement`.
+  **Table VALIDÉE le 2026-11-03** : 211 sites, régions Start 125, A New Home
+  après 006 : 12, The Arks après 001 : 21, Refugees après 001 : 14 / après
+  003 : 8, Winterhome après 004A : 2, Last Autumn après 003 : 3 / après 006 :
+  5, On the Edge après [3] : 31 ; 3 paires exclusives à Refugees (un seul
+  check par paire). Transmise à la session apworld.
+  **Outil** : `outils\sites_apparition.py [journal]` (décisions dans
+  `RACINES`) ; cache des relevés `outils\sites_revelations.tsv` (D visible au
+  départ, C caché, R lien Reveals ; un scénario relevé remplace ses lignes ;
+  amorcé le 2026-11-03 depuis les analyses des journaux écrasés, sans les
+  liens Reveals des sites `Start`).

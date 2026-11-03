@@ -1,0 +1,212 @@
+scenario	site	nom_affiche	condition	region
+DEFAULT	Site_001_Lost_Expedition	Lost Expedition		Start
+DEFAULT	Site_002_Crash_Site	Crash Site		Start
+DEFAULT	Site_003_Temporary_Settlement	Temporary Settlement	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_004_Camp_of_the_Dead	American Camp	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_005_Dreadnought_Landing	Dreadnought Landing	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_006_Frozen_Convoy	Sturdy Shelter	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_007_City_Ruins	Winterhome	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_008_Abandoned_Weather_Station	Weather Station	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_009_Geothermal_Vent	Freshwater Springs	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_010_Unfinished_Shelter	Children's Hideout	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_011_Ice_Corridor	Ice Corridor	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_012gc_Bear_Cave	Gloomy Cave	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_013_Observatory_Ruins	Observatory	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_014_Fugitives_Camp	Large Convoy	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_015_Coal_Mine	Coal Mine	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_016_Tesla_City	Tesla City	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_017_Inventors_End	Cave Hideout	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_018_Fishermen_Village	Fishing Village	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_019_Icebound_Dreadnought	Icebound Dreadnought	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_020_Research_Station	Research Station	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_021_Rebels_Colony	Exile Colony	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_022_Burned_Bridge	Bridge to Winterhome	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_023_Miners_Shack	Snow Cliff	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_024_Grisly_Grove	Frozen Grove	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	Site_049_A0	Ice Crevasse	[ENDGAME] 002b Prepare for the storm SURVIVORS (debut) ou U: Refugees in the City3	apres 006 REFUGEES
+DEFAULT	Site_050_A1	Camp Vulcan	exploration de Site_049_A0 (chaine depuis Site_049_A0)	apres 006 REFUGEES
+DEFAULT	Site_051_A2	Jagged Rocks	exploration de Site_050_A1 (chaine depuis Site_049_A0)	apres 006 REFUGEES
+DEFAULT	Site_052_A3	Nansen's Storm Watch	exploration de Site_051_A2 (chaine depuis Site_049_A0)	apres 006 REFUGEES
+DEFAULT	Site_053_B0	Snow Burrows	[ENDGAME] 002b Prepare for the storm SURVIVORS (debut) ou U: Refugees in the City3	apres 006 REFUGEES
+DEFAULT	Site_054_B1	Camp Meteor	exploration de Site_053_B0 (chaine depuis Site_053_B0)	apres 006 REFUGEES
+DEFAULT	Site_055_B2	Scattered Convoy	exploration de Site_054_B1 (chaine depuis Site_053_B0)	apres 006 REFUGEES
+DEFAULT	Site_056_B3	Large Crater	exploration de Site_054_B1 (chaine depuis Site_053_B0)	apres 006 REFUGEES
+DEFAULT	Site_057_C0	Deep Hollow	[ENDGAME] 002b Prepare for the storm SURVIVORS (debut) ou U: Refugees in the City3	apres 006 REFUGEES
+DEFAULT	Site_058_C1	Camp Compass	exploration de Site_057_C0 (chaine depuis Site_057_C0)	apres 006 REFUGEES
+DEFAULT	Site_059_C2	Ice Caves	exploration de Site_058_C1 (chaine depuis Site_057_C0)	apres 006 REFUGEES
+DEFAULT	Site_060_C3	Fortified Hut	exploration de Site_058_C1 (chaine depuis Site_057_C0)	apres 006 REFUGEES
+DEFAULT	[t-plain][landmark]site09	Frozen Pond	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	[t-plain][landmark]site10	Stone Ship	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	[t-plain]resources01	Snow-covered Supplies	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	[t-plain]resources02	Supply Depot	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	[t-plain]resources03	Wrecked Vehicle	exploration (chaine Reveals depuis le depart)	Start
+DEFAULT	[t-plain]resources04	Abandoned Sawmill	exploration (chaine Reveals depuis le depart)	Start
+TechHaven	[NM-extra]Snowpiercer	Manchester Dreadnought	exploration de [t-plain][landmark]site07 (chaine depuis [NM]Expedition01)	apres 001 FIND FACTORY PLANS
+TechHaven	[NM]Expedition01	Expedition Camp	[TechHeaven] 005 NEW MANCHESTER - FINDING THE WAY (debut)	apres 001 FIND FACTORY PLANS
+TechHaven	[NM]Expedition02	Broken Vehicle	exploration de [NM]Expedition01 (chaine depuis [NM]Expedition01)	apres 001 FIND FACTORY PLANS
+TechHaven	[NM]Expedition03	Observation Tower	exploration de [NM]Expedition02 (chaine depuis [NM]Expedition01)	apres 001 FIND FACTORY PLANS
+TechHaven	[NM]NewManchester	New Manchester	exploration de [NM]Expedition03 (chaine depuis [NM]Expedition01)	apres 001 FIND FACTORY PLANS
+TechHaven	[expedition-extra]Snowcrawler	Snow Crawler	exploration (chaine Reveals depuis le depart)	Start
+TechHaven	[quest]Expedition01	Abandoned Supplies		Start
+TechHaven	[quest]Expedition02	Broken Automaton	exploration (chaine Reveals depuis le depart)	Start
+TechHaven	[quest]Expedition03	Lost Dreadnought	exploration (chaine Reveals depuis le depart)	Start
+TechHaven	[quest]MistyValley	Misty Valley	[TechHeaven] 003 EXPLORE THE FROSTLAND (debut)	apres 001 FIND FACTORY PLANS
+TechHaven	[quest]SouthPass	South Pass	[TechHeaven] 003 EXPLORE THE FROSTLAND (debut)	apres 001 FIND FACTORY PLANS
+TechHaven	[t-mountains]resources01	Mountainside Cave	exploration (chaine Reveals depuis le depart)	Start
+TechHaven	[t-mountains]resources02	Icefall Mine	exploration (chaine Reveals depuis le depart)	Start
+TechHaven	[t-mountains]resources03	Industrial Ruins	exploration (chaine Reveals depuis le depart)	Start
+TechHaven	[t-plain][landmark]site03	Windswept Snowfield	exploration de [t-plain][landmark]site05 (chaine depuis [quest]MistyValley)	apres 001 FIND FACTORY PLANS
+TechHaven	[t-plain][landmark]site04	Lone Boulder	exploration (chaine Reveals depuis le depart)	Start
+TechHaven	[t-plain][landmark]site05	Rock Formation	exploration de [quest]MistyValley (chaine depuis [quest]MistyValley)	apres 001 FIND FACTORY PLANS
+TechHaven	[t-plain][landmark]site06	Snow Dune	exploration de [quest]SouthPass (chaine depuis [quest]SouthPass)	apres 001 FIND FACTORY PLANS
+TechHaven	[t-plain][landmark]site07	Snowy Hill	exploration de [NM]Expedition03 (chaine depuis [NM]Expedition01)	apres 001 FIND FACTORY PLANS
+TechHaven	[t-plain][landmark]site08	Broken Tree	exploration (chaine Reveals depuis le depart)	Start
+TechHaven	[t-plain][landmark]site11	Cracked Ice	exploration de [quest]SouthPass (chaine depuis [quest]SouthPass)	apres 001 FIND FACTORY PLANS
+TechHaven	[t-plain][steamcore]site01	Snowbound Dreadnought	exploration de [t-plain][landmark]site06 (chaine depuis [quest]SouthPass)	apres 001 FIND FACTORY PLANS
+TechHaven	[t-plain][steamcore]site02	Research Outpost	exploration de [t-plain][landmark]site03 (chaine depuis [quest]MistyValley)	apres 001 FIND FACTORY PLANS
+TechHaven	[t-plain][steamcore]site03	Supply Trailer	exploration de [t-plain][landmark]site03 (chaine depuis [quest]MistyValley)	apres 001 FIND FACTORY PLANS
+TechHaven	[t-plain][steamcore]site04	Isolated Shelter	exploration de [t-plain][landmark]site11 (chaine depuis [quest]SouthPass)	apres 001 FIND FACTORY PLANS
+TechHaven	[t-plain][steamcore]site05	Steam Lorry	exploration de [t-plain][landmark]site06 (chaine depuis [quest]SouthPass)	apres 001 FIND FACTORY PLANS
+TechHaven	[t-plain]resources01	Snow-covered Supplies	exploration de [t-plain][landmark]site11 (chaine depuis [quest]SouthPass)	apres 001 FIND FACTORY PLANS
+TechHaven	[t-plain]resources02	Supply Depot	exploration (chaine Reveals depuis le depart)	Start
+TechHaven	[t-plain]resources03	Wrecked Vehicle	exploration de [t-plain][landmark]site07 (chaine depuis [NM]Expedition01)	apres 001 FIND FACTORY PLANS
+TechHaven	[t-plain]resources04	Abandoned Sawmill	exploration de [NM]Expedition02 (chaine depuis [NM]Expedition01)	apres 001 FIND FACTORY PLANS
+TechHaven	[t-plain]resources06	Damaged Snowcat	exploration de [t-plain][landmark]site05 (chaine depuis [quest]MistyValley)	apres 001 FIND FACTORY PLANS
+REFUGEES	Site_015_Coal_Mine	Coal Mine	exploration (chaine Reveals depuis le depart)	Start
+REFUGEES	[lordCamp] Camp_A	Lords' Camp	evenements Lords01 / Lord Established Camp1 (003 FACE THE LORDS)	apres 003 FACE THE LORDS
+REFUGEES	[lordCamp] Camp_B	Lords' Camp	evenements Lords02 / Lord Established Camp2 (003 FACE THE LORDS)	apres 003 FACE THE LORDS
+REFUGEES	[lordCamp] Camp_C	Lords' Camp	evenement Lord Established Camp3 (003 FACE THE LORDS)	apres 003 FACE THE LORDS
+REFUGEES	[outpost-wood]Frozen_Forest	Frozen Forest	exploration de [ref]Trail_Bend-dead (chaine depuis [ref]Trail_Bend-dead)	apres 001 SAVE YOUR PEOPLE
+REFUGEES	[outpost]Fishermen_Village	Fishing Village	exploration (chaine Reveals depuis le depart)	Start
+REFUGEES	[ref]Black_Spire	Black Spire	dilemme [1][OurPeople] Survivors09 - BlackSpire ; PAIRE EXCLUSIVE avec [ref]Black_Spire-dead : un seul check	apres 001 SAVE YOUR PEOPLE
+REFUGEES	[ref]Black_Spire-dead	Black Spire	[OurPeople] S: Our People - timeout ; PAIRE EXCLUSIVE avec [ref]Black_Spire : un seul check	apres 001 SAVE YOUR PEOPLE
+REFUGEES	[ref]Builder_Camp	Abandoned Camp		Start
+REFUGEES	[ref]Landing_Place	Landing Site	dilemme [1][OurPeople] Survivors06 - UnknowShip	apres 001 SAVE YOUR PEOPLE
+REFUGEES	[ref]Ocean_Liner	Ocean Liner	exploration de [ref]Landing_Place (chaine depuis [ref]Landing_Place)	apres 001 SAVE YOUR PEOPLE
+REFUGEES	[ref]Radio_Mast	Radio Mast	dilemme [3][Lords] S: Radio Mast	apres 003 FACE THE LORDS
+REFUGEES	[ref]Red_Flag_Camp	Red Flag Camp	exploration de [ref]Radio_Mast (chaine depuis [ref]Radio_Mast)	apres 003 FACE THE LORDS
+REFUGEES	[ref]Trail_Bend	Trail Bend	dilemme [1][OurPeople] Survivors04 - MissingChildren ; PAIRE EXCLUSIVE avec [ref]Trail_Bend-dead : un seul check	apres 001 SAVE YOUR PEOPLE
+REFUGEES	[ref]Trail_Bend-dead	Trail Bend	[OurPeople] S: Our People - timeout ; PAIRE EXCLUSIVE avec [ref]Trail_Bend : un seul check	apres 001 SAVE YOUR PEOPLE
+REFUGEES	[ref]White_Pass	White Pass	dilemme [1][OurPeople] Survivors07 - LostRefugees ; PAIRE EXCLUSIVE avec [ref]White_Pass-dead : un seul check	apres 001 SAVE YOUR PEOPLE
+REFUGEES	[ref]White_Pass-dead	White Pass	[OurPeople] S: Our People - timeout ; PAIRE EXCLUSIVE avec [ref]White_Pass : un seul check	apres 001 SAVE YOUR PEOPLE
+REFUGEES	[ref]Wretched_Hulks	Icebound Hulks	exploration de [ref]Landing_Place (chaine depuis [ref]Landing_Place)	apres 001 SAVE YOUR PEOPLE
+REFUGEES	[t-coast]Canning_Factory	Canning Workshop	exploration (chaine Reveals depuis le depart)	Start
+REFUGEES	[t-coast]Fishing_Boat	Fishing Boat	exploration (chaine Reveals depuis le depart)	Start
+REFUGEES	[t-mountains][steamcore]Rockslide	Rockslide	exploration (chaine Reveals depuis le depart)	Start
+REFUGEES	[t-plain]Hangmans_Hill	Hanged Man Hill	exploration (chaine Reveals depuis le depart)	Start
+REFUGEES	[t-plain][landmark]site01	Empty Shelter	exploration de [ref]White_Pass ou [ref]White_Pass-dead (chaine depuis [ref]White_Pass, [ref]White_Pass-dead)	apres 001 SAVE YOUR PEOPLE
+REFUGEES	[t-plain][landmark]site04	Lone Boulder	exploration (chaine Reveals depuis le depart)	Start
+REFUGEES	[t-plain][landmark]site06	Snow Dune	exploration (chaine Reveals depuis le depart)	Start
+REFUGEES	[t-plain][landmark]site08	Broken Tree	exploration de [ref]Radio_Mast (chaine depuis [ref]Radio_Mast)	apres 003 FACE THE LORDS
+REFUGEES	[t-plain][steamcore]Crash_Site	Aircraft Wreck	exploration (chaine Reveals depuis le depart)	Start
+REFUGEES	[t-plain][steamcore]Iron_Bank	Iron Bank	exploration (chaine Reveals depuis le depart)	Start
+REFUGEES	[t-plain][steamcore]Yellow_Cat	Snowcat	exploration de [t-plain][landmark]site01 (chaine depuis [ref]White_Pass, [ref]White_Pass-dead)	apres 001 SAVE YOUR PEOPLE
+REFUGEES	[t-plain][steamcore]site02	Research Outpost	exploration (chaine Reveals depuis le depart)	Start
+REFUGEES	[t-plain][steamcore]site05	Steam Lorry	exploration de [t-plain][landmark]site08 (chaine depuis [ref]Radio_Mast)	apres 003 FACE THE LORDS
+REFUGEES	[t-plain]resources01	Snow-covered Supplies	exploration de [t-plain][landmark]site08 (chaine depuis [ref]Radio_Mast)	apres 003 FACE THE LORDS
+REFUGEES	[t-plain]resources02	Supply Depot	exploration de [t-plain][landmark]site01 (chaine depuis [ref]White_Pass, [ref]White_Pass-dead)	apres 001 SAVE YOUR PEOPLE
+REFUGEES	[t-plain]resources03	Wrecked Vehicle	exploration (chaine Reveals depuis le depart)	Start
+REFUGEES	[t-plain]resources04	Abandoned Sawmill	exploration de [ref]Trail_Bend ou [ref]Trail_Bend-dead (chaine depuis [ref]Trail_Bend, [ref]Trail_Bend-dead)	apres 001 SAVE YOUR PEOPLE
+REFUGEES	[t-plain]resources05	Ruined Warehouse	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[dread01]_Dreadnought	Dreadnought		Start
+WINTERHOME	[dread02]_Dismantled_Dreadnought_1	Rusting Hulk	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[dread03]_Dismantled_Dreadnought_2	Mighty Wreck	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[lore01]_Weather_Station	Weather Station		Start
+WINTERHOME	[lore02]_Coal_Mine	-		Start
+WINTERHOME	[lore03]_Steel_Bridge	Steel Bridge	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[lore04]_Storm_Shelter	Storm Shelter	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[lore05]_Trail_South	Trail South	evenement E: Trail South Discovered (conditions d'unlock)	apres 004A FINAL HOURS
+WINTERHOME	[lore06]_Snow_Cliff	Snow Cliff		Start
+WINTERHOME	[lore07]_Cave_under_Hill	Shrouded Cave	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[lore08]_Freshwater_Springs	Freshwater Springs	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[lore09]_Frozen_Forest	Frozen Forest	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[lore10]_Monument_of_Hope	The Last Camp	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[lore11]_Mass_Grave	Mass Grave	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[lore12]_Last_Stand	Abandoned Trailer	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[lore13]_Iron Deposit	Iron Deposit	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[t-plain][landmark]site02	Barren Hollow	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[t-plain][landmark]site03	Windswept Snowfield	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[t-plain][landmark]site04	Lone Boulder	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[t-plain][landmark]site05	Rock Formation	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[t-plain][landmark]site06	Snow Dune		Start
+WINTERHOME	[t-plain][landmark]site07	Snowy Hill	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[t-plain][landmark]site08	Broken Tree	aucune source trouvee au releve (Broken Tree) ; derniere section selon l'auteur	apres 004A FINAL HOURS
+WINTERHOME	[t-plain][landmark]site09	Frozen Pond	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[t-plain][landmark]site10	Stone Ship	exploration (chaine Reveals depuis le depart)	Start
+WINTERHOME	[t-plain][landmark]site11	Cracked Ice	exploration (chaine Reveals depuis le depart)	Start
+BUILDERS	02. Killed Moose	Reindeer Tracks		Start
+BUILDERS	04. [food] Moose Hunting Grounds	Hunting Grounds	exploration de 02. Killed Moose	Start
+BUILDERS	09. Fish Skin and Bladders	Nesting Place	exploration de 02. Killed Moose	Start
+BUILDERS	12. [food] Lake Full of Fish	Lake Full of Fish	exploration de 09. Fish Skin and Bladders	Start
+BUILDERS	13. Lower Stream Course	Small Waterfall	exploration de 04. [food] Moose Hunting Grounds	Start
+BUILDERS	16. [food] Stream Head	Mountain Lake	exploration de 59. Cove by the Stream	Start
+BUILDERS	21. Avalanche of Stones	Avalanche Field 	exploration de 23. Avalanche Origin	Start
+BUILDERS	23. Avalanche Origin	Mountain Pass	exploration de 16. [food] Stream Head	Start
+BUILDERS	28. Generator South	Site 120	exploration de 31. Collapsed Mine (chaine depuis 61. Workers Camp)	apres 006 GENERATOR FINALIZATION
+BUILDERS	31. Collapsed Mine	Collapsed Mine	exploration de 61. Workers Camp (chaine depuis 61. Workers Camp)	apres 006 GENERATOR FINALIZATION
+BUILDERS	35. Trail Breaks off	Snowy Hills	exploration de 28. Generator South (chaine depuis 61. Workers Camp)	apres 006 GENERATOR FINALIZATION
+BUILDERS	38. Three Graves	Three Graves	exploration de 40. Closed Tavern	Start
+BUILDERS	40. Closed Tavern	Closed Tavern	exploration de 44. Twisted Rails ou 45. Rock Arch	Start
+BUILDERS	42. Natures Sculpture	Nature's Sculpture	[Builders] 003 GENERATOR CONSTRUCTION SITE (succes) ou dilemme [Telegram] 2	apres 003 GENERATOR CONSTRUCTION SITE
+BUILDERS	44. Twisted Rails	Rusting Rails	exploration de 21. Avalanche of Stones	Start
+BUILDERS	45. Rock Arch	Rock Arch	exploration de 13. Lower Stream Course	Start
+BUILDERS	46. EIC Steam Cores Store	Storehouse 	exploration de 38. Three Graves	Start
+BUILDERS	47. Trappers Cabin	Trapper's Cabin	exploration de 50. Railroad Siding	Start
+BUILDERS	48. Bald Hill	Bald Hill	exploration de 09. Fish Skin and Bladders	Start
+BUILDERS	50. Railroad Siding	Railroad Track	exploration de 38. Three Graves	Start
+BUILDERS	51. Broken Snowpiercer	Cr?ve-neige	exploration de 50. Railroad Siding	Start
+BUILDERS	53. Goods Station	Freight Terminal	exploration de 51. Broken Snowpiercer	Start
+BUILDERS	58. Field Kitchen	Field Kitchen	exploration de 42. Natures Sculpture (chaine depuis 42. Natures Sculpture)	apres 003 GENERATOR CONSTRUCTION SITE
+BUILDERS	59. Cove by the Stream	The Rapids	exploration de 13. Lower Stream Course	Start
+BUILDERS	60. [food] Cut-off Herd of Caribous	Herd of Reindeer	exploration de 21. Avalanche of Stones	Start
+BUILDERS	61. Workers Camp	Workers' Camp	[Builders] New Allerton (debut, apres 004 GENERATOR FOUNDATIONS) ou dilemme [Telegram] 4a	apres 006 GENERATOR FINALIZATION
+BUILDERS	62. Transport Lost	Lost Crates	exploration de 48. Bald Hill	Start
+BUILDERS	63. Convoy in Distress	Cargo Convoy	exploration de 62. Transport Lost	Start
+BUILDERS	64. Ice Plateau	Icy Plateau	exploration de 51. Broken Snowpiercer	Start
+BUILDERS	65. Generator Gamma	Site 107	exploration de 58. Field Kitchen (chaine depuis 42. Natures Sculpture)	apres 003 GENERATOR CONSTRUCTION SITE
+BUILDERS	66. Polar Bear Cave	Polar Bears Cave	dilemme [Act III] Missing lookout II	apres 006 GENERATOR FINALIZATION
+Reconquest	02. Demolished Tavern	Remnants of a Building		Start
+Reconquest	03. Mountain Shelter	Collapsed Building		Start
+Reconquest	04. Skull Cave	Frozen Den		Start
+Reconquest	05. Abandoned Fishery	Forgotten Fishery	exploration (chaine Reveals depuis le depart)	Start
+Reconquest	06. Storm Watch	Nansen's Storm Watch	exploration (chaine Reveals depuis le depart)	Start
+Reconquest	07. Stone Wall	Stone Wall	exploration (chaine Reveals depuis le depart)	Start
+Reconquest	08. Tower Ruins	High Pass	[5] Prepare for confrontation (debut) : ajoute aux revelations de 07. Stone Wall / 18. Observatory Ruins / 22. Fortified Hut	apres [3] Food settlement
+Reconquest	09. Secluded Canyon	Secluded Valley	exploration de 29. Natural Terrace (chaine depuis 29. Natural Terrace)	apres [3] Food settlement
+Reconquest	10. Ark Springs	Hot Springs	exploration de 09. Secluded Canyon (chaine depuis 29. Natural Terrace)	apres [3] Food settlement
+Reconquest	11. Windy Beach	Windy Beach	exploration (chaine Reveals depuis le depart)	Start
+Reconquest	12. City of Rats	Tesla City	exploration (chaine Reveals depuis le depart)	Start
+Reconquest	13. Sunken Dreadnought	Shattered Dreadnought	exploration (chaine Reveals depuis le depart)	Start
+Reconquest	14. Bomb Crater	Mirror Lake	exploration (chaine Reveals depuis le depart)	Start
+Reconquest	15. Distant Colony	Victims Colony	exploration (chaine Reveals depuis le depart)	Start
+Reconquest	16. Red Couloir	Couloir of the Dead	exploration de 08. Tower Ruins (chaine depuis 08. Tower Ruins)	apres [3] Food settlement
+Reconquest	17. Creve-Neige Ville	Shipwreck Camp	exploration de 16. Red Couloir (chaine depuis 08. Tower Ruins)	apres [3] Food settlement
+Reconquest	18. Observatory Ruins	Observatory Ruins	exploration (chaine Reveals depuis le depart)	Start
+Reconquest	20. Transshipment Station 01	Goods Station	[5] Prepare for confrontation (debut) : idem	apres [3] Food settlement
+Reconquest	21. Frostham Asylum	Isolated Camp	exploration de 20. Transshipment Station 01 (chaine depuis 20. Transshipment Station 01)	apres [3] Food settlement
+Reconquest	22. Fortified Hut	Crumbling Hut	exploration (chaine Reveals depuis le depart)	Start
+Reconquest	23. Ice Caverns	Ice Caverns	[5] Prepare for confrontation (debut) : idem	apres [3] Food settlement
+Reconquest	24. The Mine of the Lost Children	Children's Mine	exploration de 26. Winterhome Ruins (chaine depuis 23. Ice Caverns)	apres [3] Food settlement
+Reconquest	25. Station Ruins	Station Ruins	exploration de 23. Ice Caverns (chaine depuis 23. Ice Caverns)	apres [3] Food settlement
+Reconquest	26. Winterhome Ruins	Winterhome Ruins	exploration de 25. Station Ruins (chaine depuis 23. Ice Caverns)	apres [3] Food settlement
+Reconquest	27. Steel Bridge	Steel Bridge	exploration de 25. Station Ruins (chaine depuis 23. Ice Caverns)	apres [3] Food settlement
+Reconquest	28. Sturdy Shelter	Sturdy Shelter	exploration de 27. Steel Bridge (chaine depuis 23. Ice Caverns)	apres [3] Food settlement
+Reconquest	29. Natural Terrace	Natural Terrace	[3] Food settlement (debut) : ajoute aux revelations de 04. Skull Cave	apres [3] Food settlement
+Reconquest	30. Frozen Sea	Frozen Sea	exploration de 16. Red Couloir (chaine depuis 08. Tower Ruins)	apres [3] Food settlement
+Reconquest	31. Ghost Ship	Ghost Ship	exploration de 30. Frozen Sea (chaine depuis 08. Tower Ruins)	apres [3] Food settlement
+Reconquest	32. Destroyed Automaton	Destroyed Automaton	exploration de 26. Winterhome Ruins (chaine depuis 23. Ice Caverns)	apres [3] Food settlement
+Reconquest	33. Drying Springs	Drying Springs	exploration de 32. Destroyed Automaton (chaine depuis 23. Ice Caverns)	apres [3] Food settlement
+Reconquest	34. Grove of Bones	Grove of Bones	exploration de 32. Destroyed Automaton (chaine depuis 23. Ice Caverns)	apres [3] Food settlement
+Reconquest	35. Deep Breach	Deep Fracture	exploration de 21. Frostham Asylum ou 28. Sturdy Shelter (chaine depuis 20. Transshipment Station 01, 23. Ice Caverns)	apres [3] Food settlement
+Reconquest	36. Snow Crawler	Snow Rover	exploration de 35. Deep Breach (chaine depuis 20. Transshipment Station 01, 23. Ice Caverns)	apres [3] Food settlement
+Reconquest	37. Trailer Wreck	Trailer Wreck	exploration de 36. Snow Crawler (chaine depuis 20. Transshipment Station 01, 23. Ice Caverns)	apres [3] Food settlement
+Reconquest	NewLondon	New London		Start
+Reconquest	TD1. Dilemma	Mountain Pass	quete optionnelle [TradeRoutes] (amelioration de route commerciale)	apres [3] Food settlement
+Reconquest	TD2. Dilemma	High Peak	quete optionnelle [TradeRoutes] (amelioration de route commerciale)	apres [3] Food settlement
+Reconquest	TD3. Dilemma	Gloomy Hills	quete optionnelle [TradeRoutes] (amelioration de route commerciale)	apres [3] Food settlement
+Reconquest	TG1. Generic	Gentle Descent	quete optionnelle [TradeRoutes] (amelioration de route commerciale)	apres [3] Food settlement
+Reconquest	TG2. Generic	Rock Shelf	quete optionnelle [TradeRoutes] (amelioration de route commerciale)	apres [3] Food settlement
+Reconquest	TG3. Generic	Rock Ridge	quete optionnelle [TradeRoutes] (amelioration de route commerciale)	apres [3] Food settlement
+Reconquest	TG4. Generic	Natural Stairs	quete optionnelle [TradeRoutes] (amelioration de route commerciale)	apres [3] Food settlement
+Reconquest	TG5. Generic	Ice Plain	quete optionnelle [TradeRoutes] (amelioration de route commerciale)	apres [3] Food settlement
+Reconquest	TG6. Generic	Lonely Rock	quete optionnelle [TradeRoutes] (amelioration de route commerciale)	apres [3] Food settlement

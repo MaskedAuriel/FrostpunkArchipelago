@@ -1,0 +1,198 @@
+type	scenario	site	lien
+D	BUILDERS	02. Killed Moose	
+C	BUILDERS	28. Generator South	
+C	BUILDERS	31. Collapsed Mine	
+C	BUILDERS	35. Trail Breaks off	
+C	BUILDERS	42. Natures Sculpture	
+C	BUILDERS	58. Field Kitchen	
+C	BUILDERS	61. Workers Camp	
+C	BUILDERS	65. Generator Gamma	
+C	BUILDERS	66. Polar Bear Cave	
+R	BUILDERS	02. Killed Moose	04. [food] Moose Hunting Grounds
+R	BUILDERS	02. Killed Moose	09. Fish Skin and Bladders
+R	BUILDERS	04. [food] Moose Hunting Grounds	13. Lower Stream Course
+R	BUILDERS	09. Fish Skin and Bladders	12. [food] Lake Full of Fish
+R	BUILDERS	09. Fish Skin and Bladders	48. Bald Hill
+R	BUILDERS	13. Lower Stream Course	45. Rock Arch
+R	BUILDERS	13. Lower Stream Course	59. Cove by the Stream
+R	BUILDERS	16. [food] Stream Head	23. Avalanche Origin
+R	BUILDERS	21. Avalanche of Stones	44. Twisted Rails
+R	BUILDERS	21. Avalanche of Stones	60. [food] Cut-off Herd of Caribous
+R	BUILDERS	23. Avalanche Origin	21. Avalanche of Stones
+R	BUILDERS	28. Generator South	35. Trail Breaks off
+R	BUILDERS	31. Collapsed Mine	28. Generator South
+R	BUILDERS	38. Three Graves	46. EIC Steam Cores Store
+R	BUILDERS	38. Three Graves	50. Railroad Siding
+R	BUILDERS	40. Closed Tavern	38. Three Graves
+R	BUILDERS	42. Natures Sculpture	58. Field Kitchen
+R	BUILDERS	44. Twisted Rails	40. Closed Tavern
+R	BUILDERS	45. Rock Arch	40. Closed Tavern
+R	BUILDERS	48. Bald Hill	62. Transport Lost
+R	BUILDERS	50. Railroad Siding	47. Trappers Cabin
+R	BUILDERS	50. Railroad Siding	51. Broken Snowpiercer
+R	BUILDERS	51. Broken Snowpiercer	53. Goods Station
+R	BUILDERS	51. Broken Snowpiercer	64. Ice Plateau
+R	BUILDERS	58. Field Kitchen	65. Generator Gamma
+R	BUILDERS	59. Cove by the Stream	16. [food] Stream Head
+R	BUILDERS	61. Workers Camp	31. Collapsed Mine
+R	BUILDERS	62. Transport Lost	63. Convoy in Distress
+D	DEFAULT	Site_001_Lost_Expedition	
+D	DEFAULT	Site_002_Crash_Site	
+C	DEFAULT	Site_049_A0	
+C	DEFAULT	Site_050_A1	
+C	DEFAULT	Site_051_A2	
+C	DEFAULT	Site_052_A3	
+C	DEFAULT	Site_053_B0	
+C	DEFAULT	Site_054_B1	
+C	DEFAULT	Site_055_B2	
+C	DEFAULT	Site_056_B3	
+C	DEFAULT	Site_057_C0	
+C	DEFAULT	Site_058_C1	
+C	DEFAULT	Site_059_C2	
+C	DEFAULT	Site_060_C3	
+R	DEFAULT	Site_049_A0	Site_050_A1
+R	DEFAULT	Site_050_A1	Site_051_A2
+R	DEFAULT	Site_051_A2	Site_052_A3
+R	DEFAULT	Site_053_B0	Site_054_B1
+R	DEFAULT	Site_054_B1	Site_055_B2
+R	DEFAULT	Site_054_B1	Site_056_B3
+R	DEFAULT	Site_057_C0	Site_058_C1
+R	DEFAULT	Site_058_C1	Site_059_C2
+R	DEFAULT	Site_058_C1	Site_060_C3
+D	REFUGEES	[ref]Builder_Camp	
+C	REFUGEES	[lordCamp] Camp_A	
+C	REFUGEES	[lordCamp] Camp_B	
+C	REFUGEES	[lordCamp] Camp_C	
+C	REFUGEES	[outpost-wood]Frozen_Forest	
+C	REFUGEES	[ref]Black_Spire	
+C	REFUGEES	[ref]Black_Spire-dead	
+C	REFUGEES	[ref]Landing_Place	
+C	REFUGEES	[ref]Ocean_Liner	
+C	REFUGEES	[ref]Radio_Mast	
+C	REFUGEES	[ref]Red_Flag_Camp	
+C	REFUGEES	[ref]Trail_Bend	
+C	REFUGEES	[ref]Trail_Bend-dead	
+C	REFUGEES	[ref]White_Pass	
+C	REFUGEES	[ref]White_Pass-dead	
+C	REFUGEES	[ref]Wretched_Hulks	
+C	REFUGEES	[t-plain][landmark]site01	
+C	REFUGEES	[t-plain][landmark]site08	
+C	REFUGEES	[t-plain][steamcore]Yellow_Cat	
+C	REFUGEES	[t-plain][steamcore]site05	
+C	REFUGEES	[t-plain]resources01	
+C	REFUGEES	[t-plain]resources02	
+C	REFUGEES	[t-plain]resources04	
+R	REFUGEES	[ref]Landing_Place	[ref]Ocean_Liner
+R	REFUGEES	[ref]Landing_Place	[ref]Wretched_Hulks
+R	REFUGEES	[ref]Radio_Mast	[ref]Red_Flag_Camp
+R	REFUGEES	[ref]Radio_Mast	[t-plain][landmark]site08
+R	REFUGEES	[ref]Trail_Bend	[t-plain]resources04
+R	REFUGEES	[ref]Trail_Bend-dead	[outpost-wood]Frozen_Forest
+R	REFUGEES	[ref]Trail_Bend-dead	[t-plain]resources04
+R	REFUGEES	[ref]White_Pass	[t-plain][landmark]site01
+R	REFUGEES	[ref]White_Pass-dead	[t-plain][landmark]site01
+R	REFUGEES	[t-plain][landmark]site01	[t-plain][steamcore]Yellow_Cat
+R	REFUGEES	[t-plain][landmark]site01	[t-plain]resources02
+R	REFUGEES	[t-plain][landmark]site08	[t-plain][steamcore]site05
+R	REFUGEES	[t-plain][landmark]site08	[t-plain]resources01
+D	Reconquest	02. Demolished Tavern	
+D	Reconquest	03. Mountain Shelter	
+D	Reconquest	04. Skull Cave	
+D	Reconquest	NewLondon	
+C	Reconquest	08. Tower Ruins	
+C	Reconquest	09. Secluded Canyon	
+C	Reconquest	10. Ark Springs	
+C	Reconquest	16. Red Couloir	
+C	Reconquest	17. Creve-Neige Ville	
+C	Reconquest	20. Transshipment Station 01	
+C	Reconquest	21. Frostham Asylum	
+C	Reconquest	23. Ice Caverns	
+C	Reconquest	24. The Mine of the Lost Children	
+C	Reconquest	25. Station Ruins	
+C	Reconquest	26. Winterhome Ruins	
+C	Reconquest	27. Steel Bridge	
+C	Reconquest	28. Sturdy Shelter	
+C	Reconquest	29. Natural Terrace	
+C	Reconquest	30. Frozen Sea	
+C	Reconquest	31. Ghost Ship	
+C	Reconquest	32. Destroyed Automaton	
+C	Reconquest	33. Drying Springs	
+C	Reconquest	34. Grove of Bones	
+C	Reconquest	35. Deep Breach	
+C	Reconquest	36. Snow Crawler	
+C	Reconquest	37. Trailer Wreck	
+C	Reconquest	TD1. Dilemma	
+C	Reconquest	TD2. Dilemma	
+C	Reconquest	TD3. Dilemma	
+C	Reconquest	TG1. Generic	
+C	Reconquest	TG2. Generic	
+C	Reconquest	TG3. Generic	
+C	Reconquest	TG4. Generic	
+C	Reconquest	TG5. Generic	
+C	Reconquest	TG6. Generic	
+R	Reconquest	08. Tower Ruins	16. Red Couloir
+R	Reconquest	09. Secluded Canyon	10. Ark Springs
+R	Reconquest	16. Red Couloir	17. Creve-Neige Ville
+R	Reconquest	16. Red Couloir	30. Frozen Sea
+R	Reconquest	20. Transshipment Station 01	21. Frostham Asylum
+R	Reconquest	21. Frostham Asylum	35. Deep Breach
+R	Reconquest	23. Ice Caverns	25. Station Ruins
+R	Reconquest	25. Station Ruins	26. Winterhome Ruins
+R	Reconquest	25. Station Ruins	27. Steel Bridge
+R	Reconquest	26. Winterhome Ruins	24. The Mine of the Lost Children
+R	Reconquest	26. Winterhome Ruins	32. Destroyed Automaton
+R	Reconquest	27. Steel Bridge	28. Sturdy Shelter
+R	Reconquest	28. Sturdy Shelter	35. Deep Breach
+R	Reconquest	29. Natural Terrace	09. Secluded Canyon
+R	Reconquest	30. Frozen Sea	31. Ghost Ship
+R	Reconquest	32. Destroyed Automaton	33. Drying Springs
+R	Reconquest	32. Destroyed Automaton	34. Grove of Bones
+R	Reconquest	35. Deep Breach	36. Snow Crawler
+R	Reconquest	36. Snow Crawler	37. Trailer Wreck
+D	TechHaven	[quest]Expedition01	
+C	TechHaven	[NM-extra]Snowpiercer	
+C	TechHaven	[NM]Expedition01	
+C	TechHaven	[NM]Expedition02	
+C	TechHaven	[NM]Expedition03	
+C	TechHaven	[NM]NewManchester	
+C	TechHaven	[quest]MistyValley	
+C	TechHaven	[quest]SouthPass	
+C	TechHaven	[t-plain][landmark]site03	
+C	TechHaven	[t-plain][landmark]site05	
+C	TechHaven	[t-plain][landmark]site06	
+C	TechHaven	[t-plain][landmark]site07	
+C	TechHaven	[t-plain][landmark]site11	
+C	TechHaven	[t-plain][steamcore]site01	
+C	TechHaven	[t-plain][steamcore]site02	
+C	TechHaven	[t-plain][steamcore]site03	
+C	TechHaven	[t-plain][steamcore]site04	
+C	TechHaven	[t-plain][steamcore]site05	
+C	TechHaven	[t-plain]resources01	
+C	TechHaven	[t-plain]resources03	
+C	TechHaven	[t-plain]resources04	
+C	TechHaven	[t-plain]resources06	
+R	TechHaven	[NM]Expedition01	[NM]Expedition02
+R	TechHaven	[NM]Expedition02	[NM]Expedition03
+R	TechHaven	[NM]Expedition02	[t-plain]resources04
+R	TechHaven	[NM]Expedition03	[NM]NewManchester
+R	TechHaven	[NM]Expedition03	[t-plain][landmark]site07
+R	TechHaven	[quest]MistyValley	[t-plain][landmark]site05
+R	TechHaven	[quest]SouthPass	[t-plain][landmark]site06
+R	TechHaven	[quest]SouthPass	[t-plain][landmark]site11
+R	TechHaven	[t-plain][landmark]site03	[t-plain][steamcore]site02
+R	TechHaven	[t-plain][landmark]site03	[t-plain][steamcore]site03
+R	TechHaven	[t-plain][landmark]site05	[t-plain][landmark]site03
+R	TechHaven	[t-plain][landmark]site05	[t-plain]resources06
+R	TechHaven	[t-plain][landmark]site06	[t-plain][steamcore]site01
+R	TechHaven	[t-plain][landmark]site06	[t-plain][steamcore]site05
+R	TechHaven	[t-plain][landmark]site07	[NM-extra]Snowpiercer
+R	TechHaven	[t-plain][landmark]site07	[t-plain]resources03
+R	TechHaven	[t-plain][landmark]site11	[t-plain][steamcore]site04
+R	TechHaven	[t-plain][landmark]site11	[t-plain]resources01
+D	WINTERHOME	[dread01]_Dreadnought	
+D	WINTERHOME	[lore01]_Weather_Station	
+D	WINTERHOME	[lore02]_Coal_Mine	
+D	WINTERHOME	[lore06]_Snow_Cliff	
+D	WINTERHOME	[t-plain][landmark]site06	
+C	WINTERHOME	[lore05]_Trail_South	
+C	WINTERHOME	[t-plain][landmark]site08	
