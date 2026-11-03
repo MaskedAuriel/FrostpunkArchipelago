@@ -498,7 +498,10 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   modificateurs et effets (`FUN_1416fdbc0`) attendent l'item
   (`ReceiveLawProgressive`). Règles de checks de l'auteur : loi sans
   exclusion = 1 check, paire exclusive = 1 check, lois exclusives par leurs
-  parents = 1 check, Ceremonial Funerals (Adaptation) = 2 checks. Bâtiments
+  parents = 1 check, Ceremonial Funerals (Adaptation) = 2 checks (1 seul
+  dans On the Edge, sans Organic Fertiliser : `Poids`, non testé). Table
+  des checks par scénario : `outils\lois_table.tsv` (`outils\lois_table.py`,
+  relevé F4 `[LOITAB]`). Bâtiments
   de loi bloqués par `hkEvaluerPrerequis` (validé). Icônes AP dans le livre
   **VALIDÉES le 2026-11-01** (copies de `circle_inside` sans animateur,
   `PAIRE_DECALAGE = (0,7, −1,9)`). Non testés : lois inaccessibles sans

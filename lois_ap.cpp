@@ -373,12 +373,26 @@ bool LireEtats(Etats& e)
     return true;
 }
 
+// Poids d'une loi dans la partie courante. Ceremonial Funerals (Adaptation)
+// pese 2 pour equilibrer Organ Transplants + Organic Fertiliser ; la ou
+// Organic Fertiliser n'existe pas (On the Edge : affichage "PAS scenario
+// Reconquest"), elle ne pese que 1 (decision de l'auteur, 2026-11-03).
+// Scenario courant : FrostpunkScenarioSystem (id 0x0C) +0x68 -> +0x00 nom.
+int Poids(int i)
+{
+    if (g_lois[i].poids <= 1) return g_lois[i].poids;
+    uintptr_t sys = SystemeParId(0x0C), scn = 0;
+    char nom[32] = "";
+    if (sys && SafeRead((void*)(sys + 0x68), &scn, 8) && scn > 0x10000) LireTexte8(scn, nom, sizeof(nom));
+    return strcmp(nom, "Reconquest") == 0 ? 1 : g_lois[i].poids;
+}
+
 int Rang(int i, const Etats& e)
 {
     int r = 1;
     for (int j = 0; j < g_nLois; ++j) {
         if (j == i || g_lois[j].arbre != g_lois[i].arbre || !e.Signee(j)) continue;
-        if (e.date[j] < e.date[i] || (e.date[j] == e.date[i] && j < i)) r += g_lois[j].poids;
+        if (e.date[j] < e.date[i] || (e.date[j] == e.date[i] && j < i)) r += Poids(j);
     }
     return r;
 }
@@ -451,7 +465,7 @@ const TechIcons* IconeDeLoi(int i, const Etats& e)
     else {
         int r = 1;
         for (int j = 0; j < g_nLois; ++j)
-            if (g_lois[j].arbre == g_lois[i].arbre && e.Signee(j)) r += g_lois[j].poids;
+            if (g_lois[j].arbre == g_lois[i].arbre && e.Signee(j)) r += Poids(j);
         nomIcone = IconeDuCheckDeTest(g_arbres[g_lois[i].arbre].nom, r);
     }
     for (const TechIcons& t : ARCHIPELAGO_ICONS_TECH) if (!strcmp(t.nom, nomIcone)) return &t;
@@ -681,7 +695,7 @@ int EnvoyerChecks(int i, const Etats& e, bool differe)
     ArbreAP& a = g_arbres[g_lois[i].arbre];
     char nom[96];
     NomDeLoi(i, nom, sizeof(nom));
-    for (int k = r; k < r + g_lois[i].poids && k <= MAX_RANG; ++k) {
+    for (int k = r; k < r + Poids(i) && k <= MAX_RANG; ++k) {
         if (a.checks >> k & 1) { printf("[LOIAP]   check %s #%d deja envoye\n", a.nom, k); continue; }
         a.checks |= 1ull << k;
         SendLawCheck(a.nom, k, nom, differe);
@@ -779,7 +793,7 @@ void ApresSignature(uintptr_t loi, bool differe)
     char nom[96];
     NomDeLoi(i, nom, sizeof(nom));
     printf("[LOIAP] loi signee : \"%s\" (arbre \"%s\", rang %d, poids %d) -> effet %s\n",
-        nom, g_arbres[g_lois[i].arbre].nom, Rang(i, e), g_lois[i].poids, differe ? "EN ATTENTE" : "applique");
+        nom, g_arbres[g_lois[i].arbre].nom, Rang(i, e), Poids(i), differe ? "EN ATTENTE" : "applique");
     EnvoyerChecks(i, e, differe);
     Sauver();
     RafraichirIcones();
@@ -1489,6 +1503,18 @@ bool LoisAPRecevoir(const char* arbre, int* rang)
     printf("[LOIAP] item recu : arbre \"%s\", %d item(s)\n", g_arbres[a].nom, n);
     Sauver();
     g_aTraiter = true;
+    return true;
+}
+
+bool LoisAPArbreDeLoi(uintptr_t loi, char* arbre, int taille, int* poids)
+{
+    if (arbre && taille > 0) arbre[0] = 0;
+    if (poids) *poids = 0;
+    if (!BatirArbres()) return false;
+    int i = IndexParAdresse(loi);
+    if (i < 0 || g_lois[i].arbre < 0) return false;
+    if (arbre) strcpy_s(arbre, taille, g_arbres[g_lois[i].arbre].nom);
+    if (poids) *poids = g_lois[i].poids;
     return true;
 }
 

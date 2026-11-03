@@ -1,0 +1,157 @@
+scenario	arbre	rang	lois (nom interne)	lois (nom affiche)	lois requises par le jeu	condition d'ouverture de l'arbre	condition des lois
+DEFAULT	Purpose	1	[Faith - level 1] House of Prayer | [Order - level 1] Neighborhood watch	House of Prayer | Neighbourhood Watch	 | 	unlock IdeologyTree	(politique [SOCIOTECH]Path chosen=Despotism ou politique [SOCIOTECH]Path chosen=Both) ; (politique [SOCIOTECH]Path chosen=Fanatism ou politique [SOCIOTECH]Path chosen=Both)
+DEFAULT	Purpose	2	[Faith - level 2] Evening of Prayers | [Order - level 2] Morning gathering	Evening Prayers | Morning Gathering	[Faith - level 1] House of Prayer | [Order - level 1] Neighborhood watch	unlock IdeologyTree	
+DEFAULT	Purpose	3	[Faith - level 2] Shrine | [Order - level 2] Guardpost unlock	Shrines | Guard Stations	[Faith - level 1] House of Prayer | [Order - level 1] Neighborhood watch	unlock IdeologyTree	
+DEFAULT	Purpose	4	[Faith - level 3] Faith keepers | [Order - level 3] Forman	Faith Keepers | Foreman	[Faith - level 2] Evening of Prayers | [Order - level 2] Morning gathering	unlock IdeologyTree	
+DEFAULT	Purpose	5	[Faith - level 3] House of Healing | [Order - level 3] Patrol	House of Healing | Patrol	[Faith - level 2] Shrine | [Order - level 2] Guardpost unlock	unlock IdeologyTree	
+DEFAULT	Purpose	6	[Faith - level 2] Temple | [Order - level 3] Census Station	The Temple | Propaganda Centre	[Faith - level 2] Evening of Prayers | [Order - level 2] Guardpost unlock	unlock IdeologyTree	
+DEFAULT	Purpose	7	[Faith - level 3] Field Kitchens | [Order - level 3] Prison	Field Kitchens | Prison	[Faith - level 2] Shrine | [Order - level 2] Guardpost unlock	unlock IdeologyTree	
+DEFAULT	Purpose	8	[Faith - level 5] Public conversion | [Order - level 4] Mechanical Agitator	Public Penance | Agitator	[Faith - level 3] Faith keepers | [Order - level 3] Census Station	unlock IdeologyTree	
+DEFAULT	Purpose	9	[Faith - level 4] Righteous Denunciation | [Order - level 4] Propaganda ability	Righteous Denunciation | Pledge of Loyalty	[Faith - level 2] Temple | [Order - level 3] Census Station	unlock IdeologyTree	
+DEFAULT	Purpose	10	[Faith - level 4] Captains message | [Order - level 4] Prison beating	Protector of the Truth | Forceful Persuasion	[Faith - level 5] Public conversion | [Order - level 3] Prison	unlock IdeologyTree	
+DEFAULT	Purpose	11	[Faith - level 6] FANATIZM | [Order- level 5] DESPOTIZM	NEW FAITH | NEW ORDER	[Faith - level 4] Captains message | ([Order - level 4] Prison beating ou [Order - level 4] Propaganda ability)	unlock IdeologyTree	
+DEFAULT	[Adaptation- level 0] Cemetery	1	[Adaptation- level 0] Cemetery | [Adaptation- level 0] Put them in the snow	Cemetery | Corpse Disposal	 | 		
+DEFAULT	[Adaptation- level 0] Cemetery	2	[Adaptation- level 1] Burial Ceremony | [Adaptation- level 1] Transplantation	Ceremonial Funerals | Organ Transplants	[Adaptation- level 0] Cemetery | [Adaptation- level 0] Put them in the snow		
+DEFAULT	[Adaptation- level 0] Cemetery	3	[Adaptation- level 1] Burial Ceremony (2e check) | [Adaptation- level 2] Corps Processing - fertilizer	Ceremonial Funerals (2e check) | Organic Fertiliser	[Adaptation- level 0] Cemetery | [Adaptation- level 1] Transplantation		
+DEFAULT	[Adaptation- level 0] Poor Soup	1	[Adaptation- level 0] Poor Soup | [Adaptation- level 0] Sawdust in food	Soup | Food Additives	 | 		
+DEFAULT	[Adaptation- level 0] RadicalTreatment	1	[Adaptation- level 0] Life Sustain | [Adaptation- level 0] RadicalTreatment	Sustain Life | Radical Treatment	 | 		
+DEFAULT	[Adaptation- level 0] RadicalTreatment	2	[Adaptation- level 1] Double Ration | [Adaptation- level 1] Poeple on the floor	Extra Rations for the Ill | Overcrowding	([Adaptation- level 0] RadicalTreatment ou [Adaptation- level 0] Life Sustain) | ([Adaptation- level 0] RadicalTreatment ou [Adaptation- level 0] Life Sustain)		
+DEFAULT	[Adaptation- level 0] RadicalTreatment	3	[Adaptation- level 1] Care House	Care House	([Adaptation- level 0] RadicalTreatment ou [Adaptation- level 0] Life Sustain)		
+DEFAULT	[Adaptation- level 0] RadicalTreatment	4	[Adaptation- level 2] Triage	Triage	([Adaptation- level 1] Double Ration ou [Adaptation- level 1] Poeple on the floor)		
+DEFAULT	[Adaptation- level 0] RadicalTreatment	5	[Adaptation- level 2] Augmentation	Prosthetics	[Adaptation- level 1] Care House		
+DEFAULT	[People - level 0] Kids work in light jobs	1	[People - level 0] Child shelters | [People - level 0] Kids work in light jobs	Child Shelters | Child Labour - Safe Jobs	 | 		
+DEFAULT	[People - level 0] Kids work in light jobs	2	[People - level 1] Kids work in hard jobs | [People - level 1]EngineerKids | [People - level 1]Med Kids	Child Labour - All Jobs | Engineer Apprentices | Medic Apprentices	[People - level 0] Kids work in light jobs | [People - level 0] Child shelters | [People - level 0] Child shelters		
+DEFAULT	[People - level 1] Emergancy shift	1	[People - level 1] Emergancy shift	Emergency Shift			
+DEFAULT	[People - level 1] Emergancy shift	2	[People - level 0] Hard work rigor	Extended Shift	[People - level 1] Emergancy shift		
+DEFAULT	[People - level 1] Fightclub	1	[People - level 1] Fightclub	Fighting Arena			
+DEFAULT	[People - level 1] Fightclub	2	[People - level 2] Dueling Law	Duelling Law	[People - level 1] Fightclub		
+DEFAULT	[People - level 1] Fightclub	3	[People - level 0] PublicHouses unlock	Public House	[People - level 1] Fightclub		
+DEFAULT	[People - level 1] Fightclub	4	[People - level 1] Prostitiutes	House of Pleasure	[People - level 0] PublicHouses unlock		
+DEFAULT	[People - level 1] Fightclub	5	[Adaptation- level 1] Moonshine	Moonshine	[People - level 0] PublicHouses unlock		
+TechHaven	[Adaptation- level 0] Cemetery	1	[Adaptation- level 0] Cemetery | [Adaptation- level 0] Put them in the snow	Cemetery | Corpse Disposal	 | 		
+TechHaven	[Adaptation- level 0] Cemetery	2	[Adaptation- level 1] Burial Ceremony | [Adaptation- level 1] Transplantation	Ceremonial Funerals | Organ Transplants	[Adaptation- level 0] Cemetery | [Adaptation- level 0] Put them in the snow		
+TechHaven	[Adaptation- level 0] Cemetery	3	[Adaptation- level 1] Burial Ceremony (2e check) | [Adaptation- level 2] Corps Processing - fertilizer	Ceremonial Funerals (2e check) | Organic Fertiliser	[Adaptation- level 0] Cemetery | [Adaptation- level 1] Transplantation		
+TechHaven	[Adaptation- level 0] Poor Soup	1	[Adaptation- level 0] Poor Soup | [Adaptation- level 0] Sawdust in food	Soup | Food Additives	 | 		
+TechHaven	[Adaptation- level 0] RadicalTreatment	1	[Adaptation- level 0] Life Sustain | [Adaptation- level 0] RadicalTreatment	Sustain Life | Radical Treatment	 | 		
+TechHaven	[Adaptation- level 0] RadicalTreatment	2	[Adaptation- level 1] Double Ration | [Adaptation- level 1] Poeple on the floor	Extra Rations for the Ill | Overcrowding	([Adaptation- level 0] RadicalTreatment ou [Adaptation- level 0] Life Sustain) | ([Adaptation- level 0] RadicalTreatment ou [Adaptation- level 0] Life Sustain)		
+TechHaven	[Adaptation- level 0] RadicalTreatment	3	[Adaptation- level 1] Care House	Care House	([Adaptation- level 0] RadicalTreatment ou [Adaptation- level 0] Life Sustain)		
+TechHaven	[Adaptation- level 0] RadicalTreatment	4	[Adaptation- level 2] Triage	Triage	([Adaptation- level 1] Double Ration ou [Adaptation- level 1] Poeple on the floor)		
+TechHaven	[Adaptation- level 0] RadicalTreatment	5	[Adaptation- level 2] Augmentation	Prosthetics	[Adaptation- level 1] Care House		
+TechHaven	[People - level 1] Emergancy shift	1	[People - level 1] Emergancy shift	Emergency Shift			
+TechHaven	[People - level 1] Emergancy shift	2	[People - level 0] Hard work rigor	Extended Shift	[People - level 1] Emergancy shift		
+TechHaven	[People - level 1] Fightclub	1	[People - level 1] Fightclub	Fighting Arena			
+TechHaven	[People - level 1] Fightclub	2	[People - level 2] Dueling Law	Duelling Law	[People - level 1] Fightclub		
+TechHaven	[People - level 1] Fightclub	3	[People - level 0] PublicHouses unlock	Public House	[People - level 1] Fightclub		
+TechHaven	[People - level 1] Fightclub	4	[People - level 1] Prostitiutes	House of Pleasure	[People - level 0] PublicHouses unlock		
+TechHaven	[People - level 1] Fightclub	5	[Adaptation- level 1] Moonshine	Moonshine	[People - level 0] PublicHouses unlock		
+REFUGEES	Purpose	1	[Faith - level 1] House of Prayer | [Order - level 1] Neighborhood watch	House of Prayer | Neighbourhood Watch	 | 		(politique [SOCIOTECH]Path chosen=Despotism ou politique [SOCIOTECH]Path chosen=Both) ; (politique [SOCIOTECH]Path chosen=Fanatism ou politique [SOCIOTECH]Path chosen=Both)
+REFUGEES	Purpose	2	[Faith - level 2] Evening of Prayers | [Order - level 2] Morning gathering	Evening Prayers | Morning Gathering	[Faith - level 1] House of Prayer | [Order - level 1] Neighborhood watch		
+REFUGEES	Purpose	3	[Faith - level 2] Shrine | [Order - level 2] Guardpost unlock	Shrines | Guard Stations	[Faith - level 1] House of Prayer | [Order - level 1] Neighborhood watch		
+REFUGEES	Purpose	4	[Faith - level 3] Faith keepers | [Order - level 3] Forman	Faith Keepers | Foreman	[Faith - level 2] Evening of Prayers | [Order - level 2] Morning gathering		
+REFUGEES	Purpose	5	[Faith - level 3] House of Healing | [Order - level 3] Patrol	House of Healing | Patrol	[Faith - level 2] Shrine | [Order - level 2] Guardpost unlock		
+REFUGEES	Purpose	6	[Faith - level 2] Temple | [Order - level 3] Census Station	The Temple | Propaganda Centre	[Faith - level 2] Evening of Prayers | [Order - level 2] Guardpost unlock		
+REFUGEES	Purpose	7	[Faith - level 3] Field Kitchens | [Order - level 3] Prison	Field Kitchens | Prison	[Faith - level 2] Shrine | [Order - level 2] Guardpost unlock		
+REFUGEES	Purpose	8	[Faith - level 5] Public conversion | [Order - level 4] Mechanical Agitator	Public Penance | Agitator	[Faith - level 3] Faith keepers | [Order - level 3] Census Station		
+REFUGEES	Purpose	9	[Faith - level 4] Righteous Denunciation | [Order - level 4] Propaganda ability	Righteous Denunciation | Pledge of Loyalty	[Faith - level 2] Temple | [Order - level 3] Census Station		
+REFUGEES	Purpose	10	[Faith - level 4] Captains message | [Order - level 4] Prison beating	Protector of the Truth | Forceful Persuasion	[Faith - level 5] Public conversion | [Order - level 3] Prison		
+REFUGEES	Purpose	11	[Faith - level 6] FANATIZM | [Order- level 5] DESPOTIZM	NEW FAITH | NEW ORDER	[Faith - level 4] Captains message | ([Order - level 4] Prison beating ou [Order - level 4] Propaganda ability)		
+REFUGEES	[Adaptation- level 0] Cemetery	1	[Adaptation- level 0] Cemetery | [Adaptation- level 0] Put them in the snow	Cemetery | Corpse Disposal	 | 		
+REFUGEES	[Adaptation- level 0] Cemetery	2	[Adaptation- level 1] Burial Ceremony | [Adaptation- level 1] Transplantation	Ceremonial Funerals | Organ Transplants	[Adaptation- level 0] Cemetery | [Adaptation- level 0] Put them in the snow		
+REFUGEES	[Adaptation- level 0] Cemetery	3	[Adaptation- level 1] Burial Ceremony (2e check) | [Adaptation- level 2] Corps Processing - fertilizer	Ceremonial Funerals (2e check) | Organic Fertiliser	[Adaptation- level 0] Cemetery | [Adaptation- level 1] Transplantation		
+REFUGEES	[Adaptation- level 0] Poor Soup	1	[Adaptation- level 0] Poor Soup | [Adaptation- level 0] Sawdust in food	Soup | Food Additives	 | 		
+REFUGEES	[Adaptation- level 0] RadicalTreatment	1	[Adaptation- level 0] Life Sustain | [Adaptation- level 0] RadicalTreatment	Sustain Life | Radical Treatment	 | 		
+REFUGEES	[Adaptation- level 0] RadicalTreatment	2	[Adaptation- level 1] Double Ration | [Adaptation- level 1] Poeple on the floor	Extra Rations for the Ill | Overcrowding	([Adaptation- level 0] RadicalTreatment ou [Adaptation- level 0] Life Sustain) | ([Adaptation- level 0] RadicalTreatment ou [Adaptation- level 0] Life Sustain)		
+REFUGEES	[Adaptation- level 0] RadicalTreatment	3	[Adaptation- level 1] Care House	Care House	([Adaptation- level 0] RadicalTreatment ou [Adaptation- level 0] Life Sustain)		
+REFUGEES	[Adaptation- level 0] RadicalTreatment	4	[Adaptation- level 2] Triage	Triage	([Adaptation- level 1] Double Ration ou [Adaptation- level 1] Poeple on the floor)		
+REFUGEES	[Adaptation- level 0] RadicalTreatment	5	[Adaptation- level 2] Augmentation	Prosthetics	[Adaptation- level 1] Care House		
+REFUGEES	[People - level 0] Kids work in light jobs	1	[People - level 0] Child shelters | [People - level 0] Kids work in light jobs	Child Shelters | Child Labour - Safe Jobs	 | 		
+REFUGEES	[People - level 0] Kids work in light jobs	2	[People - level 1] Kids work in hard jobs | [People - level 1]EngineerKids | [People - level 1]Med Kids	Child Labour - All Jobs | Engineer Apprentices | Medic Apprentices	[People - level 0] Kids work in light jobs | [People - level 0] Child shelters | [People - level 0] Child shelters		
+REFUGEES	[People - level 1] Emergancy shift	1	[People - level 1] Emergancy shift	Emergency Shift			
+REFUGEES	[People - level 1] Emergancy shift	2	[People - level 0] Hard work rigor	Extended Shift	[People - level 1] Emergancy shift		
+REFUGEES	[People - level 1] Fightclub	1	[People - level 1] Fightclub	Fighting Arena			
+REFUGEES	[People - level 1] Fightclub	2	[People - level 2] Dueling Law	Duelling Law	[People - level 1] Fightclub		
+REFUGEES	[People - level 1] Fightclub	3	[People - level 0] PublicHouses unlock	Public House	[People - level 1] Fightclub		
+REFUGEES	[People - level 1] Fightclub	4	[People - level 1] Prostitiutes	House of Pleasure	[People - level 0] PublicHouses unlock		
+REFUGEES	[People - level 1] Fightclub	5	[Adaptation- level 1] Moonshine	Moonshine	[People - level 0] PublicHouses unlock		
+WINTERHOME	Purpose	1	[Faith - level 1] House of Prayer | [Order - level 1] Neighborhood watch	House of Prayer | Neighbourhood Watch	 | 		(politique [SOCIOTECH]Path chosen=Despotism ou politique [SOCIOTECH]Path chosen=Both) ; (politique [SOCIOTECH]Path chosen=Fanatism ou politique [SOCIOTECH]Path chosen=Both)
+WINTERHOME	Purpose	2	[Faith - level 2] Evening of Prayers | [Order - level 2] Morning gathering	Evening Prayers | Morning Gathering	[Faith - level 1] House of Prayer | [Order - level 1] Neighborhood watch		
+WINTERHOME	Purpose	3	[Faith - level 2] Shrine | [Order - level 2] Guardpost unlock	Shrines | Guard Stations	[Faith - level 1] House of Prayer | [Order - level 1] Neighborhood watch		
+WINTERHOME	Purpose	4	[Faith - level 3] Faith keepers | [Order - level 3] Forman	Faith Keepers | Foreman	[Faith - level 2] Evening of Prayers | [Order - level 2] Morning gathering		
+WINTERHOME	Purpose	5	[Faith - level 3] House of Healing | [Order - level 3] Patrol	House of Healing | Patrol	[Faith - level 2] Shrine | [Order - level 2] Guardpost unlock		
+WINTERHOME	Purpose	6	[Faith - level 2] Temple | [Order - level 3] Census Station	The Temple | Propaganda Centre	[Faith - level 2] Evening of Prayers | [Order - level 2] Guardpost unlock		retiree en cours de partie (Winterhome)
+WINTERHOME	Purpose	7	[Faith - level 3] Field Kitchens | [Order - level 3] Prison	Field Kitchens | Prison	[Faith - level 2] Shrine | [Order - level 2] Guardpost unlock		
+WINTERHOME	Purpose	8	[Faith - level 5] Public conversion | [Order - level 4] Mechanical Agitator	Public Penance | Agitator	[Faith - level 3] Faith keepers | [Order - level 3] Census Station		retiree en cours de partie (Winterhome)
+WINTERHOME	Purpose	9	[Faith - level 4] Righteous Denunciation | [Order - level 4] Propaganda ability	Righteous Denunciation | Pledge of Loyalty	[Faith - level 2] Temple | [Order - level 3] Census Station		retiree en cours de partie (Winterhome)
+WINTERHOME	Purpose	10	[Faith - level 4] Captains message | [Order - level 4] Prison beating	Protector of the Truth | Forceful Persuasion	[Faith - level 5] Public conversion | [Order - level 3] Prison		retiree en cours de partie (Winterhome)
+WINTERHOME	Purpose	11	[Faith - level 6] FANATIZM | [Order- level 5] DESPOTIZM	NEW FAITH | NEW ORDER	[Faith - level 4] Captains message | ([Order - level 4] Prison beating ou [Order - level 4] Propaganda ability)		retiree en cours de partie (Winterhome)
+WINTERHOME	[Adaptation- level 0] Cemetery	1	[Adaptation- level 1] Transplantation	Organ Transplants	[Adaptation- level 0] Put them in the snow		
+WINTERHOME	[Adaptation- level 0] Cemetery	2	[Adaptation- level 2] Corps Processing - fertilizer	Organic Fertiliser	[Adaptation- level 1] Transplantation		
+WINTERHOME	[Adaptation- level 0] Poor Soup	1	[Adaptation- level 0] Poor Soup | [Adaptation- level 0] Sawdust in food	Soup | Food Additives	 | 		
+WINTERHOME	[Adaptation- level 0] RadicalTreatment	1	[Adaptation- level 0] Life Sustain | [Adaptation- level 0] RadicalTreatment	Sustain Life | Radical Treatment	 | 		
+WINTERHOME	[Adaptation- level 0] RadicalTreatment	2	[Adaptation- level 1] Double Ration | [Adaptation- level 1] Poeple on the floor	Extra Rations for the Ill | Overcrowding	([Adaptation- level 0] RadicalTreatment ou [Adaptation- level 0] Life Sustain) | ([Adaptation- level 0] RadicalTreatment ou [Adaptation- level 0] Life Sustain)		
+WINTERHOME	[Adaptation- level 0] RadicalTreatment	3	[Adaptation- level 1] Care House	Care House	([Adaptation- level 0] RadicalTreatment ou [Adaptation- level 0] Life Sustain)		
+WINTERHOME	[Adaptation- level 0] RadicalTreatment	4	[Adaptation- level 2] Triage	Triage	([Adaptation- level 1] Double Ration ou [Adaptation- level 1] Poeple on the floor)		
+WINTERHOME	[Adaptation- level 0] RadicalTreatment	5	[Adaptation- level 2] Augmentation	Prosthetics	[Adaptation- level 1] Care House		
+WINTERHOME	[People - level 1] Emergancy shift	1	[People - level 1] Emergancy shift	Emergency Shift			
+WINTERHOME	[People - level 1] Emergancy shift	2	[People - level 0] Hard work rigor	Extended Shift	[People - level 1] Emergancy shift		
+WINTERHOME	[People - level 1] Fightclub	1	[People - level 2] Dueling Law	Duelling Law	[People - level 1] Fightclub		
+WINTERHOME	[People - level 1] Fightclub	2	[People - level 1] Prostitiutes	House of Pleasure	[People - level 0] PublicHouses unlock		
+WINTERHOME	[People - level 1] Fightclub	3	[Adaptation- level 1] Moonshine	Moonshine	[People - level 0] PublicHouses unlock		
+BUILDERS	Builders [Labour - level 0] Field pharmacy	1	Builders [Labour - level 0] Field pharmacy	Field pharmacy		unlock [Builders] SOCIOTECH Labour tree - SAFETY	
+BUILDERS	Builders [Labour - level 0] Hard work rigor	1	Builders [Labour - level 0] Double Shift | Builders [Labour - level 0] Hard work rigor	Double Shift | Hard work rigor	 | 	unlock [Builders] SOCIOTECH Labour tree - SAFETY	
+BUILDERS	Builders [Labour - level 0] Hard work rigor	2	Builders [Labour - level 1] Hard work rigor compensations | Builders [Labour - level 1] Double Shift optimisation	Hard work rigor compensations | Double Shift optimisation	Builders [Labour - level 0] Hard work rigor | Builders [Labour - level 0] Double Shift	unlock [Builders] SOCIOTECH Labour tree - SAFETY	
+BUILDERS	Builders [Labour - level 0] Light Work rigor	1	Builders [Labour - level 0] Light Work rigor	Light Work rigor		unlock [Builders] SOCIOTECH Labour tree - SAFETY	
+BUILDERS	Builders [Labour - level 0] Light Work rigor	2	Builders [Labour - level 1] Light Work rigor upgrade	Light Work rigor upgrade	Builders [Labour - level 0] Light Work rigor	unlock [Builders] SOCIOTECH Labour tree - SAFETY	
+BUILDERS	Builders [Labour - level 0] Safety Procedures	1	Builders [Labour - level 0] Safety Procedures	Safety Procedures		unlock [Builders] SOCIOTECH Labour tree - SAFETY	
+BUILDERS	Builders [Labour - level 0] Safety Procedures	2	Builders [Labour - level 1] After-hours equipment maintenance	After-hours equipment maintenance	Builders [Labour - level 0] Safety Procedures	unlock [Builders] SOCIOTECH Labour tree - SAFETY	
+BUILDERS	Builders [LifeConditions - level 0] Bathhouse	1	Builders [LifeConditions - level 0] Bathhouse	Bath House			
+BUILDERS	Builders [LifeConditions - level 0] Bathhouse	2	Builders [LifeConditions - level 1] Comfortable Quarters | Builders [LifeConditions - level 1] Crowded Quarters	Comfortable Quarters | Crowded Quarters	Builders [LifeConditions - level 0] Bathhouse | Builders [LifeConditions - level 0] Bathhouse		
+BUILDERS	Builders [LifeConditions - level 0] Cemetery	1	Builders [LifeConditions - level 0] Cemetery | Builders [LifeConditions - level 0] Morgue	On-Site Burials | Repatriation of Bodies	 | 		
+BUILDERS	Builders [LifeConditions - level 0] Cemetery	2	Builders [LifeConditions - level 1] Burial Ceremony | Builders [LifeConditions - level 1] Steel coffins	Burial Ceremony | Company Funerals	Builders [LifeConditions - level 0] Cemetery | Builders [LifeConditions - level 0] Morgue		
+BUILDERS	Builders [LifeConditions - level 0] Chapel	1	Builders [LifeConditions - level 0] Chapel	Chapel			
+BUILDERS	Builders [LifeConditions - level 0] Chapel	2	Builders [LifeConditions - level 1] Evening of Prayers	Evening Service	Builders [LifeConditions - level 0] Chapel		
+BUILDERS	Builders [LifeConditions - level 0] Gruel	1	Builders [LifeConditions - level 0] Better food | Builders [LifeConditions - level 0] Gruel	Hearty Meals | Gruel	 | 		
+BUILDERS	Builders [LifeConditions - level 0] Gruel	2	Builders [LifeConditions - level 1] Cocaine	Cocaine Pills	(Builders [LifeConditions - level 0] Gruel ou Builders [LifeConditions - level 0] Better food)		
+BUILDERS	Builders [LifeConditions - level 0] Pub	1	Builders [LifeConditions - level 0] Pub	Public House			
+BUILDERS	Builders [LifeConditions - level 0] Pub	2	Builders [LifeConditions - level 1] Prostitutes	House of Pleasure	Builders [LifeConditions - level 0] Pub		
+BUILDERS	Builders [LifeConditions - level 0] Pub	3	Builders [LifeConditions - level 1] Bare-Knuckle Bouts	Bare-Knuckle Bouts	Builders [LifeConditions - level 0] Pub		
+BUILDERS	Builders [LifeConditions - level 0] Radical Treatment	1	Builders [LifeConditions - level 0] Life Sustain | Builders [LifeConditions - level 0] Radical Treatment	Sustain Life | Radical Treatment	 | 		
+BUILDERS	Builders [LifeConditions - level 0] Radical Treatment	2	Builders [LifeConditions - level 1] Double Ration | Builders [LifeConditions - level 1] People on the floor	Extra Rations for the Ill | Overcrowding	(Builders [LifeConditions - level 0] Life Sustain ou Builders [LifeConditions - level 0] Radical Treatment) | (Builders [LifeConditions - level 0] Life Sustain ou Builders [LifeConditions - level 0] Radical Treatment)		
+BUILDERS	Builders [LifeConditions - level 0] Radical Treatment	3	Builders [LifeConditions - level 1] Care House	Care House	(Builders [LifeConditions - level 0] Life Sustain ou Builders [LifeConditions - level 0] Radical Treatment)		
+BUILDERS	Builders [LifeConditions - level 0] Radical Treatment	4	Builders [LifeConditions - level 2] Augmentation | Builders [LifeConditions - level 2] Medical Repatriation	Prostheses Shipments | Medical Repatriation	Builders [LifeConditions - level 1] Care House | Builders [LifeConditions - level 1] Care House		avant unlock [Builders] Act 3 - The End
+BUILDERS	Politics	1	Builders [Left - level 0] Labour Unions | Builders [Right - level 0] Factory Inspectorate	Labour Unions | Factory Inspectorate	 | 	unlock [Builders] SOCIOTECH Labour tree - SAFETY	unlock [Builders] SOCIOTECH Labour tree - STRIKE L ; unlock [Builders] SOCIOTECH Labour tree - STRIKE R
+BUILDERS	Politics	2	Builders [Left - level 1] Workers council | Builders [Right - level 1] Overseers	Workers council | Overseers	Builders [Left - level 0] Labour Unions | Builders [Right - level 0] Factory Inspectorate	unlock [Builders] SOCIOTECH Labour tree - SAFETY	unlock [Builders] SOCIOTECH Labour tree - STRIKE L ; unlock [Builders] SOCIOTECH Labour tree - STRIKE R
+BUILDERS	Politics	3	Builders [Left - level 1] Collective Bargaining | Builders [Right - level 1] Internal promotion	Collective Bargaining | Internal promotion	Builders [Left - level 0] Labour Unions | Builders [Right - level 0] Factory Inspectorate	unlock [Builders] SOCIOTECH Labour tree - SAFETY	unlock [Builders] SOCIOTECH Labour tree - STRIKE L ; unlock [Builders] SOCIOTECH Labour tree - STRIKE R
+BUILDERS	Politics	4	Builders [Left - level 2] Official Doctrine | Builders [Right - level 2] Security Outpost	Official Doctrine | Security Outpost	Builders [Left - level 1] Workers council | Builders [Right - level 1] Overseers	unlock [Builders] SOCIOTECH Labour tree - SAFETY	unlock [Builders] SOCIOTECH Labour tree - STRIKE L ; unlock [Builders] SOCIOTECH Labour tree - STRIKE R
+BUILDERS	Politics	5	Builders [Left - level 3] Abolition of Privileges | Builders [Right - level 4] Penal Colony	Abolition of Privileges | Penal Colony	Builders [Left - level 2] Official Doctrine | Builders [Right - level 2] Security Outpost	unlock [Builders] SOCIOTECH Labour tree - SAFETY	unlock [Builders] SOCIOTECH Labour tree - STRIKE L ; unlock [Builders] SOCIOTECH Labour tree - STRIKE R
+BUILDERS	Politics	6	Builders [Left - level 2] Selfless Sacrifice | Builders [Right - level 3] Class Segregation	Selfless Sacrifice | Class Segregation	Builders [Left - level 2] Official Doctrine | Builders [Right - level 2] Security Outpost	unlock [Builders] SOCIOTECH Labour tree - SAFETY	unlock [Builders] SOCIOTECH Labour tree - STRIKE L ; unlock [Builders] SOCIOTECH Labour tree - STRIKE R
+BUILDERS	Politics	7	Builders [Left - level 3] Propaganda | Builders [Right - level 3] Strike Busting	Propaganda | Strike Busting	Builders [Left - level 2] Official Doctrine | Builders [Right - level 2] Security Outpost	unlock [Builders] SOCIOTECH Labour tree - SAFETY	unlock [Builders] SOCIOTECH Labour tree - STRIKE L ; unlock [Builders] SOCIOTECH Labour tree - STRIKE R
+BUILDERS	Politics	8	Builders [Left - level 4] Peoples Militia | Builders [Right - level 5] Round-ups	Peoples Militia | Round-ups	Builders [Left - level 3] Abolition of Privileges | Builders [Right - level 4] Penal Colony	unlock [Builders] SOCIOTECH Labour tree - SAFETY	unlock [Builders] SOCIOTECH Labour tree - STRIKE L ; unlock [Builders] SOCIOTECH Labour tree - STRIKE R
+BUILDERS	Politics	9	Builders [Left - level 6] TERROR | Builders [Right - level 5] Rationalised Healthcare	TERROR | Rationalised Healthcare	Builders [Left - level 4] Peoples Militia | Builders [Right - level 4] Penal Colony	unlock [Builders] SOCIOTECH Labour tree - SAFETY	unlock [Builders] SOCIOTECH Labour tree - STRIKE L ; unlock [Builders] SOCIOTECH Labour tree - STRIKE R
+BUILDERS	Politics	10	Builders [Left - level 5] Show of force | Builders [Right - level 6] SERVITUDE	Show of force | SERVITUDE	Builders [Left - level 4] Peoples Militia | Builders [Right - level 5] Round-ups	unlock [Builders] SOCIOTECH Labour tree - SAFETY	unlock [Builders] SOCIOTECH Labour tree - STRIKE L ; unlock [Builders] SOCIOTECH Labour tree - STRIKE R
+Reconquest	[Adaptation- level 0] Cemetery	1	[Adaptation- level 0] Cemetery | [Adaptation- level 0] Put them in the snow	Cemetery | Corpse Disposal	 | 		
+Reconquest	[Adaptation- level 0] Cemetery	2	[Adaptation- level 1] Burial Ceremony | [Adaptation- level 1] Transplantation	Ceremonial Funerals | Organ Transplants	[Adaptation- level 0] Cemetery | [Adaptation- level 0] Put them in the snow		
+Reconquest	[Adaptation- level 0] Poor Soup	1	[Adaptation- level 0] Poor Soup | [Adaptation- level 0] Sawdust in food	Soup | Food Additives	 | 		
+Reconquest	[Adaptation- level 0] RadicalTreatment	1	[Adaptation- level 0] Life Sustain | [Adaptation- level 0] RadicalTreatment	Sustain Life | Radical Treatment	 | 		
+Reconquest	[Adaptation- level 0] RadicalTreatment	2	[Adaptation- level 1] Double Ration | [Adaptation- level 1] Poeple on the floor	Extra Rations for the Ill | Overcrowding	([Adaptation- level 0] RadicalTreatment ou [Adaptation- level 0] Life Sustain) | ([Adaptation- level 0] RadicalTreatment ou [Adaptation- level 0] Life Sustain)		
+Reconquest	[Adaptation- level 0] RadicalTreatment	3	[Adaptation- level 1] Care House	Care House	([Adaptation- level 0] RadicalTreatment ou [Adaptation- level 0] Life Sustain)		
+Reconquest	[Adaptation- level 0] RadicalTreatment	4	[Adaptation- level 2] Triage	Triage	([Adaptation- level 1] Double Ration ou [Adaptation- level 1] Poeple on the floor)		
+Reconquest	[Adaptation- level 0] RadicalTreatment	5	[Adaptation- level 2] Augmentation	Prosthetics	[Adaptation- level 1] Care House		
+Reconquest	[People - level 0] Kids work in light jobs	1	[People - level 0] Child shelters | [People - level 0] Kids work in light jobs	Child Shelters | Child Labour - Safe Jobs	 | 		
+Reconquest	[People - level 0] Kids work in light jobs	2	[People - level 1] Kids work in hard jobs | [People - level 1]EngineerKids | [People - level 1]Med Kids	Child Labour - All Jobs | Engineer Apprentices | Medic Apprentices	[People - level 0] Kids work in light jobs | [People - level 0] Child shelters | [People - level 0] Child shelters		
+Reconquest	[People - level 1] Emergancy shift	1	[People - level 1] Emergancy shift	Emergency Shift			
+Reconquest	[People - level 1] Emergancy shift	2	[People - level 0] Hard work rigor	Extended Shift	[People - level 1] Emergancy shift		
+Reconquest	[People - level 1] Fightclub	1	[People - level 1] Fightclub	Fighting Arena			
+Reconquest	[People - level 1] Fightclub	2	[People - level 2] Dueling Law	Duelling Law	[People - level 1] Fightclub		
+Reconquest	[People - level 1] Fightclub	3	[People - level 0] PublicHouses unlock	Public House	[People - level 1] Fightclub		
+Reconquest	[People - level 1] Fightclub	4	[People - level 1] Prostitiutes	House of Pleasure	[People - level 0] PublicHouses unlock		
+Reconquest	[People - level 1] Fightclub	5	[Adaptation- level 1] Moonshine	Moonshine	[People - level 0] PublicHouses unlock		
+# exclues DEFAULT (cachees) : [Adaptation - level 0 - Endless] Bathhouse, [Adaptation - level 0 - Endless] Cocaine, [Adaptation - level 0 - Endless] Field pharmacy, [Adaptation- level 2] Alternative Food Source
+# exclues TechHaven (cachees) : [Adaptation - level 0 - Endless] Bathhouse, [Adaptation - level 0 - Endless] Cocaine, [Adaptation - level 0 - Endless] Field pharmacy, [Adaptation- level 2] Alternative Food Source, [People - level 0] Child shelters, [People - level 0] Kids work in light jobs, [People - level 1] Kids work in hard jobs, [People - level 1]EngineerKids, [People - level 1]Med Kids
+# exclues REFUGEES (cachees) : [Adaptation - level 0 - Endless] Bathhouse, [Adaptation - level 0 - Endless] Cocaine, [Adaptation - level 0 - Endless] Field pharmacy, [Adaptation- level 2] Alternative Food Source
+# exclues WINTERHOME (cachees) : [Adaptation - level 0 - Endless] Bathhouse, [Adaptation - level 0 - Endless] Cocaine, [Adaptation - level 0 - Endless] Field pharmacy, [Adaptation- level 2] Alternative Food Source
+# exclues WINTERHOME (de depart) : [Adaptation- level 0] Put them in the snow, [People - level 0] Kids work in light jobs, [People - level 0] PublicHouses unlock, [People - level 1] Fightclub, [People - level 1] Kids work in hard jobs
+# exclues WINTERHOME (exclusives d'une loi de depart) : [Adaptation- level 0] Cemetery, [People - level 0] Child shelters
+# exclues WINTERHOME (loi requise absente) : [Adaptation- level 1] Burial Ceremony, [People - level 1]EngineerKids, [People - level 1]Med Kids
+# exclues BUILDERS (cachees) : Builders [LifeConditions - level 1] Alternative Food Source
+# exclues Reconquest (cachees) : [Adaptation - level 0 - Endless] Bathhouse, [Adaptation - level 0 - Endless] Cocaine, [Adaptation - level 0 - Endless] Field pharmacy, [Adaptation- level 2] Alternative Food Source, [Adaptation- level 2] Corps Processing - fertilizer

@@ -24,6 +24,11 @@ void LoisAPApresChargement();
 // ou la partie pas encore relue.
 bool LoisAPRecevoir(const char* arbre, int* rang);
 
+// Arbre AP (nom, comme ReceiveLawProgressive) et poids (nombre de checks)
+// de la loi 'loi' (FrostpunkSociotechEntry). Thread du jeu (construit les
+// arbres au besoin). false pour une loi desactivee ou inconnue.
+bool LoisAPArbreDeLoi(uintptr_t loi, char* arbre, int taille, int* poids);
+
 // F5 : un item pour l'arbre de la loi en attente la plus ancienne (sinon de
 // la derniere loi signee), sur le thread du jeu.
 void LoisAPDemanderTest();

@@ -18,6 +18,7 @@
 //   FrostpunkSociotechSystem : +0xD8 Map {loi, SociotechData} au pas de 0x18,
 //     compte +0xE0 ; +0x10 de l'element = etat (2 = loi active d'office)
 #include "lois.h"
+#include "lois_ap.h"    // LoisAPArbreDeLoi (releve de la table des lois)
 #include "mod_common.h"
 #include "scenario.h"   // FindSceneSystem
 #include <cstring>
@@ -1049,6 +1050,101 @@ void DiagUnlocks()
             printf("[UNLK] reglage d'unlocks %s : depart %s\n", nom, liste[0] ? liste : "(aucun)");
         }
 }
+
+// Releve pour la table des checks de lois (outils\lois_table.py), une ligne
+// par objet, champs separes par " | " :
+//   CAT | nom | prerequis de l'arbre
+//   L | guid | nom | nom affiche (- si non vu) | categorie | activee | groupe
+//     d'exclusion (-) | arbre AP (-) | poids | grille x | grille y |
+//     prerequis | prerequis d'affichage
+//   REG | reglage | lois de depart | lois verrouillees
+//   SCN | scenario | reglages
+// Apres DiagLois (g_lois rempli). Thread du jeu (arbres de lois_ap).
+void DiagTableLois(uintptr_t base)
+{
+    uintptr_t societe = base + OFF_SOCIETY_CONFIG;
+    uintptr_t scenarios = base + OFF_SCENARIOS_CONFIG;
+    printf("[LOITAB] ===== table des lois : %d lois =====\n", g_nLois);
+
+    uintptr_t tabCat = 0; int nCat = 0;
+    LireTableau(societe + CFG_CATEGORIES, tabCat, nCat);
+    for (int c = 0; c < nCat; ++c) {
+        uintptr_t cat = 0;
+        if (!SafeRead((void*)(tabCat + (uintptr_t)c * 8), &cat, 8) || cat <= 0x10000) continue;
+        char nom[96], req[1024] = {};
+        LireTexte(cat + CAT_NOM, nom, sizeof(nom));
+        DecrireListeExigences(cat + CAT_PREREQUIS, req, sizeof(req), 0, " ; ");
+        printf("[LOITAB] CAT | %s | %s\n", nom, req);
+    }
+
+    for (int i = 0; i < g_nLois; ++i) {
+        const Loi& l = g_lois[i];
+        char cle[192], exclusion[96], categorie[96] = "?", arbre[96];
+        LireTexte(l.adr + LOI_NOM_AFFICHE, cle, sizeof(cle));
+        const char* affiche = NomAfficheDe(cle);
+        LireTexte(l.adr + LOI_EXCLUSION, exclusion, sizeof(exclusion));
+        if (!exclusion[0]) strcpy_s(exclusion, "-");
+        for (int c = 0; c < nCat; ++c) {
+            uintptr_t cat = 0; Guid g{};
+            if (SafeRead((void*)(tabCat + (uintptr_t)c * 8), &cat, 8) && cat > 0x10000 &&
+                LireGuid(cat + CAT_GUID, g) && GuidEgal(g, l.categorie)) {
+                LireTexte(cat + CAT_NOM, categorie, sizeof(categorie));
+                break;
+            }
+        }
+        int poids = 0;
+        if (!LoisAPArbreDeLoi(l.adr, arbre, sizeof(arbre), &poids)) strcpy_s(arbre, "-");
+        uint8_t activee = 0;
+        int32_t grille[2] = {};
+        SafeRead((void*)(l.adr + LOI_ACTIVEE), &activee, 1);
+        SafeRead((void*)(l.adr + LOI_GRILLE), grille, 8);
+        char req[2048] = {}, voir[1024] = {};
+        DecrireListeExigences(l.adr + LOI_PREREQUIS, req, sizeof(req), 0, " ; ");
+        DecrireListeExigences(l.adr + LOI_AFFICHAGE, voir, sizeof(voir), 0, " ; ");
+        printf("[LOITAB] L | %016llX | %s | %s | %s | %d | %s | %s | %d | %d | %d | %s | %s\n",
+            (unsigned long long)l.guid.a, l.nom, affiche ? affiche : "-", categorie, activee,
+            exclusion, arbre, poids, grille[0], grille[1], req, voir);
+    }
+
+    uintptr_t tabReg = 0; int nReg = 0;
+    LireTableau(scenarios + CFG_REGLAGES, tabReg, nReg);
+    for (int r = 0; r < nReg; ++r) {
+        uintptr_t reg = 0;
+        if (!SafeRead((void*)(tabReg + (uintptr_t)r * 8), &reg, 8) || reg <= 0x10000) continue;
+        char nom[96], depart[2048], verr[2048];
+        LireTexte(reg + REG_NOM, nom, sizeof(nom));
+        ListeDeLiens(reg + REG_DEPART, depart, sizeof(depart));
+        ListeDeLiens(reg + REG_VERROUILLE, verr, sizeof(verr));
+        printf("[LOITAB] REG | %s | %s | %s\n", nom, depart, verr);
+    }
+
+    uintptr_t tabScn = 0; int nScn = 0;
+    LireTableau(scenarios + CFG_SCENARIOS, tabScn, nScn);
+    for (int s = 0; s < nScn; ++s) {
+        uintptr_t scn = 0;
+        if (!SafeRead((void*)(tabScn + (uintptr_t)s * 8), &scn, 8) || scn <= 0x10000) continue;
+        char nom[96], liste[1024] = {};
+        LireTexte(scn + SCN_NOM, nom, sizeof(nom));
+        uintptr_t tab = 0; int n = 0;
+        LireTableau(scn + SCN_REGLAGES, tab, n);
+        for (int i = 0; i < n; ++i) {
+            Guid g{}; char trouve[96] = "?";
+            if (!LireGuid(tab + (uintptr_t)i * 0x10, g)) continue;
+            for (int r = 0; r < nReg; ++r) {
+                uintptr_t reg = 0; Guid gr{};
+                if (SafeRead((void*)(tabReg + (uintptr_t)r * 8), &reg, 8) && reg > 0x10000 &&
+                    LireGuid(reg + REG_GUID, gr) && GuidEgal(gr, g)) {
+                    LireTexte(reg + REG_NOM, trouve, sizeof(trouve));
+                    break;
+                }
+            }
+            if (i > 0) Ajouter(liste, sizeof(liste), ", ");
+            Ajouter(liste, sizeof(liste), trouve);
+        }
+        printf("[LOITAB] SCN | %s | %s\n", nom, n ? liste : "-");
+    }
+    printf("[LOITAB] releve termine\n");
+}
 } // namespace
 
 void LoisParcourirEvenements(VisiteurEffet_t visiteur)
@@ -1116,6 +1212,7 @@ void LoisPompe()
     if (g_releveDemande) {
         g_releveDemande = false;
         DiagLois();
+        DiagTableLois((uintptr_t)GetModuleHandleW(NULL));   // table des checks de lois
         DiagUnlocks();
         printf("[LOIS] releve termine\n");
     }
