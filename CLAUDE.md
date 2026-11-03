@@ -116,7 +116,7 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
 | `dilemmes_ap.h/.cpp` | **Catalogue des dilemmes Archipelago** (bulles en ville, pièges) : table `DILEMMES_AP` (id, titre, sous-titre, texte, icône, titre de popup, choix si ignoré, ≤ 4 choix `{texte, ressource, quantité signée, effetSpecial}`) ; `DilemmeAPDemander("id")` (tout thread, file) → `DilemmesPompe` (thread du jeu). **Pour ajouter un piège : une entrée dans la table** |
 | `menu_ap.h/.cpp` | **Écran de connexion Archipelago du menu principal** : hook de l'init du panneau principal (`+0x1B28950`), clones d'`EXIT_BUTTON` (libellés Server / Slot name / Password, bouton Connect) et d'un `UITextInput` de panneau en jeu, masque du mot de passe, `mods\ap_connexion.txt` ; Connect → `RequestConnection` (archipelago) |
 | `scenarios_ap.h/.cpp` | **Verrou des scénarios au menu** : hook de `FUN_141283ea0` (prérequis de profil) ; pour la liste de déblocage (`scénario +0x20`) d'un des 6 scénarios AP, la réponse = `ScenarioDebloque(nom)`, alimenté **uniquement** par `ReceiveScenarioUnlock` (archipelago) ; preset `LOCKED_<nom>` sauté (texte de la condition du jeu) ; log `[SCN]` |
-| `victoire.h/.cpp` | **Fin de partie** : hook de `EndGame` (`+0x1301490`, journal `[FIN]` victoire / défaite) ; victoire dans un scénario AP → checks selon le mode (`Complete`, `General`, `Detail`, constante de test `MODE_TEST`) par `SendVictoryCheck` (archipelago) |
+| `victoire.h/.cpp` | **Fin de partie** : hook de `EndGame` (`+0x1301490`, journal `[FIN]` victoire / défaite) ; victoire dans un scénario AP → checks selon le mode (`Complete`, `General` ; `Detail` abandonné et commenté le 2026-11-03 ; constante de test `MODE_TEST`) par `SendVictoryCheck` (archipelago) |
 | `temperature.h/.cpp` | **Température / météo** : relevé F9 (`[TEMP]`, thread du jeu via `TemperaturePompe`) des niveaux, météos, chronologies météo, actes, modifications de difficulté et de la chronologie calculée de la partie ; **montées AP** : hook du recalcul `+0x1812C10`, montées retirées, `TemperatureRecevoirMontee` (← `ReceiveTemperatureRise`, archipelago), `mods\ap_temperature_<GameId>.txt` |
 | `quetes.h/.cpp` | **Quêtes** : relevé F9 (`[QUETE]`, thread du jeu via `QuetesPompe`) des répertoires, quêtes, objectifs, effets, et des événements portant un effet de quête ou d'acte |
 
@@ -565,10 +565,26 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
 - **Difficulté et victoire** — `docs/chantiers/victoire.md`. Détection de
   la difficulté conforme ; `ScenarioUsesGroup` / `ScenarioVictoryId` lisent
   `g_run.scenario` (non testé). Hook de `EndGame` (`FUN_141301490`) : checks
-  de victoire en mode Complete / General / Detail, **cumulatifs**, niveau
-  général = le plus faible des lignes ; `MODE_TEST = Detail` (TEMPORAIRE).
+  de victoire en mode Complete / General, **cumulatifs**, niveau
+  général = le plus faible des lignes ; `MODE_TEST = General` (TEMPORAIRE).
+  Mode Detail (par sous-difficulté) **abandonné le 2026-11-03** : seule la
+  difficulté principale importe (code commenté, pas supprimé).
   Maj+F9 / Ctrl+F9 = victoire / défaite de test (la partie se termine
-  vraiment). Non testé.
+  vraiment). Mode General **validé le 2026-11-03** (Refugees, Hard).
+
+- **Difficulté imposée** — `docs/chantiers/difficulte.md`. Décisions de
+  l'auteur (2026-11-03) : difficulté du YAML **imposée**, curseurs
+  **figés**, Customize = toutes les lignes au niveau cible, 6 scénarios AP,
+  **ironman libre**. `scenarios_ap.cpp` : hook de `FUN_141b2e8c0` (après
+  chaque changement de scénario / bascule ironman : curseurs posés puis
+  désactivés — immobiles, pas grisés, **validé**) et filet
+  `DifficulteImposerAuLancement`, appelé par le hook d'ApplyConfig de
+  `scenario.cpp` (un seul hook par fonction ; niveaux `+0x314` réécrits).
+  Victoire en **ironman** = comptée au moins au niveau cible
+  (`victoire.cpp`, `PartieIronman`) : **validé** (préréglage ironman =
+  Very Hard partout). Log `[DIFF]`. Cible `DIFFICULTE_TEST = 2` (Hard,
+  TEMPORAIRE). **VALIDÉ le 2026-11-03** (Refugees : partie lancée en Hard,
+  victoire → checks General Easy / Medium / Hard).
 
 - **Icône et couleur des messages** — `docs/chantiers/notifications.md`.
   Tous les messages AP restent **ouvrables (type 1)** (exigence de
@@ -586,7 +602,8 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
 `EXPEDITIONS_RAPIDES` (scooting.cpp), `LOIS_SANS_DELAI` (lois.cpp).
 (`SITES_TIRAGE_FIXE = true` est voulu, ce n'est pas du debug.) Valeurs TEMPORAIRES à
 remplacer par le serveur : `IconeCheckDeTest`, `IconeDuCheckDeTest`,
-`AP_NomDuCheck`, `MODE_TEST`, `ScenariosRecevoirItemsDeTest`.
+`AP_NomDuCheck`, `MODE_TEST`, `ScenariosRecevoirItemsDeTest`,
+`DIFFICULTE_TEST` (scenarios_ap.cpp).
 
 ### Approche abandonnée
 

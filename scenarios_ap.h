@@ -22,4 +22,13 @@ int ScenarioDebloquer(const char* nomInterne);
 // (REFUGEES), en attendant le serveur.
 void ScenariosRecevoirItemsDeTest();
 
+// Difficulte imposee (docs/chantiers/difficulte.md) : niveau general cible
+// des parties AP (0 Easy .. 3 Very Hard), -1 si aucun. TEMPORAIRE : constante
+// DIFFICULTE_TEST, viendra de slot_data.
+int DifficulteCible();
+
+// Filet au lancement d'une partie neuve : appele par le hook d'ApplyConfig
+// (scenario.cpp) avant l'original, 'panneau' = panneau des scenarios.
+void DifficulteImposerAuLancement(uintptr_t panneau);
+
 void InstallHooksScenarios(uintptr_t modBase);

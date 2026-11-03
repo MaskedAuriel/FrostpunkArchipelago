@@ -42,6 +42,7 @@
 #include "archipelago.h"
 #include "scenario.h"
 #include "quetes.h"          // TraduireCleJeu
+#include "scenarios_ap.h"    // DifficulteCible
 #include "mod_common.h"
 #include "MinHook.h"
 #include <cstring>
@@ -70,7 +71,8 @@ constexpr int NB_NIVEAUX           = 4;
 constexpr int MAX_LIGNES           = 32;
 
 // TEMPORAIRE : mode de test, en attendant les options du slot.
-constexpr ModeVictoire MODE_TEST = ModeVictoire::Detail;
+// (Detail jusqu'au 2026-11-03, mode abandonne.)
+constexpr ModeVictoire MODE_TEST = ModeVictoire::General;
 
 const char* const NOMS_NIVEAUX[NB_NIVEAUX] = { "Easy", "Medium", "Hard", "Very Hard" };
 
@@ -280,10 +282,30 @@ void EnvoyerUneFois(const char* check)
     SendVictoryCheck(check);
 }
 
+// Mode ironman de la partie en cours (FrostpunkDifficultySystem +0x48
+// "IronmanMode", reflexion FUN_1412f9360).
+bool PartieIronman()
+{
+    uintptr_t sys = FindDifficultySystem();
+    uint8_t v = 0;
+    return sys && SafeRead((void*)(sys + 0x48), &v, 1) && v != 0;
+}
+
 void Victoire(const ScenarioAP& s, const Guid& scn)
 {
     Ligne lignes[MAX_LIGNES];
     int n = LignesDuScenario(scn, lignes, MAX_LIGNES);
+    // Ironman (laisse libre au menu, decision de l'auteur du 2026-11-03) :
+    // la victoire compte au moins au niveau cible du YAML, quel que soit le
+    // niveau lu (difficulte predefinie de l'ironman, souvent "inconnu").
+    int cible = DifficulteCible();
+    if (PartieIronman()) {
+        printf("[FIN]   partie en ironman : chaque ligne comptee au moins au niveau cible %s\n",
+               cible >= 0 ? NOMS_NIVEAUX[cible] : "(aucun)");
+        if (cible >= 0)
+            for (int i = 0; i < n; ++i)
+                if (lignes[i].niveau < cible) lignes[i].niveau = cible;
+    }
     int general = n > 0 ? NB_NIVEAUX - 1 : -1;
     for (int i = 0; i < n; ++i) {
         printf("[FIN]   ligne \"%s\" (reglages %s, affiche \"%s\") : niveau %s\n", lignes[i].nom, lignes[i].id,
@@ -292,7 +314,7 @@ void Victoire(const ScenarioAP& s, const Guid& scn)
     }
     printf("[FIN]   %d ligne(s), niveau general = %s, mode %s\n", n,
            general >= 0 ? NOMS_NIVEAUX[general] : "inconnu",
-           MODE_TEST == ModeVictoire::Complete ? "Complete" : MODE_TEST == ModeVictoire::General ? "General" : "Detail");
+           MODE_TEST == ModeVictoire::Complete ? "Complete" : "General");
 
     char check[256];
     switch (VictoireMode()) {
@@ -306,14 +328,16 @@ void Victoire(const ScenarioAP& s, const Guid& scn)
             EnvoyerUneFois(check);
         }
         break;
-    case ModeVictoire::Detail:
-        for (int i = 0; i < n; ++i)
-            for (int j = 0; j <= lignes[i].niveau; ++j) {
-                _snprintf_s(check, sizeof(check), _TRUNCATE, "%s - Victory (%s: %s)", s.affiche, lignes[i].nom,
-                            NOMS_NIVEAUX[j]);
-                EnvoyerUneFois(check);
-            }
-        break;
+    // Mode Detail abandonne le 2026-11-03 (decision de l'auteur : seule la
+    // difficulte principale importe). Garde en commentaire :
+    // case ModeVictoire::Detail:
+    //     for (int i = 0; i < n; ++i)
+    //         for (int j = 0; j <= lignes[i].niveau; ++j) {
+    //             _snprintf_s(check, sizeof(check), _TRUNCATE, "%s - Victory (%s: %s)", s.affiche, lignes[i].nom,
+    //                         NOMS_NIVEAUX[j]);
+    //             EnvoyerUneFois(check);
+    //         }
+    //     break;
     }
 }
 

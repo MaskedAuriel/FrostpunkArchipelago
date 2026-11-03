@@ -47,6 +47,27 @@
 // espace (FUN_14111bef0 ; un texte vide ne remplace pas celui de la recette).
 // Le bouton est le nouvel enfant de la colonne **(panneau + 0xD8) (ajoute a
 // la fin, ou en tete pour le scenario principal).
+//
+// Difficulte imposee (2026-11-03, docs/chantiers/difficulte.md). Decisions de
+// l'auteur : difficulte du YAML IMPOSEE et curseurs FIGES, personnalisation =
+// toutes les lignes au niveau cible, 6 scenarios AP, ironman libre.
+// Decompiles du panneau des scenarios :
+//  - +0x140 : poignee du curseur principal ; +0x1C8 : paires {curseur de
+//    FrostpunkUIConfig +0xDC0 (0xB8), widget du curseur de la ligne}, compte
+//    +0x1D0 (FUN_141b2ac50) ; +0x198/+0x1A0/+0x1B0 : scenarios selectionnables
+//    et indice du scenario affiche ; +0x1E0 : mode ironman.
+//  - Widget curseur : +0x314 = niveau (0 Easy .. 3 Very Hard) ;
+//    FUN_141518b70(widget, niveau, forcer) le pose (poignee + ecouteur : le
+//    principal recopie sur les lignes, FUN_141b2d810).
+//  - FUN_141b2e410 : a chaque changement de scenario, tous les curseurs a
+//    Medium, visibilite des lignes, puis FUN_141b2e8c0(panneau, 0).
+//  - FUN_141b2e8c0(panneau, ironman) : pose +0x1E0, bouton Customize actif
+//    si pas ironman, masque flou. Aussi appelee par le bouton ironman
+//    (FUN_141b2d7b0). -> point du verrou (apres l'original).
+//  - FUN_141b2a9c0 (ApplyConfig, appele par Start via FUN_141b2ea10) : sans
+//    ironman, applique le niveau +0x314 de chaque ligne au systeme de
+//    difficulte (FUN_1412f9b20). -> filet : niveaux reecrits avant l'original.
+//  - FUN_14105a3a0(element, actif, 1) : active / desactive un element.
 // ---------------------------------------------------------------------------
 #include "scenarios_ap.h"
 #include "archipelago.h"
@@ -293,7 +314,146 @@ void hkCreerBouton(uintptr_t panneau, uintptr_t scn, uintptr_t debloque, uintptr
     }
 }
 
+// --- Difficulte imposee ------------------------------------------------------------
+typedef void (*Ironman_t)(uintptr_t panneau, uintptr_t ironman, uintptr_t p3, uintptr_t p4);
+typedef void (*PoserNiveau_t)(uintptr_t widget, uintptr_t niveau, uintptr_t forcer, uintptr_t p4);
+typedef void (*ActiverElement_t)(uintptr_t element, uintptr_t actif, uintptr_t p3, uintptr_t p4);
+
+constexpr uintptr_t OFF_IRONMAN          = 0x1B2E8C0;   // FUN_141b2e8c0
+constexpr uintptr_t OFF_POSER_NIVEAU     = 0x1518B70;   // FUN_141518b70
+constexpr uintptr_t OFF_ACTIVER_ELEMENT  = 0x105A3A0;   // FUN_14105a3a0
+constexpr int PAN_CURSEUR_PRINCIPAL = 0x140;
+constexpr int PAN_SCENARIOS         = 0x198;
+constexpr int PAN_NB_SCENARIOS      = 0x1A0;
+constexpr int PAN_INDICE            = 0x1B0;
+constexpr int PAN_LIGNES            = 0x1C8;  // paires {curseur, widget}, compte +0x1D0
+constexpr int PAN_IRONMAN           = 0x1E0;
+constexpr int CUR_NIVEAU            = 0x314;
+
+// TEMPORAIRE : difficulte generale du YAML (0 Easy, 1 Medium, 2 Hard,
+// 3 Very Hard), viendra du serveur (slot_data). -1 = pas de verrou.
+constexpr int DIFFICULTE_TEST = 2;
+const char* const NOMS_NIVEAUX[] = { "Easy", "Medium", "Hard", "Very Hard" };
+
+Ironman_t oIronman = nullptr;
+bool g_curseursFiges = false;   // les curseurs ont ete desactives par le mod
+
+// Scenario affiche par le panneau (nom interne), sinon false.
+bool ScenarioDuPanneau(uintptr_t panneau, char* nom, int taille)
+{
+    nom[0] = 0;
+    uintptr_t tab = 0, scn = 0;
+    int32_t n = 0, i = -1;
+    if (!SafeRead((void*)(panneau + PAN_SCENARIOS), &tab, 8) ||
+        !SafeRead((void*)(panneau + PAN_NB_SCENARIOS), &n, 4) ||
+        !SafeRead((void*)(panneau + PAN_INDICE), &i, 4) ||
+        tab <= 0x10000 || i < 0 || i >= n || n > 256 ||
+        !SafeRead((void*)(tab + (uintptr_t)i * 8), &scn, 8) || scn <= 0x10000) return false;
+    return LireNomScenario(scn, nom, taille);
+}
+
+// Niveau impose pour le scenario affiche, ou -1 (hors AP, ironman, pas de cible).
+int NiveauImpose(uintptr_t panneau, char* nom, int taille)
+{
+    if (DIFFICULTE_TEST < 0 || DIFFICULTE_TEST > 3) return -1;
+    if (!ScenarioDuPanneau(panneau, nom, taille) || !EstScenarioAP(nom)) return -1;
+    uint8_t ironman = 0;
+    if (!SafeRead((void*)(panneau + PAN_IRONMAN), &ironman, 1) || ironman) return -1;
+    return DIFFICULTE_TEST;
+}
+
+// Widgets des curseurs : principal puis lignes. Renvoie le nombre.
+int WidgetsCurseurs(uintptr_t panneau, uintptr_t* out, int max)
+{
+    int n = 0;
+    uintptr_t p = 0, w = 0;
+    if (SafeRead((void*)(panneau + PAN_CURSEUR_PRINCIPAL), &p, 8) && p > 0x10000 &&
+        SafeRead((void*)p, &w, 8) && w > 0x10000 && n < max) out[n++] = w;
+    uintptr_t tab = 0;
+    int32_t nb = 0;
+    if (!SafeRead((void*)(panneau + PAN_LIGNES), &tab, 8) ||
+        !SafeRead((void*)(panneau + PAN_LIGNES + 8), &nb, 4) || tab <= 0x10000 || nb <= 0 || nb > 64) return n;
+    for (int i = 0; i < nb && n < max; ++i)
+        if (SafeRead((void*)(tab + (uintptr_t)i * 0x10 + 8), &w, 8) && w > 0x10000) out[n++] = w;
+    return n;
+}
+
+// Pose (ou retire) le verrou sur les curseurs du panneau.
+void VerrouillerCurseurs(uintptr_t panneau)
+{
+    char nom[32];
+    int niveau = NiveauImpose(panneau, nom, sizeof(nom));
+    uintptr_t w[65];
+    int n = WidgetsCurseurs(panneau, w, 65);
+    if (niveau < 0) {
+        if (!g_curseursFiges) return;
+        g_curseursFiges = false;
+        __try {
+            for (int i = 0; i < n; ++i) ((ActiverElement_t)(g_base + OFF_ACTIVER_ELEMENT))(w[i], 1, 1, 0);
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER) {
+            printf("[DIFF] EXCEPTION 0x%08lX en liberant les curseurs\n", GetExceptionCode());
+            return;
+        }
+        printf("[DIFF] \"%s\" : curseurs liberes (%d)\n", nom[0] ? nom : "?", n);
+        return;
+    }
+    __try {
+        // Principal d'abord (son ecouteur recopie sur les lignes), puis
+        // chaque ligne explicitement, puis desactivation.
+        for (int i = 0; i < n; ++i) ((PoserNiveau_t)(g_base + OFF_POSER_NIVEAU))(w[i], (uintptr_t)niveau, 1, 0);
+        for (int i = 0; i < n; ++i) ((ActiverElement_t)(g_base + OFF_ACTIVER_ELEMENT))(w[i], 0, 1, 0);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        printf("[DIFF] EXCEPTION 0x%08lX en figeant les curseurs de \"%s\"\n", GetExceptionCode(), nom);
+        return;
+    }
+    g_curseursFiges = true;
+    printf("[DIFF] \"%s\" : %d curseurs figes a %s\n", nom, n, NOMS_NIVEAUX[niveau]);
+}
+
+void hkIronman(uintptr_t panneau, uintptr_t ironman, uintptr_t p3, uintptr_t p4)
+{
+    oIronman(panneau, ironman, p3, p4);
+    VerrouillerCurseurs(panneau);
+}
+
 } // namespace
+
+// Filet au lancement : quel que soit l'etat des curseurs, chaque ligne
+// est reecrite au niveau impose juste avant l'application. Appele par le
+// hook d'ApplyConfig de scenario.cpp (un seul hook possible par fonction :
+// le second hook pose le 2026-11-03 faisait echouer celui de scenario.cpp).
+void DifficulteImposerAuLancement(uintptr_t panneau)
+{
+    char nom[32];
+    int niveau = NiveauImpose(panneau, nom, sizeof(nom));
+    if (niveau >= 0) {
+        uintptr_t w[65];
+        int n = WidgetsCurseurs(panneau, w, 65), corriges = 0;
+        for (int i = 0; i < n; ++i) {
+            int32_t v = -1;
+            if (!SafeRead((void*)(w[i] + CUR_NIVEAU), &v, 4)) continue;
+            if (v != niveau) {
+                int32_t nv = niveau;
+                if (SafeWrite((void*)(w[i] + CUR_NIVEAU), &nv, 4)) ++corriges;
+            }
+        }
+        printf("[DIFF] lancement de \"%s\" : difficulte imposee %s (%d curseurs, %d corriges)\n", nom,
+               NOMS_NIVEAUX[niveau], n, corriges);
+    }
+    else if (nom[0]) {
+        uint8_t ironman = 0;
+        SafeRead((void*)(panneau + PAN_IRONMAN), &ironman, 1);
+        printf("[DIFF] lancement de \"%s\" : difficulte libre (%s)\n", nom,
+               ironman ? "ironman" : "hors Archipelago");
+    }
+}
+
+int DifficulteCible()
+{
+    return (DIFFICULTE_TEST >= 0 && DIFFICULTE_TEST <= 3) ? DIFFICULTE_TEST : -1;
+}
 
 bool ScenarioDebloque(const char* nomInterne)
 {
@@ -327,7 +487,7 @@ void InstallHooksScenarios(uintptr_t modBase)
     struct { uintptr_t off; void* hk; void** orig; const char* nom; } h[] = {
         { OFF_PREREQUIS_PROFIL, (void*)&hkPrerequisProfil, (void**)&oPrerequisProfil, "des prerequis de profil" },
         { OFF_CREER_BOUTON, (void*)&hkCreerBouton, (void**)&oCreerBouton, "du bouton de scenario" },
-    };
+        { OFF_IRONMAN, (void*)&hkIronman, (void**)&oIronman, "du mode ironman (verrou de difficulte)" },    };
     for (auto& x : h) {
         void* p = (void*)(modBase + x.off);
         bool ok = MH_CreateHook(p, x.hk, x.orig) == MH_OK && MH_EnableHook(p) == MH_OK;

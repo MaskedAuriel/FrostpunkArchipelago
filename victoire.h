@@ -7,13 +7,16 @@
 //   General  : un check par niveau de difficulte generale (Easy, Medium,
 //              Hard, Very Hard), cumulatif ; niveau general d'une difficulte
 //              personnalisee = le plus faible des sous-difficultes ;
-//   Detail   : un check par sous-difficulte (ligne de curseur) et par niveau,
-//              cumulatif (4 checks par ligne).
+//   (Detail  : un check par sous-difficulte (ligne de curseur) et par niveau,
+//              cumulatif (4 checks par ligne). ABANDONNE le 2026-11-03,
+//              decision de l'auteur : seule la difficulte principale importe.
+//              Code commente, pas supprime.)
+// Les lignes de curseur restent lues : le niveau general en est deduit.
 // ---------------------------------------------------------------------------
 #pragma once
 #include <cstdint>
 
-enum class ModeVictoire { Complete = 0, General = 1, Detail = 2 };
+enum class ModeVictoire { Complete = 0, General = 1 /*, Detail = 2 (abandonne le 2026-11-03) */ };
 
 // Mode courant (TEMPORAIRE : constante de test, viendra des options du slot).
 ModeVictoire VictoireMode();

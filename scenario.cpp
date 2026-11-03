@@ -1,6 +1,7 @@
 
 #include "scenario.h"
 #include "mod_common.h"
+#include "scenarios_ap.h"
 #include "MinHook.h"
 #include <intrin.h>   // _ReturnAddress
 
@@ -76,6 +77,9 @@ static void hkApplyConfig(uintptr_t self, uintptr_t a2, uintptr_t a3, uintptr_t 
             }
         }
     }
+
+    // Difficulte du YAML imposee aux scenarios AP (scenarios_ap.cpp).
+    if (self) DifficulteImposerAuLancement(self);
 
     oApplyConfig(self, a2, a3, a4);
 }
