@@ -295,3 +295,88 @@
   départ, C caché, R lien Reveals ; un scénario relevé remplace ses lignes ;
   amorcé le 2026-11-03 depuis les analyses des journaux écrasés, sans les
   liens Reveals des sites `Start`).
+- **Contenu réel des sites (2026-11-03, demande de la session apworld :
+  survivants et noyaux = item useful ; non testé)**. `known_sites.h` ne voyait
+  que `comp +0x48` (105 sites « (rien) »). Décompilés : composant
+  (`FUN_141a157b0`, 0x170) `+0x48` Resources, `+0x60` BonusResources, `+0x78`
+  Technologies, `+0x90` Artifacts, **`+0xA8` OutsiderSurvivors**
+  (`FrostpunkSurvivorsEntry` 0x24 : `+0x00` Count, `+0x04` lien de classe
+  sociale), `+0x110` ExplorationDilemma (indice retenu). Gabarit
+  (`FUN_141a161d0`) : **`+0x118` Treasure** (`FrostpunkExpeditionSiteTreasure
+  Entry` 0xF0, `FUN_141a17aa0` : `+0x00` Resources / `+0x18` Bonus
+  (`FrostpunkResourceAmount` 0x14 : lien `+0x00`, Amount `+0x10`), `+0x30`
+  Technologies, `+0x48` Artifacts, `+0x70` Survivors, `+0x88` dilemme
+  d'arrivée en ville, `+0xA8` / `+0xC0` ressources aléatoires (0x20), `+0xD8`
+  survivants aléatoires (0x30)) ; `+0x3D0` ExplorationDilemma (0x28 : `+0x00`
+  lien du dilemme, `+0x10` conditions) ; `+0x3E8` ExplorationInstantEffect
+  (0x78 : `+0x00` liens `FrostpunkWorldMapEffectEntry`, `+0x18` conditions).
+  Effets à ressources : `ChangeExpeditionResourcesEffect` et
+  `GiveResourcesToStationingExpeditionEffect` (`+0x18` montants),
+  `ChangeResourcesEffect` (`+0x18` ressource, `+0x28` Addition, expression).
+  Collections (recherche par lien = vtable `+0x88`) : classes sociales `base +
+  0x4072078` (PopulationConfig `0x4072020 +0x58`), effets de carte `base +
+  0x40806F8` (WorldMapConfig `0x40805A0 +0x158`, entrée `+0x18` effets).
+  `FrostpunkResourceEntry` : `+0x28` Display name.
+  → **F9 v4** : `sites_contenu.cpp` (`SitesContenuReleve`, appelé par
+  `QuetesPompe`) : lignes `[SCONT]` S / R / P / X / D / C / E (format en tête
+  du fichier) et `[SRES]` (ressources de l'économie : nom interne, GUID, nom
+  affiché, pour vérifier `structuralprofiles` / `steelcomposite` /
+  `steamexchanger` de Last Autumn). À faire sur **partie neuve** dans les 6
+  scénarios.
+  **Relevé du 2026-11-03 (6 scénarios, parties neuves, 211 sites)** :
+  survivants dans le composant (`+0xA8`) pour 30 sites (A New Home 14, The
+  Arks 1, Refugees 7, Winterhome 3, Last Autumn 2, On the Edge 3) ; classes
+  sociales `Workers` / `Specialists` / `Children` / `Automaton`. Gabarit et
+  composant concordent : les survivants et ressources « aléatoires » du
+  gabarit sont tirés à la création du site (valeurs du composant). Aucun
+  survivant ni noyau ne vient d'un choix de dilemme : les dilemmes
+  d'exploration ordonnent surtout une tâche à l'expédition
+  (`OrderStationingExpeditionToPerformTaskEffect`, `+0x18` = n° de tâche),
+  donnent une technologie aléatoire (4 sites A New Home : `Site_051_A2`,
+  `056_B3`, `060_C3`, `052_A3`, choix « Take technology ») ou retirent des
+  ressources (`63. Convoy in Distress` : −10 Steel Plates, −20 Steam Tools).
+  76 sites ne donnent rien (landmarks, mirages, sites `[food]` de Last
+  Autumn exploités par avant-poste, variantes `-dead` de Refugees, `TG*` /
+  `TD*` d'On the Edge). `BonusResources` (`+0x60`) non vide sur 7 sites.
+  **Noms mod de Last Autumn confirmés par GUID** (`[SRES]`) : `Wooden
+  Materials` = `structuralprofiles`, `Steel Plates` = `steelcomposite`,
+  `Steam Tools` = `steamexchanger` (noms affichés hors Last Autumn :
+  Structural Profiles, Steel Composites, Steam Exchangers).
+  → **`outils\sites_contenu.py [journal]`** → **`outils\sites_contenu.tsv`**
+  (scenario | site | source `direct` / `bonus` / `dilemme <nom> choix N` |
+  ressources | survivants | technologies | texte du choix), 224 lignes.
+  Limite : les **quantités** tirées ne sont peut-être pas couvertes par la
+  graine fixe (non vérifié sur deux parties) ; la présence d'un type l'est.
+  **Retour de l'auteur (2026-11-03)** : les 4 sites « Take technology »
+  d'A New Home ne donnent **rien** en jeu → l'effet `GiveRandomTechnology…`
+  est ignoré par le script (sites vides). Les quantités dépendent
+  probablement de la difficulté et sont tirées au hasard : seule la nature
+  du contenu compte (survivants / noyaux / ressources seules).
+  **Quantités et difficulté (2026-11-03, vérification demandée par
+  l'auteur : des quantités variables ajouteraient des checks)**. Décompilés :
+  `FUN_1418f1440` (système de tirage) appelle, après le tirage des sites,
+  **`FUN_1418ef2f0(&sortie, &sites, table)`** : les **totaux** de la table du
+  scénario (`+0x30` ressources, `+0x48` bonus, `+0x60` survivants,
+  `FrostpunkResourceAmount` / survivants) sont répartis entre les sites tirés
+  (enregistrements 0x18, 1er qword = entité) après un mélange par le
+  générateur global `DAT_142a12d60/64` ; puis `FUN_141889690` (ressources
+  `+0x48`), `FUN_141889610` (bonus `+0x60`), `FUN_141889930` (survivants
+  `+0xA8`) **ajoutent tel quel**. **Aucune lecture de la difficulté** dans
+  cette chaîne : les quantités ne varient que par le hasard (graine non fixée
+  jusqu'ici : `hkTirerTable` ne couvrait que `FUN_1418f2a30`). → hook
+  **`hkRepartirContenu`** (scooting.cpp, `+0x18EF2F0`) : sites triés par
+  position, graine fixe (`GRAINE_SITES_A/B ^ 0x5A5A5A5A`), état rendu après.
+  Log `[SITES] repartition du contenu fixe : N site(s), tries par position`.
+  Non testé : deux parties neuves du même scénario doivent donner les mêmes
+  lignes `[SCONT]`.
+  **VALIDÉ le 2026-11-03** (A New Home, 2 parties neuves) : `repartition du
+  contenu fixe : 42 site(s), tries par position` les deux fois, 144 lignes
+  de contenu identiques. Les relevés des 5 autres scénarios (avant le hook)
+  sont à refaire ; `sites_contenu.py` est désormais **cumulatif** (un
+  scénario relevé remplace ses lignes de la table).
+  **Relevé des 5 autres scénarios (2026-11-03, répartition fixe)** : table
+  `outils\sites_contenu.tsv` complète (220 lignes, 211 sites). Mêmes comptes
+  qu'avant le hook : sites avec survivants A New Home 14, The Arks 1,
+  Refugees 7, Winterhome 3, Last Autumn 2, On the Edge 3 ; avec noyaux
+  (contenu direct) 10 / 10 / 9 / 6 / 3 / 0 : seules les quantités bougeaient.
+  **Table VALIDÉE par l'auteur le 2026-11-03.**

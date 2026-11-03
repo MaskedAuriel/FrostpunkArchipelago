@@ -45,6 +45,8 @@ int ExpeditionVisee();
 // F9 (thread du jeu) : une ligne "[SXLS]" par site d'exploration de la partie
 // (noms internes et affiches, contenu), pour outils\quetes_excel.py.
 void ScootingReleverSites();
+// Nom interne d'un gabarit de site (cle de SITE_PAYLOADS), "" si illisible.
+bool ScootingNomDuGabarit(uintptr_t tpl, char* out, int maxlen);
 // Nom interne du gabarit d'un GUID (pool des gabarits, sans chargement).
 bool ScootingNomGabaritParGuid(const uint8_t* guid, char* out, int taille);
 // F9 (thread du jeu) : sites de la partie designes par le nom d'entite pointe

@@ -1,0 +1,221 @@
+scenario	site	source	ressources	survivants	technologies	detail
+DEFAULT	Site_002_Crash_Site	direct	rawfood:47, wood:144	-	-	-
+DEFAULT	Site_004_Camp_of_the_Dead	direct	steamcore:1, steel:69	-	-	-
+DEFAULT	Site_059_C2	direct	-	-	-	-
+DEFAULT	[t-plain][landmark]site10	direct	-	-	-	-
+DEFAULT	[t-plain]resources04	direct	wood:257	-	-	-
+DEFAULT	Site_014_Fugitives_Camp	direct	-	engineers:19, workers:27	-	-
+DEFAULT	Site_051_A2	direct	steel:105, coal:113	-	-	-
+DEFAULT	Site_056_B3	direct	-	-	-	-
+DEFAULT	Site_058_C1	direct	-	engineers:18	-	-
+DEFAULT	Site_022_Burned_Bridge	bonus	steamcore:2, steel:93	-	-	-
+DEFAULT	Site_022_Burned_Bridge	direct	-	automaton:1	-	-
+DEFAULT	Site_021_Rebels_Colony	bonus	steel:109, wood:111	-	-	-
+DEFAULT	Site_021_Rebels_Colony	direct	-	children:7, engineers:18, workers:35	-	-
+DEFAULT	Site_057_C0	direct	-	workers:12, children:7	-	-
+DEFAULT	Site_013_Observatory_Ruins	direct	-	children:4, engineers:18, workers:12	-	-
+DEFAULT	Site_049_A0	direct	-	workers:11, children:7	-	-
+DEFAULT	Site_016_Tesla_City	direct	-	-	-	-
+DEFAULT	Site_017_Inventors_End	direct	-	workers:36	-	-
+DEFAULT	Site_003_Temporary_Settlement	direct	steamcore:1, wood:211	-	-	-
+DEFAULT	Site_050_A1	direct	-	engineers:19	-	-
+DEFAULT	[t-plain]resources02	direct	rawfood:47, wood:209	-	-	-
+DEFAULT	Site_054_B1	direct	-	-	-	-
+DEFAULT	Site_019_Icebound_Dreadnought	direct	steamcore:2, steel:128, wood:211	-	-	-
+DEFAULT	Site_023_Miners_Shack	direct	steamcore:1, ration:102, wood:61	-	-	-
+DEFAULT	Site_018_Fishermen_Village	direct	steamcore:2	-	-	-
+DEFAULT	Site_018_Fishermen_Village	bonus	wood:279	-	-	-
+DEFAULT	Site_060_C3	direct	-	-	-	-
+DEFAULT	Site_006_Frozen_Convoy	direct	steamcore:1, ration:98, wood:208	-	-	-
+DEFAULT	Site_020_Research_Station	direct	steamcore:2, steel:66, wood:135	-	-	-
+DEFAULT	[t-plain]resources01	direct	rawfood:56	-	-	-
+DEFAULT	Site_011_Ice_Corridor	direct	-	-	-	-
+DEFAULT	Site_008_Abandoned_Weather_Station	direct	steamcore:1, coal:87	-	-	-
+DEFAULT	Site_053_B0	direct	-	workers:12, children:7	-	-
+DEFAULT	Site_010_Unfinished_Shelter	direct	-	children:34	-	-
+DEFAULT	Site_015_Coal_Mine	direct	coal:266	-	-	-
+DEFAULT	Site_015_Coal_Mine	bonus	steamcore:2, steel:199, wood:209	-	-	-
+DEFAULT	[t-plain]resources03	direct	steel:104, coal:134	-	-	-
+DEFAULT	[t-plain][landmark]site09	direct	-	-	-	-
+DEFAULT	Site_005_Dreadnought_Landing	direct	steamcore:1, steel:128, wood:115	-	-	-
+DEFAULT	Site_007_City_Ruins	direct	steamcore:2	-	-	-
+DEFAULT	Site_012gc_Bear_Cave	direct	-	children:4, engineers:19, workers:12	-	-
+DEFAULT	Site_001_Lost_Expedition	direct	-	children:4, engineers:10, workers:22	-	-
+DEFAULT	Site_055_B2	direct	-	-	-	-
+DEFAULT	Site_009_Geothermal_Vent	direct	-	children:7, workers:22	-	-
+DEFAULT	Site_024_Grisly_Grove	direct	wood:247	-	-	-
+DEFAULT	Site_052_A3	direct	AP_Item:1	-	-	-
+TechHaven	[quest]SouthPass	direct	wood:104	-	-	-
+TechHaven	[t-plain]resources04	direct	wood:190	-	-	-
+TechHaven	[t-plain]resources06	direct	steel:92	-	-	-
+TechHaven	[expedition-extra]Snowcrawler	direct	steamcore:3	-	-	-
+TechHaven	[NM]NewManchester	direct	-	-	-	-
+TechHaven	[NM-extra]Snowpiercer	direct	steel:90, steamcore:3	-	-	-
+TechHaven	[t-mountains]resources02	direct	coal:175, steel:74	-	-	-
+TechHaven	[t-plain][steamcore]site03	direct	steel:110, steamcore:3	-	-	-
+TechHaven	[t-plain][landmark]site07	direct	-	-	-	-
+TechHaven	[t-plain]resources02	direct	wood:160, rawfood:38	-	-	-
+TechHaven	[quest]Expedition03	direct	coal:50, wood:100, steel:100, steamcore:3	-	1	-
+TechHaven	[t-plain][landmark]site11	direct	-	-	-	-
+TechHaven	[t-plain][steamcore]site02	direct	coal:142, steamcore:3	-	-	-
+TechHaven	[t-plain][landmark]site06	direct	-	-	-	-
+TechHaven	[quest]MistyValley	direct	coal:99, steel:59	-	-	-
+TechHaven	[NM]Expedition01	direct	wood:106	-	-	-
+TechHaven	[t-mountains]resources03	direct	coal:175, steel:108	-	-	-
+TechHaven	[NM]Expedition02	direct	steamcore:1	-	-	-
+TechHaven	[quest]Expedition02	direct	-	automaton:1	-	-
+TechHaven	[t-plain][steamcore]site05	direct	steel:112, steamcore:3	-	-	-
+TechHaven	[quest]Expedition01	direct	steel:23, steamcore:1	-	-	-
+TechHaven	[t-plain]resources03	direct	coal:115, steel:73	-	-	-
+TechHaven	[t-plain][landmark]site08	direct	-	-	-	-
+TechHaven	[t-plain][steamcore]site01	direct	coal:144, steel:109, steamcore:3	-	-	-
+TechHaven	[t-plain][steamcore]site04	direct	rawfood:46, steamcore:3	-	-	-
+TechHaven	[t-plain][landmark]site03	direct	-	-	-	-
+TechHaven	[t-plain][landmark]site04	direct	-	-	-	-
+TechHaven	[t-plain][landmark]site05	direct	-	-	-	-
+TechHaven	[t-mountains]resources01	direct	wood:160, rawfood:39	-	-	-
+TechHaven	[NM]Expedition03	direct	wood:130	-	-	-
+TechHaven	[t-plain]resources01	direct	rawfood:47	-	-	-
+REFUGEES	[t-plain]resources05	direct	wood:117, rawfood:56	-	-	-
+REFUGEES	[outpost-wood]Frozen_Forest	direct	wood:117	-	-	-
+REFUGEES	[t-plain][landmark]site08	direct	-	-	-	-
+REFUGEES	[t-plain][steamcore]site02	direct	coal:264, steamcore:2	-	-	-
+REFUGEES	[t-plain]resources01	direct	rawfood:54	-	-	-
+REFUGEES	[t-plain]resources02	direct	wood:142, rawfood:45	-	-	-
+REFUGEES	[ref]White_Pass-dead	direct	-	-	-	-
+REFUGEES	[lordCamp] Camp_C	direct	-	engineers:20, children:45	-	-
+REFUGEES	[ref]Builder_Camp	direct	AP_Item:1	-	-	-
+REFUGEES	[t-plain][steamcore]Iron_Bank	direct	steel:75, steamcore:2	-	-	-
+REFUGEES	[ref]Trail_Bend-dead	direct	-	-	-	-
+REFUGEES	[ref]Red_Flag_Camp	direct	-	workers:25, engineers:15	-	-
+REFUGEES	[t-plain]resources04	direct	wood:173	-	-	-
+REFUGEES	Site_015_Coal_Mine	direct	coal:698	-	-	-
+REFUGEES	Site_015_Coal_Mine	bonus	wood:86, steamcore:1	-	-	-
+REFUGEES	[ref]Landing_Place	direct	wood:175	-	-	-
+REFUGEES	[ref]White_Pass	direct	-	workers:38, engineers:10	-	-
+REFUGEES	[ref]Black_Spire-dead	direct	-	-	-	-
+REFUGEES	[ref]Radio_Mast	direct	steel:60, steamcore:2	-	-	-
+REFUGEES	[t-plain][steamcore]Crash_Site	direct	coal:262, steel:61, steamcore:2	-	-	-
+REFUGEES	[t-plain][steamcore]Yellow_Cat	direct	steel:61, steamcore:2	-	-	-
+REFUGEES	[ref]Black_Spire	direct	-	workers:38	-	-
+REFUGEES	[t-coast]Canning_Factory	direct	steel:38, rawfood:29, ration:425	-	-	-
+REFUGEES	[t-plain]Hangmans_Hill	direct	steamcore:1	-	-	-
+REFUGEES	[ref]Trail_Bend	direct	-	engineers:4, children:15	-	-
+REFUGEES	[t-plain][landmark]site01	direct	-	-	-	-
+REFUGEES	[lordCamp] Camp_B	direct	-	engineers:5, workers:35, children:35	-	-
+REFUGEES	[t-plain][landmark]site06	direct	-	-	-	-
+REFUGEES	[ref]Wretched_Hulks	direct	steel:90	-	-	-
+REFUGEES	[ref]Ocean_Liner	direct	coal:262, steamcore:4	-	-	-
+REFUGEES	[t-plain]resources03	direct	coal:214, steel:60	-	-	-
+REFUGEES	[t-mountains][steamcore]Rockslide	direct	steel:75, steamcore:2	-	-	-
+REFUGEES	[t-plain][landmark]site04	direct	AP_Item:1	-	-	-
+REFUGEES	[lordCamp] Camp_A	direct	-	engineers:15, workers:50, children:35	-	-
+REFUGEES	[outpost]Fishermen_Village	direct	rawfood:25	-	-	-
+REFUGEES	[outpost]Fishermen_Village	bonus	wood:114, steamcore:1	-	-	-
+REFUGEES	[t-plain][steamcore]site05	direct	steel:88, steamcore:2	-	-	-
+REFUGEES	[t-coast]Fishing_Boat	direct	steel:49, rawfood:46	-	-	-
+WINTERHOME	[dread02]_Dismantled_Dreadnought_1	direct	steel:127, steamcore:1	-	-	-
+WINTERHOME	[t-plain][landmark]site11	direct	-	-	-	-
+WINTERHOME	[lore03]_Steel_Bridge	direct	-	automaton:1	-	-
+WINTERHOME	[lore06]_Snow_Cliff	direct	steamcore:1	-	-	-
+WINTERHOME	[t-plain][landmark]site10	direct	-	-	-	-
+WINTERHOME	[lore04]_Storm_Shelter	direct	-	engineers:20	-	-
+WINTERHOME	[t-plain][landmark]site09	direct	-	-	-	-
+WINTERHOME	[lore11]_Mass_Grave	direct	steamcore:2	-	-	-
+WINTERHOME	[t-plain][landmark]site06	direct	-	-	-	-
+WINTERHOME	[lore08]_Freshwater_Springs	direct	rawfood:85	-	-	-
+WINTERHOME	[dread01]_Dreadnought	direct	ration:29	-	-	-
+WINTERHOME	[t-plain][landmark]site02	direct	-	-	-	-
+WINTERHOME	[lore02]_Coal_Mine	direct	-	-	-	-
+WINTERHOME	[lore10]_Monument_of_Hope	direct	steel:123, steamcore:1	-	-	-
+WINTERHOME	[t-plain][landmark]site07	direct	-	-	-	-
+WINTERHOME	[lore07]_Cave_under_Hill	direct	rawfood:85	-	-	-
+WINTERHOME	[lore01]_Weather_Station	direct	-	engineers:20	-	-
+WINTERHOME	[lore12]_Last_Stand	direct	steel:150, steamcore:1	-	-	-
+WINTERHOME	[lore12]_Last_Stand	bonus	steel:190, steamcore:1	-	-	-
+WINTERHOME	[dread03]_Dismantled_Dreadnought_2	direct	steel:148, steamcore:1	-	-	-
+WINTERHOME	[t-plain][landmark]site05	direct	-	-	-	-
+WINTERHOME	[lore05]_Trail_South	direct	wood:171, steel:152	-	-	-
+WINTERHOME	[t-plain][landmark]site03	direct	-	-	-	-
+WINTERHOME	[t-plain][landmark]site04	direct	-	-	-	-
+WINTERHOME	[lore13]_Iron Deposit	direct	steel:150	-	-	-
+WINTERHOME	[lore09]_Frozen_Forest	direct	wood:254	-	-	-
+WINTERHOME	[t-plain][landmark]site08	direct	-	-	-	-
+BUILDERS	42. Natures Sculpture	direct	-	-	-	-
+BUILDERS	66. Polar Bear Cave	direct	-	-	-	-
+BUILDERS	02. Killed Moose	direct	-	-	-	-
+BUILDERS	38. Three Graves	direct	-	-	-	-
+BUILDERS	28. Generator South	direct	structuralprofiles:10	-	-	-
+BUILDERS	31. Collapsed Mine	direct	-	-	-	-
+BUILDERS	61. Workers Camp	direct	-	workers:50	-	-
+BUILDERS	51. Broken Snowpiercer	direct	steelcomposite:5, steamcore:2	-	-	-
+BUILDERS	46. EIC Steam Cores Store	direct	steamcore:2	-	-	-
+BUILDERS	45. Rock Arch	direct	-	-	-	-
+BUILDERS	47. Trappers Cabin	direct	ration:32	-	-	-
+BUILDERS	13. Lower Stream Course	direct	-	-	-	-
+BUILDERS	12. [food] Lake Full of Fish	direct	-	-	-	-
+BUILDERS	44. Twisted Rails	direct	-	-	-	-
+BUILDERS	58. Field Kitchen	direct	-	-	-	-
+BUILDERS	09. Fish Skin and Bladders	direct	-	-	-	-
+BUILDERS	60. [food] Cut-off Herd of Caribous	direct	-	-	-	-
+BUILDERS	62. Transport Lost	direct	steelcomposite:10, steamexchanger:20	-	-	-
+BUILDERS	35. Trail Breaks off	direct	wood:195, steel:127	-	-	-
+BUILDERS	53. Goods Station	direct	ration:116	-	-	-
+BUILDERS	59. Cove by the Stream	direct	-	-	-	-
+BUILDERS	04. [food] Moose Hunting Grounds	direct	-	-	-	-
+BUILDERS	40. Closed Tavern	direct	ration:65	-	-	-
+BUILDERS	63. Convoy in Distress	direct	-	-	-	-
+BUILDERS	63. Convoy in Distress	dilemme 63. Convoy in Distress choix 1	steelcomposite:-10, steamexchanger:-20	-	-	Return the crates
+BUILDERS	63. Convoy in Distress	dilemme 63. Convoy in Distress (Winter) choix 1	steelcomposite:-10, steamexchanger:-20	-	-	Return the crates
+BUILDERS	21. Avalanche of Stones	direct	-	-	-	-
+BUILDERS	48. Bald Hill	direct	-	-	-	-
+BUILDERS	16. [food] Stream Head	direct	-	-	-	-
+BUILDERS	65. Generator Gamma	direct	structuralprofiles:10, steamexchanger:5, steamcore:1	engineers:12	-	-
+BUILDERS	50. Railroad Siding	direct	-	-	-	-
+BUILDERS	23. Avalanche Origin	direct	-	-	-	-
+BUILDERS	64. Ice Plateau	direct	-	-	-	-
+Reconquest	TD3. Dilemma	direct	-	-	-	-
+Reconquest	29. Natural Terrace	direct	-	-	-	-
+Reconquest	31. Ghost Ship	direct	ration:32	-	-	-
+Reconquest	04. Skull Cave	direct	-	-	-	-
+Reconquest	TG6. Generic	direct	-	-	-	-
+Reconquest	NewLondon	direct	-	-	-	-
+Reconquest	05. Abandoned Fishery	direct	wood:13, rawfood:7	-	-	-
+Reconquest	37. Trailer Wreck	direct	steel:21	-	-	-
+Reconquest	32. Destroyed Automaton	direct	steel:23	-	-	-
+Reconquest	17. Creve-Neige Ville	direct	-	-	-	-
+Reconquest	03. Mountain Shelter	direct	wood:14	-	-	-
+Reconquest	06. Storm Watch	direct	-	workers:22, engineers:9	-	-
+Reconquest	12. City of Rats	direct	wood:48, steel:42, ration:39	-	-	-
+Reconquest	22. Fortified Hut	direct	-	workers:22, engineers:11	-	-
+Reconquest	08. Tower Ruins	direct	-	-	-	-
+Reconquest	10. Ark Springs	direct	rawfood:32	-	-	-
+Reconquest	02. Demolished Tavern	direct	wood:14, steel:12	-	-	-
+Reconquest	09. Secluded Canyon	direct	wood:14	-	-	-
+Reconquest	35. Deep Breach	direct	-	-	-	-
+Reconquest	23. Ice Caverns	direct	wood:14, ration:11	-	-	-
+Reconquest	20. Transshipment Station 01	direct	rawfood:14, ration:20	-	-	-
+Reconquest	07. Stone Wall	direct	wood:58, steel:49	-	-	-
+Reconquest	11. Windy Beach	direct	-	-	-	-
+Reconquest	21. Frostham Asylum	direct	-	-	-	-
+Reconquest	24. The Mine of the Lost Children	direct	-	-	-	-
+Reconquest	TG3. Generic	direct	-	-	-	-
+Reconquest	15. Distant Colony	direct	-	workers:27	-	-
+Reconquest	13. Sunken Dreadnought	direct	wood:26, steel:23	-	-	-
+Reconquest	TG2. Generic	direct	-	-	-	-
+Reconquest	34. Grove of Bones	direct	wood:26	-	-	-
+Reconquest	30. Frozen Sea	direct	-	-	-	-
+Reconquest	TG1. Generic	direct	-	-	-	-
+Reconquest	TG5. Generic	direct	-	-	-	-
+Reconquest	14. Bomb Crater	direct	-	-	-	-
+Reconquest	TD2. Dilemma	direct	-	-	-	-
+Reconquest	18. Observatory Ruins	direct	wood:14, steel:12	-	-	-
+Reconquest	25. Station Ruins	direct	wood:14, steel:12	-	-	-
+Reconquest	27. Steel Bridge	direct	steel:49	-	-	-
+Reconquest	36. Snow Crawler	direct	steel:12	-	-	-
+Reconquest	16. Red Couloir	direct	steel:22	-	-	-
+Reconquest	TD1. Dilemma	direct	-	-	-	-
+Reconquest	28. Sturdy Shelter	direct	wood:14	-	-	-
+Reconquest	33. Drying Springs	direct	-	-	-	-
+Reconquest	26. Winterhome Ruins	direct	wood:27, steel:22, rawfood:15	-	-	-
+Reconquest	TG4. Generic	direct	-	-	-	-

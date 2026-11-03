@@ -205,7 +205,7 @@ DWORD WINAPI PayloadThread(LPVOID)
 
 	ApChargerChecksDeTest();
 	ApChargerTechnosDeTest();
-	ScenariosRecevoirItemsDeTest();   // TEMPORAIRE : items de scenario de depart (DEFAULT, REFUGEES)
+	ScenariosRecevoirItemsDeTest();   // TEMPORAIRE : items de scenario de depart (les 6)
 	InstallResourceHooks(modBase);
 	InstallResearchHooks(modBase);
 	InstallLocHooks(modBase);	

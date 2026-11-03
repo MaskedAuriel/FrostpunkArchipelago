@@ -474,10 +474,10 @@ int ScenarioDebloquer(const char* nomInterne)
 void ScenariosRecevoirItemsDeTest()
 {
     // TEMPORAIRE : items de depart simules, en attendant le serveur.
-    // Demande de l'auteur (2026-11-03, bug des icones des lois) : A New Home
-    // et Refugees debloques, les 4 autres verrouilles (avant : les 6, et
-    // encore avant : REFUGEES seul).
-    static const char* const DEBLOQUES[] = { "DEFAULT", "REFUGEES" };
+    // Demande de l'auteur (2026-11-03, releve du contenu des sites dans les 6
+    // scenarios) : les 6 debloques (avant : DEFAULT et REFUGEES pour le bug
+    // des icones des lois, et encore avant : REFUGEES seul).
+    static const char* const DEBLOQUES[] = { "DEFAULT", "TechHaven", "REFUGEES", "WINTERHOME", "BUILDERS", "Reconquest" };
     for (const char* s : DEBLOQUES) ReceiveScenarioUnlock(s, "Server (test)");
 }
 

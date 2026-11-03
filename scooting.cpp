@@ -180,6 +180,11 @@ static bool NomDuGabarit(uintptr_t tpl, char* out, int maxlen)
     return false;
 }
 
+bool ScootingNomDuGabarit(uintptr_t tpl, char* out, int maxlen)
+{
+    return NomDuGabarit(tpl, out, maxlen);
+}
+
 // Le site nomme porte-t-il un contenu configure pour le scenario en cours ?
 
 
@@ -1741,14 +1746,16 @@ static uintptr_t EntiteDeLEmplacement(uintptr_t q)
     return 0;
 }
 
-static bool TrierEmplacements(uintptr_t emplacements, uint32_t n)
+// 'pas' = taille d'un enregistrement (0x10 pour les emplacements du tirage,
+// 0x18 pour les sites de la repartition du contenu), 1er qword = entite.
+static bool TrierEmplacements(uintptr_t emplacements, uint32_t n, int pas = 0x10)
 {
     uintptr_t tab = 0;
-    if (!SafeRead((void*)emplacements, &tab, 8) || tab <= 0x10000 || n < 2 || n > 512) return false;
-    struct Empl { uint8_t brut[16]; float x, z; };
+    if (!SafeRead((void*)emplacements, &tab, 8) || tab <= 0x10000 || n < 2 || n > 512 || pas > 0x18) return false;
+    struct Empl { uint8_t brut[0x18]; float x, z; };
     static Empl e[512];
     for (uint32_t i = 0; i < n; ++i) {
-        if (!SafeRead((void*)(tab + (uintptr_t)i * 0x10), e[i].brut, 16)) return false;
+        if (!SafeRead((void*)(tab + (uintptr_t)i * pas), e[i].brut, pas)) return false;
         uintptr_t q = 0;
         memcpy(&q, e[i].brut, 8);
         uintptr_t ent = EntiteDeLEmplacement(q);
@@ -1767,8 +1774,39 @@ static bool TrierEmplacements(uintptr_t emplacements, uint32_t n)
         e[i].z = pos[2];
     }
     std::sort(e, e + n, [](const Empl& a, const Empl& b) { return a.x != b.x ? a.x < b.x : a.z < b.z; });
-    for (uint32_t i = 0; i < n; ++i) SafeWrite((void*)(tab + (uintptr_t)i * 0x10), e[i].brut, 16);
+    for (uint32_t i = 0; i < n; ++i) SafeWrite((void*)(tab + (uintptr_t)i * pas), e[i].brut, pas);
     return true;
+}
+
+// Repartition du contenu des sites FIXE (2026-11-03, demande de l'auteur :
+// verifier si les quantites dependent de la difficulte). Decompiles :
+// FUN_1418f1440 (systeme de tirage de la carte) tire les sites
+// (FUN_1418f2a30, graine fixe ci-dessous) puis appelle FUN_1418ef2f0(&sortie,
+// &sites, table) : les TOTAUX de la table du scenario (+0x30 ressources, +0x48
+// bonus, +0x60 survivants) sont repartis entre les sites (enregistrements de
+// 0x18, 1er qword = entite) apres un melange par le generateur global ; puis
+// FUN_141889690 / FUN_141889610 / FUN_141889930 ajoutent tel quel au site
+// (+0x48 / +0x60 / +0xA8). AUCUN facteur de difficulte : seul le hasard
+// fait varier les quantites -> meme graine et sites tries par position.
+typedef uintptr_t (*RepartirContenu_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
+static RepartirContenu_t oRepartirContenu = nullptr;
+
+static uintptr_t hkRepartirContenu(uintptr_t sortie, uintptr_t sites, uintptr_t table, uintptr_t p4)
+{
+    if (!SITES_TIRAGE_FIXE) return oRepartirContenu(sortie, sites, table, p4);
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
+    uint32_t* etat = (uint32_t*)(base + 0x2A12D60);
+    uint32_t avantA = etat[0], avantB = etat[1];
+    uint32_t n = 0;
+    if (sites > 0x10000) SafeRead((void*)(sites + 8), &n, 4);
+    bool trie = TrierEmplacements(sites, n, 0x18);
+    etat[0] = GRAINE_SITES_A ^ 0x5A5A5A5A;
+    etat[1] = GRAINE_SITES_B ^ 0x5A5A5A5A;
+    uintptr_t res = oRepartirContenu(sortie, sites, table, p4);
+    etat[0] = avantA;
+    etat[1] = avantB;
+    printf("[SITES] repartition du contenu fixe : %u site(s)%s\n", n, trie ? ", tries par position" : ", NON tries");
+    return res;
 }
 
 // Trace des candidats du tirage (2026-11-03 : Last Autumn a tire "53. Goods
@@ -2168,6 +2206,10 @@ void InstallHooksExpeditions(uintptr_t modBase)
     ok = MH_CreateHook(t, (void*)&hkTirerTable, (void**)&oTirerTable) == MH_OK && MH_EnableHook(t) == MH_OK;
     printf("[SITES] hook tirage des sites (+18F2A30) %s%s\n", ok ? "OK" : "KO",
            SITES_TIRAGE_FIXE ? " - tirage fixe" : "");
+    void* c = (void*)(modBase + 0x18EF2F0);
+    ok = MH_CreateHook(c, (void*)&hkRepartirContenu, (void**)&oRepartirContenu) == MH_OK && MH_EnableHook(c) == MH_OK;
+    printf("[SITES] hook repartition du contenu des sites (+18EF2F0) %s%s\n", ok ? "OK" : "KO",
+           SITES_TIRAGE_FIXE ? " - repartition fixe" : "");
     void* r = (void*)(modBase + 0x131DE20);
     ok = MH_CreateHook(r, (void*)&hkReglagesScenario, (void**)&oReglagesScenario) == MH_OK && MH_EnableHook(r) == MH_OK;
     printf("[SITES] hook reglages du scenario (+131DE20) %s%s\n", ok ? "OK" : "KO",

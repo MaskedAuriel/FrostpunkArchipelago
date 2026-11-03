@@ -29,6 +29,7 @@
 #include "evenements.h"    // g_nomEvtEnCours
 #include "archipelago.h"   // SendQuestCheck
 #include "scooting.h"      // ScootingReleverSites
+#include "sites_contenu.h" // SitesContenuReleve
 #include "known_quests.h"  // KNOWN_QUESTS (genere par outils\quetes_excel.py)
 #include "MinHook.h"
 #include <cstring>
@@ -1284,6 +1285,7 @@ void QuetesPompe()
     printf("[QUETE] releve termine\n");
     ScootingReleverSites();
     ScootingReleverTablesDeSites();
+    SitesContenuReleve();
 }
 
 void TraduireCleJeu(uintptr_t adrCle, char* out, int taille)

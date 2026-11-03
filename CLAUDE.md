@@ -542,6 +542,12 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   `surCarte`), cache `outils\carte_fixe.tsv`. Icône AP sur les marqueurs de
   la carte **VALIDÉE** (copie de `ICON` sans animateur, `icon_done` si
   exploré). Type d'icône TEMPORAIRE : `IconeCheckDeTest`.
+  **Contenu réel (2026-11-03)** : F9 `[SCONT]` (`sites_contenu.cpp`),
+  survivants = composant `+0xA8`, trésor du gabarit `+0x118` ; table
+  `outils\sites_contenu.tsv` (`outils\sites_contenu.py`, cumulatif),
+  **VALIDÉE le 2026-11-03**. Quantités sans lien avec la difficulté (totaux de la table du
+  scénario répartis au hasard) : répartition figée par `hkRepartirContenu`
+  (`+0x18EF2F0`), **VALIDÉE le 2026-11-03**.
 
 - **Technos** — `docs/chantiers/technos.md`. Icônes posées seulement
   pendant la construction des nœuds (aucune écriture permanente),
