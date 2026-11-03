@@ -66,3 +66,43 @@
   `**(panneau + 0xD8)`), le texte de `UNLOCK_SCENARIO_TEXT` est remplacé
   par un espace (`FUN_14111bef0`). Log `[SCN] "…" : condition du jeu
   effacee`. Non testé (icônes des lois et texte du bouton).
+
+- **Bug des icônes des lois avec scénarios verrouillés (2026-11-03)** :
+  configuration de test demandée par l'auteur : **A New Home (`DEFAULT`) et
+  Refugees (`REFUGEES`) débloqués**, les 4 autres verrouillés →
+  `ScenariosRecevoirItemsDeTest` reçoit DEFAULT et REFUGEES (TEMPORAIRE ;
+  juste avant : les 6). Bissection par deux constantes de
+  `scenarios_ap.cpp` : `VERROU_ACTIF` (false = `hkPrerequisProfil`
+  passe-plat) et `EFFACER_CONDITION` (false = `hkCreerBouton` passe-plat).
+  Le journal `[LOIUI]` montrait les copies posées malgré l'absence d'icône :
+  piste d'un **atlas #2350 (`UI/Tiles/Icons.dds`, aussi celui des bulles)
+  chargé au menu** (bouton verrouillé ?) et gardé sans nos cases. →
+  diagnostic `RapportSubstitutions` (mod_common, tick d'une seconde) : ligne
+  `[SUB] <atlas> : servi depuis le debut N fois (partie prete : oui/non)` à
+  chaque nouvelle lecture d'un blob substitué depuis son début.
+  **Essai 1** : `VERROU_ACTIF = true`, `EFFACER_CONDITION = false` (texte
+  « Unlocked on day 20… » attendu de retour sur les boutons verrouillés).
+  À vérifier par l'auteur : icônes des lois (et des bulles, F6), verrou,
+  lignes `[SUB]` (au menu ? en partie ?). Non testé.
+  **Résultat de l'essai 1 (2026-11-03)** : verrou OK (DEFAULT / REFUGEES
+  `LANCABLE`, les 4 autres `VERROUILLE`), **icônes des lois toujours
+  absentes** (copies posées : `[LOIUI] "circle_inside" : taille d'origine…`).
+  Le journal tranche : `[ARCH] #606 "/UI/Tiles/Icons.texture" … decalage
+  0x190433DCC` (= blob #2350) apparaît **avant** `[NT] hook NtReadFile OK`,
+  et aucune ligne `[SUB] atlas icones des bulles` ensuite (seuls les atlas
+  des recherches et des bâtiments sont servis). **Cause : course au
+  démarrage**, sans lien direct avec le verrou : le jeu charge ses textures
+  pendant que `PayloadThread` installe ses hooks ; `ChargerSubstitutions` /
+  `InstallNtHooks` venaient **après** tous les autres, et les hooks ajoutés
+  depuis (menu AP, scénarios…) l'ont retardée au-delà de la lecture de
+  l'atlas des bulles / des lois. → substitutions et hook `NtReadFile`
+  posés **juste après les captures de constructeurs**, avant les autres
+  hooks. Bissection retirée (`VERROU_ACTIF` / `EFFACER_CONDITION` supprimées,
+  effacement de la condition rétabli). `RapportSubstitutions` gardé : la
+  ligne `[SUB] atlas icones des bulles : servi …` doit apparaître.
+  **VALIDÉ le 2026-11-03** par l'auteur (« ça marche ») : icônes AP des
+  lois de retour, avec DEFAULT et REFUGEES débloqués et les 4 autres
+  verrouillés. Leçon : toute substitution de texture doit être posée
+  **avant** les autres hooks au démarrage. Texte « Unlocked on day 20… »
+  absent des boutons verrouillés : effacement de `UNLOCK_SCENARIO_TEXT`
+  **VALIDÉ** par l'auteur le même jour.

@@ -184,6 +184,12 @@ DWORD WINAPI PayloadThread(LPVOID)
 	InstallCaptureEntrees(modBase);
 	InstallTraceCreationEntites(modBase);
 	InstallCaptureTemplatesGroupes(modBase);
+	// Substitution des atlas AU PLUS TOT (2026-11-03) : le jeu charge ses
+	// textures pendant l'installation des hooks. Posee apres tous les autres,
+	// elle arrivait apres la lecture de UI/Tiles/Icons.texture (#2350, atlas
+	// des bulles et des lois) : plus aucune icone AP dans le livre des lois.
+	ChargerSubstitutions();
+	InstallNtHooks();
 	InstallHooksEvenements(modBase);
 	InstallTraceArchives(modBase);
 	InstallTracePopups(modBase);
@@ -199,13 +205,11 @@ DWORD WINAPI PayloadThread(LPVOID)
 
 	ApChargerChecksDeTest();
 	ApChargerTechnosDeTest();
-	ScenariosRecevoirItemsDeTest();   // TEMPORAIRE : item de scenario de depart (REFUGEES)
+	ScenariosRecevoirItemsDeTest();   // TEMPORAIRE : items de scenario de depart (DEFAULT, REFUGEES)
 	InstallResourceHooks(modBase);
 	InstallResearchHooks(modBase);
 	InstallLocHooks(modBase);	
 	InstallScenarioHooks(modBase);
-	ChargerSubstitutions();
-	InstallNtHooks();
 	InitAllocateur(modBase);
 	InitFabriqueMessage(modBase);
 	InstallNotifHooks(modBase);
@@ -304,6 +308,7 @@ DWORD WINAPI PayloadThread(LPVOID)
 			CHRONO(TechPersistanceTick()); // technos : sauvegarde locale de la partie
 			CHRONO(ScootingTick());
 			CHRONO(SurveillerArbreTechno());
+			RapportSubstitutions();        // DIAG : chargements des atlas substitues
 		}
 		CouleursMessagesTick();   // couleur de nos messages, 2 s apres leur ajout
 		Sleep(16);            // evite de saturer un coeur du CPU

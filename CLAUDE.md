@@ -554,10 +554,13 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
 
 - **Scénarios verrouillés** — `docs/chantiers/scenarios_verrouilles.md`.
   Verrou **VALIDÉ** (hook de `FUN_141283ea0`, 6 scénarios AP), déblocage par
-  `ReceiveScenarioUnlock` ; item de test au démarrage : REFUGEES
-  (TEMPORAIRE). Non testé : texte `UNLOCK_SCENARIO_TEXT` effacé (le hook
-  global des presets a été retiré car suspect de la régression des icônes
-  des lois).
+  `ReceiveScenarioUnlock` ; items de test au démarrage : DEFAULT et
+  REFUGEES (TEMPORAIRE, demande de l'auteur du 2026-11-03). Régression des
+  icônes des lois **corrigée et VALIDÉE le 2026-11-03** : ce n'était pas le
+  verrou mais une **course au démarrage** (atlas #2350 lu avant le hook
+  `NtReadFile`) → substitutions posées juste après les captures, **avant
+  tous les autres hooks** (à respecter pour tout nouveau hook). Texte
+  `UNLOCK_SCENARIO_TEXT` effacé : **VALIDÉ le 2026-11-03**.
 
 - **Difficulté et victoire** — `docs/chantiers/victoire.md`. Détection de
   la difficulté conforme ; `ScenarioUsesGroup` / `ScenarioVictoryId` lisent

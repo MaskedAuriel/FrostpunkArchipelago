@@ -313,8 +313,12 @@ int ScenarioDebloquer(const char* nomInterne)
 
 void ScenariosRecevoirItemsDeTest()
 {
-    // TEMPORAIRE : item de depart simule, en attendant le serveur.
-    ReceiveScenarioUnlock("REFUGEES", "Server (test)");
+    // TEMPORAIRE : items de depart simules, en attendant le serveur.
+    // Demande de l'auteur (2026-11-03, bug des icones des lois) : A New Home
+    // et Refugees debloques, les 4 autres verrouilles (avant : les 6, et
+    // encore avant : REFUGEES seul).
+    static const char* const DEBLOQUES[] = { "DEFAULT", "REFUGEES" };
+    for (const char* s : DEBLOQUES) ReceiveScenarioUnlock(s, "Server (test)");
 }
 
 void InstallHooksScenarios(uintptr_t modBase)

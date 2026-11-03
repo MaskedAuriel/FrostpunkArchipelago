@@ -59,6 +59,7 @@ void ResetBlobLog();
 bool AjouterSubstitution(unsigned long long off, const wchar_t* fichier);
 void SetIconCell(const char* ressource, int col, int row);
 void ChargerSubstitutions();
+void RapportSubstitutions();   // tick : lectures servies par blob substitue
 bool PartieRechargee();
 void CollectObjectsByClasses(const char** noms, int nNoms, uintptr_t** sorties, int* compteurs, int maxParClasse);
 void DumpGlobauxEconomie();

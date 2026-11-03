@@ -1147,6 +1147,11 @@ struct Substitution {
     unsigned long long off;      // offset du blob dans textures-s3.dat
     unsigned char* data;     // notre flux gzip complet
     size_t             len;
+    const char*        libelle;
+    // Diagnostic (2026-11-03, icones des lois) : lectures servies depuis le
+    // debut du blob, et nombre deja journalise par RapportSubstitutions.
+    volatile long      lectures;
+    long               rapportees;
 };
 static Substitution g_subs[8];
 static int          g_nSubs = 0;
@@ -1221,10 +1226,24 @@ void ChargerSubstitutions()
     for (const auto& s : SUBSTITUTIONS) {
         wchar_t chemin[MAX_PATH];
         swprintf_s(chemin, MAX_PATH, L"%smods\\%s", base, s.fichier);
-        if (AjouterSubstitution(OffsetDuBlob(s.off), chemin)) ok++;
+        if (AjouterSubstitution(OffsetDuBlob(s.off), chemin)) { g_subs[g_nSubs - 1].libelle = s.libelle; ok++; }
         else printf("[SUB] %s : non charge\n", s.libelle);
     }
     printf("[SUB] %d/%d substitution(s) active(s)\n", ok, (int)(sizeof(SUBSTITUTIONS) / sizeof(SUBSTITUTIONS[0])));
+}
+
+// Tick d'une seconde (version.cpp) : une ligne par blob substitue des qu'il a
+// ete relu depuis le debut. Sert a savoir QUAND l'atlas des bulles / des lois
+// (#2350) est charge (menu, partie) et s'il passe bien par notre substitution.
+void RapportSubstitutions()
+{
+    for (int i = 0; i < g_nSubs; ++i) {
+        long n = g_subs[i].lectures;
+        if (n == g_subs[i].rapportees) continue;
+        g_subs[i].rapportees = n;
+        printf("[SUB] %s : servi depuis le debut %ld fois (partie prete : %s)\n",
+            g_subs[i].libelle ? g_subs[i].libelle : "?", n, PartiePrete() ? "oui" : "non");
+    }
 }
 
 
@@ -1267,6 +1286,7 @@ static LONG NTAPI hkNtReadFile(HANDLE h, HANDLE ev, void* apc, void* apcCtx,
         if (s) {
             size_t dispo = s->len - dedans;
             size_t n = (len < dispo) ? len : dispo;
+            if (dedans == 0) InterlockedIncrement(&s->lectures);   // pas de printf ici
             memcpy(buf, s->data + dedans, n);
             if (iosb) { iosb->Status = 0; iosb->Information = n; }
             LARGE_INTEGER d; d.QuadPart = (long long)n;
