@@ -1,0 +1,4 @@
+ressource	quantite produite	entrees	batiment	source
+structuralprofiles	1	wood:20	Structural Profiles	F9 [RECETTE] 2026-11-03 : [Builders] Manufacture Scaffoldings - cheaper
+steelcomposite	1	steel:20, coal:40	Steel Composites	F9 [RECETTE] 2026-11-03 : [Builders] ManufactureSteelPlate - cheaper
+steamexchanger	1	steel:16	Steam Exchangers	F9 [RECETTE] 2026-11-03 : [Builders] Factory Pipe -cheaper

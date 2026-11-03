@@ -109,3 +109,62 @@
     d'état de techno (`OnItemReceived`, F7) et le tick de scouting le font
     encore : à surveiller.
 
+
+---
+
+## Recettes de Last Autumn (2026-11-03)
+
+Demande de la session apworld : un item de contenu de site de Last Autumn
+reçu dans un autre scénario est converti en ressources de base, au coût de
+fabrication (`structuralprofiles`, `steelcomposite`, `steamexchanger`).
+
+Décompilés (Ghidra) :
+- `FrostpunkBlueprintsConfig` (200 octets, `FUN_1414af330`), instance
+  statique **`base + 0x407BE20`** (`FUN_1401e6d20`) : `+0x78` Production
+  blueprints (Dynarray de pointeurs), `+0xB0` Extraction blueprints.
+- `FrostpunkBlueprintEntry` (`FUN_1414aef40`) : `+0x00` nom, `+0x08` GUID,
+  `+0x18` Requirements, `+0x30` Display name, `+0x38` Description.
+- `FrostpunkProductionBlueprintEntry` (0xF0, `FUN_1414af8f0`) : `+0x70`
+  Processing resources, `+0x78` Products (polymorphes), `+0x90` Production
+  effects, **`+0xA8` Production cost** (`FrostpunkResourceAmount` 0x14 :
+  `+0x00` lien, `+0x10` Amount), `+0xC0` Base production time, `+0xC8`
+  Upgrades blueprints (liens), `+0xE0` Resource upfront consumption mode.
+- `FrostpunkResourceProduct` (0x38, `FUN_141a20020`) : `+0x20` lien de
+  ressource, `+0x30` Amount. Autres produits : GatherableResource,
+  FoodRation, Agent.
+- Il existe `FrostpunkProductionBlueprintDifficultyModification` (« Base
+  production time modification ») : durée seulement, a priori sans effet
+  sur le coût.
+
+Relevé F9 ajouté : `recettes.cpp` (`RecettesReleve`, appelé par
+`QuetesPompe` après `SitesContenuReleve`), lignes `[RECETTE]` B / O / I / U.
+À lancer **dans The Last Autumn** (noms des ressources résolus par
+l'économie de la partie). Non testé. Premier build bloqué par un symbole
+d'une autre session en cours (`SendLocationCheck`, signature changée dans
+`archipelago.cpp`, pas dans `scooting.cpp`).
+
+### Relevé F9 `[RECETTE]` (2026-11-03, BUILDERS) — VALIDÉ (45 recettes lues)
+
+Coût par unité produite (1 unité par cycle) :
+
+| Ressource | Recette | Entrées | Durée |
+|---|---|---|---|
+| Wooden Materials (`structuralprofiles`) | `[Builders] Manufacture Scaffoldings` | wood 25 | 1,15 |
+| | `… - cheaper` | wood 20 | 0,57 |
+| Steel Plates (`steelcomposite`) | `[Builders] ManufactureSteelPlate` | steel 25, coal 50 | 2,30 |
+| | `… - cheaper` | steel 20, coal 40 | 1,15 |
+| Steam Tools (`steamexchanger`) | `[Builders] Factory Pipe` | steel 20 | 2,30 |
+| | `… -cheaper` | steel 16 | 1,15 |
+
+Les variantes « cheaper » sont des recettes séparées, sans lien
+d'amélioration. Table : `outils\recettes_last_autumn.tsv` (les deux
+variantes, en attente du choix de l'auteur). Autres relevés au passage :
+CharcoalKiln 7 wood → 17 / 23 coal ; Automatons 100 steel + 100 wood +
+50 coal + 1 steamcore (variantes moins chères) ; prothèses 10 / 5 steel.
+Défaut connu du relevé : les noms de ressource lus en `définition +0x00`
+sont les noms affichés (« Steel Plates »), pas les noms internes ; les
+produits `GatherableResource` ne sont pas décodés.
+
+**Décision de l'auteur (2026-11-03)** : la conversion retient la **variante
+« cheaper »** (wood 20 ; steel 20 + coal 40 ; steel 16 par unité).
+`outils\recettes_last_autumn.tsv` ne garde que ces trois lignes : **VALIDÉE**.
