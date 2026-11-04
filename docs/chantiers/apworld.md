@@ -971,3 +971,33 @@ d'ouverture de l'arbre**, condition des lois. Lignes finales `# exclues`.
   Administrators, Children. Les ingénieurs n'étaient pas trouvés : leur nom
   interne est **`Specialists`** → correspondance apworld → jeu ajoutée dans
   `SitesEntreeSurvivants` (non testé).
+
+### 2026-11-04 — Tests grandeur nature : règle des goulots revue
+
+- **Problème remonté** (graine 58501539204423774757, A New Home Hard,
+  Purpose et Politics exclus) : `Progressive Law Purpose` en sphère 1 (sur
+  `TierUnlock1`), alors que l'arbre Purpose n'ouvre qu'après 005 LONDONERS.
+- **Cause** : la logique contraint les **locations**, jamais l'endroit où
+  tombe un item. L'item était `progression` et la règle des 80 % le
+  comptait pour la région 2 (rang 1 de Purpose), d'où sa présence dans le
+  playthrough. Le placement ne contredisait aucune règle.
+- **Décision de l'auteur** : remplacer la règle des 80 % par : **la quête
+  goulot** de la région k exige d'avoir reçu **tous** (100 %) les items
+  `Progressive Tree` **classés `progression`** de la région k (même
+  rattachement qu'avant : région du check de chaque rang). Les **lois ne
+  comptent plus**, mais restent `progression`. Les **autres quêtes**
+  n'ont plus d'exigence (seulement leur région). Pas de contrainte de
+  placement des items Purpose / Politics.
+- **Intention de l'auteur** : centrer le passage des goulots sur ces
+  technos (arbres `progression`) ; toute retouche future de la règle doit
+  garder ce cap.
+- `generer.py` : `QUETE_POURCENT_PROGRESSIFS = 100`, lois retirées du
+  comptage ; `rules.py` : exigence posée sur les goulots seulement
+  (`scenario["goulots"]`). Ids, `known_ap_ids.h` inchangés.
+- Seuils (items requis par goulot, régions 0, 1, 2[, 3]) : A New Home 13,
+  7, 7 ; The Arks 12, 7, 7 ; Refugees 13, 7, 7 ; Winterhome 10, —, 2, 7
+  (aucun arbre progression en région 1) ; Last Autumn 12, 6, 6 ; On the
+  Edge 10, 8, 4. La dernière région n'a pas de goulot (victoire sans règle).
+- Tests (Archipelago 0.6.8) : banc habituel 5 jeux × 5 graines (2 joueurs)
+  et 70 générations **solo** (options de l'auteur + chaque scénario seul en
+  Hard) : toutes réussies.

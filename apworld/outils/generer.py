@@ -187,10 +187,12 @@ RESSOURCES_MOD = ("coal", "wood", "steel", "rawfood", "ration", "steamcore",
                   "structuralprofiles", "steelcomposite", "steamexchanger")
 SURVIVANTS = ("workers", "engineers", "children", "automaton")
 
-# Regle des quetes : une quete de la region k exige d'avoir recu ce
-# pourcentage des items progressifs (technos et lois) de la region k
-# (seulement k).
-QUETE_POURCENT_PROGRESSIFS = 80
+# Regle des goulots (decision de l'auteur, 2026-11-04) : la quete goulot de
+# la region k exige d'avoir recu ce pourcentage des items Progressive Tree
+# "progression" de la region k (seulement k). Les lois ne comptent plus
+# (elles restent progression), les autres quetes n'ont plus d'exigence.
+# Avant : 80 %, technos et lois, toutes les quetes de la region.
+QUETE_POURCENT_PROGRESSIFS = 100
 
 # Filler de complement (places restantes) et pieges (Q6).
 FILLER_GENERIQUE = [
@@ -411,16 +413,16 @@ def main():
                                       region=regs[-1], genre="loi", tiers=0,
                                       eclaireurs=False, exclue_option=arbre in ("Purpose", "Politics"),
                                       cle="%s|%d" % (arbre, r)))
-            # progression au sens Archipelago : la regle des quetes les compte
+            # progression (decision de l'auteur, 2026-11-04 : garde meme si la
+            # regle des goulots ne compte plus les lois)
             nom = unique("%s - Progressive Law %s" % (affiche, court), noms_item)
             items.append(dict(id=ids("item_loi", "%s|%s" % (scn, arbre)), nom=nom, scn=scn, genre="loi",
                               classe="progression", nombre=len(lst), cle=arbre))
-            progressifs.append((nom, regs))
 
-        # Regle des quetes : par region k, pour chaque item progressif (arbre
-        # de technos ou de lois) : (item, nombre de ses checks dans les
-        # regions < k, nombre dans la region k). Les regions croissent avec
-        # le rang (cumul sur le rang precedent).
+        # Regle des goulots : par region k, pour chaque arbre de technos
+        # "progression" : (item, nombre de ses checks dans les regions < k,
+        # nombre dans la region k). Les regions croissent avec le rang (cumul
+        # sur le rang precedent).
         quetes_progressifs = {}
         for k in range(n_regions):
             items_k, total = [], 0

@@ -4,9 +4,10 @@
 #   - techno : Progressive Tree Tier x tiers ; tiers et region sont deja
 #     cumules sur le rang precedent et le parent par generer.py (Q4.1) ;
 #   - site : Beacon / Forager Quarters recu (Q4.3) ;
-#   - quete de la region k : 80 % des items progressifs (technos et lois)
-#     de la region k recus (seuil et items calcules par generer.py) ;
-#   - loi, montee : rien (Q4.2, Q4.5).
+#   - quete GOULOT de la region k : tous les items Progressive Tree
+#     "progression" de la region k recus (seuil et items calcules par
+#     generer.py ; decision de l'auteur du 2026-11-04) ;
+#   - autre quete, loi, montee : rien (Q4.2, Q4.4, Q4.5).
 # Entrees : scenario = Scenario Unlock ; region k = goulot k fini.
 
 from worlds.generic.Rules import set_rule
@@ -30,7 +31,8 @@ def regle_location(location, info, scenario, player):
     if info["eclaireurs"] and scenario["eclaireurs"]:
         exigences.append((scenario["eclaireurs"], 1))
     progressifs = None
-    if info["genre"] == "quete" and info["region"] in scenario["quetes_progressifs"]:
+    if info["genre"] == "quete" and info["nom"] in scenario["goulots"] \
+            and info["region"] in scenario["quetes_progressifs"]:
         progressifs = scenario["quetes_progressifs"][info["region"]]
     if exigences or progressifs:
         set_rule(location, lambda state, e=tuple(exigences), p=progressifs:

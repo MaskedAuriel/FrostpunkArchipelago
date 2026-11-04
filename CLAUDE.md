@@ -629,7 +629,8 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   **Logique dictée et apworld écrit le 2026-11-03** (`apworld/frostpunk/`,
   **générations testées** avec les sources d'Archipelago 0.6.8 ; commit
   `47a2eba` avec le mod branché sur les ids) : une région par quête goulot,
-  quêtes = 80 % des items progression de leur région, goal =
+  goulot = tous les `Progressive Tree` progression de sa région
+  (2026-11-04, remplace les 80 %), goal =
   victoire dans tous les scénarios choisis à la difficulté du YAML (forcée
   par le mod), items par scénario. Données générées par
   `apworld/outils/generer.py` → `data.py`, `apworld/ids.tsv` (ids
