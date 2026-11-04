@@ -2,7 +2,7 @@
 // ---------------------------------------------------------------------------
 // Couche reseau Archipelago (docs/chantiers/reseau.md) : la "classe specifique
 // pour toutes les interactions avec le serveur". WebSocket ecrit a la main sur
-// Winsock (ws:// seulement), JSON par nlohmann/json, thread dedie.
+// Winsock, TLS par Schannel pour wss://, JSON par nlohmann/json, thread dedie.
 //
 // Elle ne touche JAMAIS un systeme du jeu : elle n'appelle que la surface
 // archipelago.h (ReceiveItem, ApAppliquerSlotData, ApDefinirSession...), dont
@@ -19,8 +19,9 @@
 // connexion tant que le joueur n'a pas clique sur Connect.
 void ReseauDemarrer();
 
-// Bouton Connect : (re)connexion a 'serveur' ("hote:port", "ws://hote:port" ;
-// port 38281 par defaut). Remplace une connexion en cours. Tout thread.
+// Bouton Connect : (re)connexion a 'serveur' ("hote:port", "ws://hote:port",
+// "wss://hote:port" ; sans prefixe : wss:// puis ws:// ; port 38281 par
+// defaut). Remplace une connexion en cours. Tout thread.
 void ReseauConnecter(const char* serveur, const char* slot, const char* motDePasse);
 
 // Location cochee en jeu : notee dans la session (checks.txt), envoyee tout de

@@ -229,3 +229,48 @@ principal verrouillé sans connexion (voir `menu_connexion.md`).
   température à voir dans le test grandeur nature.
 - `apworld\test\frostpunk.apworld` reconstruit (sources du 2026-11-03,
   inchangées).
+
+### 2026-11-04 — Serveur distant (archipelago.gg) : TLS par Schannel
+
+**Symptôme** (`logs\console.log`) : `archipelago.gg:55527` →
+`[AP NET] echec : connexion fermee pendant la poignee de main`, en boucle.
+DNS et TCP passent ; le serveur coupe sans répondre à la requête HTTP.
+
+**Diagnostic** (essai PowerShell sur `archipelago.gg:55527`) : en clair, 0
+octet puis fermeture ; en TLS (1.3 ou 1.2 forcé), `101 Switching
+Protocols` (`websockets/13.1`). Les serveurs publics n'acceptent que
+`wss://`. Ni l'analyse de l'adresse, ni le DNS, ni l'en-tête `Host`
+n'étaient en cause.
+
+**Décision de l'auteur** : TLS par **Schannel** (natif Windows,
+`secur32.lib`, aucune dépendance), sous le WebSocket fait main.
+
+**Correction** (`reseau_ap.cpp`) :
+- Adresse : `wss://` → TLS, `ws://` → clair, **sans préfixe** → `wss://`
+  puis `ws://` (comme le client officiel) ; le mode qui marche est retenu
+  pour les reconnexions de la même demande (`m_modeRetenu`). Un échec DNS
+  / TCP n'essaie pas l'autre mode. Plus de refus de `wss://`.
+- `Ouvrir` découpé : `OuvrirTcp`, `TlsPoignee`, `PoigneeWebSocket`.
+- `TlsPoignee` : `SCHANNEL_CRED` (`SCH_CRED_AUTO_CRED_VALIDATION` : le
+  certificat est vérifié par Windows, nom = hôte, SNI), boucle
+  `InitializeSecurityContextA`. `SCHANNEL_CRED` plafonne à **TLS 1.2**
+  (TLS 1.3 demanderait `SCH_CREDENTIALS`) : archipelago.gg l'accepte.
+  Log : `[AP NET] TLS etabli (protocole 0x800)` (0x800 = TLS 1.2 client).
+- `EnvoyerTout` chiffre (`EncryptMessage`, par morceaux de
+  `cbMaximumMessage`) ; `EnvoyerBrut` = l'ancien envoi. `RecevoirOctets`
+  + `Dechiffrer` : chaque lecture déchiffre **tous** les enregistrements
+  complets, donc rien de clair n'attend hors de la socket (le `select()`
+  existant suffit). `SEC_I_RENEGOTIATE` non géré (journalisé, connexion
+  coupée et reprise).
+- Trames arrivées avec la réponse 101 traitées avant d'attendre la socket
+  (`Session`).
+- `archipelago.cpp` (`ApMessageReseau`) : l'état « Failed: use ws:// »
+  devient `Failed: <texte>`.
+
+**Banc hors jeu** (scratchpad, stubs de `archipelago.h`) :
+`echo.websocket.org:443` sans préfixe → `TLS etabli (protocole 0x800)`,
+`WebSocket ouvert (TLS)`, première trame reçue et déchiffrée. Pas d'essai
+contre la salle de l'auteur. DLL compilée et déployée.
+
+**VALIDÉ en jeu le 2026-11-04** par l'auteur (« Fonctionnel ») :
+connexion à archipelago.gg en `wss://`.

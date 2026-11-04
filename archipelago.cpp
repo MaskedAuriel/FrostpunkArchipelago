@@ -1031,7 +1031,7 @@ void ApMessageReseau(const char* titre, const char* texte)
         else if (!strcmp(titre, "Connection refused"))            sprintf_s(etat, "Refused: %.80s", texte ? texte : "?");
         else if (!strcmp(titre, "Disconnected"))                  strcpy_s(etat, "Disconnected, retrying...");
         else if (!strcmp(titre, "Archipelago server unreachable")) strcpy_s(etat, "Server unreachable, retrying...");
-        else if (!strcmp(titre, "Connection failed"))             strcpy_s(etat, "Failed: use ws://");
+        else if (!strcmp(titre, "Connection failed"))             sprintf_s(etat, "Failed: %.80s", texte ? texte : "?");
         if (etat[0]) PoserEtatConnexion(etat);
     }
     AfficherNotificationAP(titre, texte);

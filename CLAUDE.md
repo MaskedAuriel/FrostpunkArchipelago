@@ -639,8 +639,9 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
 - **Réseau Archipelago** — `docs/chantiers/reseau.md`. **Démarré le
   2026-11-04** (demande de l'auteur : dernière couche). Classe `ReseauAP`
   (`reseau_ap.h/.cpp`), thread dédié, n'appelle que `archipelago.h`.
-  WebSocket **fait main** sur Winsock (`ws://` seulement, décision de
-  l'auteur), JSON **nlohmann/json 3.11.3** (`nlohmann\json.hpp`). Session =
+  WebSocket **fait main** sur Winsock, **TLS par Schannel** pour `wss://`
+  (décision de l'auteur, 2026-11-04 : archipelago.gg n'accepte que
+  `wss://` ; sans préfixe, `wss://` puis `ws://` ; **validé**), JSON **nlohmann/json 3.11.3** (`nlohmann\json.hpp`). Session =
   `mods\ap_<graine>_<slot>\` (index des items, checks, slot_data, items
   reçus / livrés, victoires) ; dernière session relue au démarrage
   (`mods\ap_session.txt`). PrintJSON en message : items qui concernent le

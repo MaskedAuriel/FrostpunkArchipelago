@@ -2,8 +2,12 @@
 //
 // Transport : WebSocket ecrit a la main sur Winsock (decision de l'auteur,
 // 2026-11-04) : poignee de main HTTP, trames masquees cote client, ping/pong,
-// fragmentation. ws:// seulement (wss:// demanderait Schannel). Pas de
-// compression par message (le serveur l'accepte, deprecie).
+// fragmentation. Pas de compression par message (le serveur l'accepte,
+// deprecie).
+// TLS (wss://) : Schannel, natif Windows (decision de l'auteur, 2026-11-04,
+// les serveurs publics comme archipelago.gg n'acceptent que wss://). Sans
+// prefixe : wss:// puis ws://, comme le client officiel ; le mode qui marche
+// est retenu pour les reconnexions de la meme demande.
 // JSON : nlohmann/json 3.11.3 (nlohmann\json.hpp, inclus ICI SEULEMENT).
 //
 // Threads : tout se passe sur le thread reseau. Il n'appelle que la surface
@@ -23,6 +27,9 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
+#define SECURITY_WIN32
+#include <security.h>
+#include <schannel.h>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -34,6 +41,7 @@
 #include "reseau_ap.h"
 
 #pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "secur32.lib")
 
 using json = nlohmann::json;
 
@@ -169,6 +177,15 @@ private:
     std::string m_message;     // message fragmente en cours
     std::mt19937 m_alea{ std::random_device{}() };
 
+    // --- TLS par Schannel, wss:// (thread reseau seulement)
+    bool        m_tls = false;            // socket courante chiffree
+    bool        m_credOk = false, m_ctxOk = false;
+    CredHandle  m_cred = {};
+    CtxtHandle  m_ctx = {};
+    SecPkgContext_StreamSizes m_tailles = {};
+    std::string m_tlsEntree;              // octets chiffres recus, pas encore dechiffres
+    int         m_modeRetenu = 0;         // adresse sans prefixe : 0 inconnu, 1 wss, 2 ws
+
     // --- Etat du protocole (thread reseau seulement)
     std::string m_mdp, m_slotNom, m_serveur;
     std::string m_graine;
@@ -190,9 +207,15 @@ private:
     bool Session(const Demande& d);
 
     // transport
-    bool Ouvrir(const std::string& hote, const std::string& port, std::string& erreur);
+    int  Ouvrir(const std::string& hote, const std::string& port, bool tls, std::string& erreur);
+    bool OuvrirTcp(const std::string& hote, const std::string& port, std::string& erreur);
+    bool TlsPoignee(const std::string& hote, std::string& erreur);
+    bool PoigneeWebSocket(const std::string& hote, const std::string& port, std::string& erreur);
     void Fermer();
+    bool EnvoyerBrut(const char* d, size_t n);
     bool EnvoyerTout(const char* d, size_t n);
+    int  RecevoirOctets(std::string& sortie);   // -1 fermee, -2 erreur, sinon octets clairs ajoutes
+    int  Dechiffrer(std::string& sortie);       // -2 erreur, sinon octets clairs ajoutes
     bool EnvoyerTrame(uint8_t opcode, const std::string& donnees);
     bool Recevoir();          // false : connexion perdue ou fermee
     bool DecouperTrames();    // false : trame de fermeture
@@ -316,6 +339,7 @@ void ReseauAP::Boucle()
             generationVue = d.generation;
             m_refuse = false;
             m_dejaConnecte = false;
+            m_modeRetenu = 0;
             delai = 0;
             prochainEssai = 0;
         }
@@ -335,17 +359,13 @@ void ReseauAP::Boucle()
 // true si Connected a ete recu.
 bool ReseauAP::Session(const Demande& d)
 {
-    // Adresse : [ws://]hote[:port][/...]
+    // Adresse : [ws://|wss://]hote[:port][/...]
     std::string adr = d.serveur;
     while (!adr.empty() && isspace((unsigned char)adr.back())) adr.pop_back();
     while (!adr.empty() && isspace((unsigned char)adr.front())) adr.erase(0, 1);
-    if (_strnicmp(adr.c_str(), "wss://", 6) == 0) {
-        printf("[AP NET] wss:// n'est pas pris en charge (WebSocket sans TLS) : utiliser ws://\n");
-        ApMessageReseau("Connection failed", "Secure servers (wss://) are not supported yet. Use ws://host:port.");
-        m_refuse = true;
-        return false;
-    }
-    if (_strnicmp(adr.c_str(), "ws://", 5) == 0) adr = adr.substr(5);
+    int schema = 0;   // 0 sans prefixe (wss puis ws), 1 wss, 2 ws
+    if (_strnicmp(adr.c_str(), "wss://", 6) == 0) { schema = 1; adr = adr.substr(6); }
+    else if (_strnicmp(adr.c_str(), "ws://", 5) == 0) { schema = 2; adr = adr.substr(5); }
     adr = adr.substr(0, adr.find('/'));
     std::string hote = adr, port = PORT_DEFAUT;
     size_t dp = adr.rfind(':');
@@ -361,10 +381,29 @@ bool ReseauAP::Session(const Demande& d)
     m_mdp = d.mdp;
     m_connecte = false;
 
-    std::string erreur;
-    printf("[AP NET] connexion a %s (slot \"%s\")...\n", Ascii(m_serveur).c_str(), Ascii(m_slotNom).c_str());
-    if (!Ouvrir(hote, port, erreur)) {
-        printf("[AP NET] echec : %s\n", erreur.c_str());
+    // Modes essayes : celui du prefixe, sinon celui qui a marche pour cette
+    // demande, sinon wss:// puis ws://.
+    int essais[2] = { schema, 0 };
+    if (!schema) {
+        if (m_modeRetenu) essais[0] = m_modeRetenu;
+        else { essais[0] = 1; essais[1] = 2; }
+    }
+    bool ouvert = false;
+    for (int mode : essais) {
+        if (!mode) break;
+        const char* nom = mode == 1 ? "wss" : "ws";
+        printf("[AP NET] connexion a %s://%s (slot \"%s\")...\n", nom, Ascii(m_serveur).c_str(), Ascii(m_slotNom).c_str());
+        std::string erreur;
+        int r = Ouvrir(hote, port, mode == 1, erreur);
+        if (r == 0) {
+            ouvert = true;
+            if (!schema) m_modeRetenu = mode;
+            break;
+        }
+        printf("[AP NET] echec en %s:// : %s\n", nom, erreur.c_str());
+        if (r == 1) break;   // DNS ou TCP : l'autre mode n'y changerait rien
+    }
+    if (!ouvert) {
         if (!m_dejaConnecte) {
             static int generationSignalee = 0;
             if (generationSignalee != d.generation) {
@@ -375,10 +414,13 @@ bool ReseauAP::Session(const Demande& d)
         }
         return false;
     }
-    printf("[AP NET] WebSocket ouvert, attente de RoomInfo\n");
+    printf("[AP NET] WebSocket ouvert%s, attente de RoomInfo\n", m_tls ? " (TLS)" : "");
 
+    // Trames arrivees avec la reponse 101 : traitees avant d'attendre la socket.
     bool aboutie = false;
-    for (;;) {
+    bool vivant = m_tampon.empty() || DecouperTrames();
+    if (vivant && m_connecte) { aboutie = true; EnvoyerEnAttente(); }
+    while (vivant) {
         // Nouvelle demande : on ferme et on repart avec elle.
         AcquireSRWLockShared(&m_verrouDemande);
         bool changee = m_demande.generation != d.generation;
@@ -413,7 +455,16 @@ bool ReseauAP::Session(const Demande& d)
 //  Transport : TCP + WebSocket (RFC 6455, cote client)
 // ============================================================================
 
-bool ReseauAP::Ouvrir(const std::string& hote, const std::string& port, std::string& erreur)
+// 0 : WebSocket ouvert ; 1 : echec DNS / TCP ; 2 : echec TLS ou WebSocket.
+int ReseauAP::Ouvrir(const std::string& hote, const std::string& port, bool tls, std::string& erreur)
+{
+    if (!OuvrirTcp(hote, port, erreur)) return 1;
+    if (tls && !TlsPoignee(hote, erreur)) { Fermer(); return 2; }
+    if (!PoigneeWebSocket(hote, port, erreur)) { Fermer(); return 2; }
+    return 0;
+}
+
+bool ReseauAP::OuvrirTcp(const std::string& hote, const std::string& port, std::string& erreur)
 {
     addrinfo indices = {}, *liste = nullptr;
     indices.ai_family = AF_UNSPEC;
@@ -449,8 +500,97 @@ bool ReseauAP::Ouvrir(const std::string& hote, const std::string& port, std::str
     }
     freeaddrinfo(liste);
     if (m_sock == INVALID_SOCKET) { erreur = "connexion TCP refusee ou expiree"; return false; }
+    return true;
+}
 
-    // Poignee de main HTTP -> 101 Switching Protocols.
+static std::string CodeSspi(SECURITY_STATUS st)
+{
+    char t[16];
+    sprintf_s(t, "0x%08lX", (unsigned long)st);
+    return t;
+}
+
+// Poignee de main TLS (Schannel). Certificat verifie par Windows
+// (SCH_CRED_AUTO_CRED_VALIDATION, nom = 'hote', SNI). SCHANNEL_CRED : TLS 1.2
+// au plus (TLS 1.3 demanderait SCH_CREDENTIALS) ; archipelago.gg l'accepte.
+bool ReseauAP::TlsPoignee(const std::string& hote, std::string& erreur)
+{
+    SCHANNEL_CRED sc = {};
+    sc.dwVersion = SCHANNEL_CRED_VERSION;
+    sc.dwFlags = SCH_CRED_AUTO_CRED_VALIDATION | SCH_CRED_NO_DEFAULT_CREDS | SCH_USE_STRONG_CRYPTO;
+    TimeStamp expiration;
+    SECURITY_STATUS st = AcquireCredentialsHandleA(nullptr, (SEC_CHAR*)UNISP_NAME_A, SECPKG_CRED_OUTBOUND,
+        nullptr, &sc, nullptr, nullptr, &m_cred, &expiration);
+    if (st != SEC_E_OK) { erreur = "TLS : AcquireCredentialsHandle " + CodeSspi(st); return false; }
+    m_credOk = true;
+
+    const ULONG DRAPEAUX = ISC_REQ_SEQUENCE_DETECT | ISC_REQ_REPLAY_DETECT | ISC_REQ_CONFIDENTIALITY |
+        ISC_REQ_EXTENDED_ERROR | ISC_REQ_ALLOCATE_MEMORY | ISC_REQ_STREAM;
+    std::string entree;   // octets du serveur pas encore consommes par Schannel
+    DWORD limite = GetTickCount() + 10000;
+    bool premier = true;
+    for (;;) {
+        SecBuffer bufEnt[2] = {};
+        bufEnt[0].BufferType = SECBUFFER_TOKEN;
+        bufEnt[0].pvBuffer = entree.empty() ? nullptr : &entree[0];
+        bufEnt[0].cbBuffer = (ULONG)entree.size();
+        bufEnt[1].BufferType = SECBUFFER_EMPTY;
+        SecBufferDesc descEnt = { SECBUFFER_VERSION, 2, bufEnt };
+        SecBuffer bufSor[1] = {};
+        bufSor[0].BufferType = SECBUFFER_TOKEN;
+        SecBufferDesc descSor = { SECBUFFER_VERSION, 1, bufSor };
+        ULONG attributs = 0;
+        st = InitializeSecurityContextA(&m_cred, premier ? nullptr : &m_ctx, (SEC_CHAR*)hote.c_str(), DRAPEAUX,
+            0, 0, premier ? nullptr : &descEnt, 0, premier ? &m_ctx : nullptr, &descSor, &attributs, &expiration);
+        if (premier) {
+            premier = false;
+            if (st == SEC_E_OK || st == SEC_I_CONTINUE_NEEDED) m_ctxOk = true;
+        }
+        // Jeton a envoyer (aussi en cas d'erreur : alerte TLS).
+        if (bufSor[0].pvBuffer) {
+            bool ok = bufSor[0].cbBuffer == 0 || EnvoyerBrut((const char*)bufSor[0].pvBuffer, bufSor[0].cbBuffer);
+            FreeContextBuffer(bufSor[0].pvBuffer);
+            if (!ok) { erreur = "TLS : envoi de la poignee de main"; return false; }
+        }
+        if (st != SEC_E_INCOMPLETE_MESSAGE) {
+            if (st != SEC_E_OK && st != SEC_I_CONTINUE_NEEDED) {
+                erreur = "TLS : poignee de main refusee (" + CodeSspi(st) +
+                    (st == (SECURITY_STATUS)0x80090325 ? ", certificat non reconnu" :
+                     st == (SECURITY_STATUS)0x80090322 ? ", nom du certificat different" : "") + ")";
+                return false;
+            }
+            if (bufEnt[1].BufferType == SECBUFFER_EXTRA && bufEnt[1].cbBuffer <= entree.size())
+                entree = entree.substr(entree.size() - bufEnt[1].cbBuffer);
+            else
+                entree.clear();
+            if (st == SEC_E_OK) break;
+            if (!entree.empty()) continue;   // encore des octets a donner a Schannel
+        }
+        // Lecture de la suite.
+        if (GetTickCount() > limite) { erreur = "TLS : pas de reponse a la poignee de main"; return false; }
+        fd_set lecture;
+        FD_ZERO(&lecture); FD_SET(m_sock, &lecture);
+        timeval t = { 0, 200 * 1000 };
+        if (select(0, &lecture, nullptr, nullptr, &t) <= 0) continue;
+        char buf[16384];
+        int n = recv(m_sock, buf, sizeof(buf), 0);
+        if (n <= 0) { erreur = "TLS : connexion fermee pendant la poignee de main (serveur ws:// ?)"; return false; }
+        entree.append(buf, n);
+    }
+
+    st = QueryContextAttributesA(&m_ctx, SECPKG_ATTR_STREAM_SIZES, &m_tailles);
+    if (st != SEC_E_OK) { erreur = "TLS : QueryContextAttributes " + CodeSspi(st); return false; }
+    SecPkgContext_ConnectionInfo info = {};
+    QueryContextAttributesA(&m_ctx, SECPKG_ATTR_CONNECTION_INFO, &info);
+    printf("[AP NET] TLS etabli (protocole 0x%lX)\n", (unsigned long)info.dwProtocol);
+    m_tls = true;
+    m_tlsEntree = entree;   // donnees applicatives deja arrivees
+    return true;
+}
+
+// Poignee de main HTTP -> 101 Switching Protocols (sur TCP ou sur TLS).
+bool ReseauAP::PoigneeWebSocket(const std::string& hote, const std::string& port, std::string& erreur)
+{
     uint8_t cle[16];
     for (uint8_t& c : cle) c = (uint8_t)m_alea();
     std::string requete =
@@ -461,27 +601,30 @@ bool ReseauAP::Ouvrir(const std::string& hote, const std::string& port, std::str
         "Sec-WebSocket-Key: " + Base64(cle, 16) + "\r\n"
         "Sec-WebSocket-Version: 13\r\n"
         "User-Agent: Frostpunk-Archipelago\r\n\r\n";
-    if (!EnvoyerTout(requete.data(), requete.size())) { erreur = "envoi de la poignee de main"; Fermer(); return false; }
+    if (!EnvoyerTout(requete.data(), requete.size())) { erreur = "envoi de la poignee de main"; return false; }
 
     std::string reponse;
+    if (m_tls && !m_tlsEntree.empty() && Dechiffrer(reponse) < 0) { erreur = "TLS : dechiffrement"; return false; }
     DWORD limite = GetTickCount() + 5000;
     size_t fin = std::string::npos;
     while ((fin = reponse.find("\r\n\r\n")) == std::string::npos) {
-        if (GetTickCount() > limite || reponse.size() > 16384) { erreur = "pas de reponse a la poignee de main"; Fermer(); return false; }
+        if (GetTickCount() > limite || reponse.size() > 16384) { erreur = "pas de reponse a la poignee de main"; return false; }
         fd_set lecture;
         FD_ZERO(&lecture); FD_SET(m_sock, &lecture);
         timeval t = { 0, 200 * 1000 };
         if (select(0, &lecture, nullptr, nullptr, &t) <= 0) continue;
-        char buf[4096];
-        int n = recv(m_sock, buf, sizeof(buf), 0);
-        if (n <= 0) { erreur = "connexion fermee pendant la poignee de main"; Fermer(); return false; }
-        reponse.append(buf, n);
+        int n = RecevoirOctets(reponse);
+        if (n == -1) {
+            erreur = m_tls ? "connexion fermee pendant la poignee de main"
+                           : "connexion fermee pendant la poignee de main (serveur wss:// ?)";
+            return false;
+        }
+        if (n < 0) { erreur = "lecture de la reponse a la poignee de main"; return false; }
     }
     std::string entete = reponse.substr(0, fin);
     std::string ligne1 = entete.substr(0, entete.find("\r\n"));
     if (ligne1.find(" 101") == std::string::npos) {
-        erreur = "le serveur refuse le WebSocket : \"" + Ascii(ligne1) + "\" (serveur wss:// ?)";
-        Fermer();
+        erreur = "le serveur refuse le WebSocket : \"" + Ascii(ligne1) + "\"";
         return false;
     }
     m_tampon = reponse.substr(fin + 4);   // trames deja arrivees
@@ -496,11 +639,15 @@ void ReseauAP::Fermer()
         closesocket(m_sock);
         m_sock = INVALID_SOCKET;
     }
+    if (m_ctxOk) { DeleteSecurityContext(&m_ctx); m_ctxOk = false; }
+    if (m_credOk) { FreeCredentialsHandle(&m_cred); m_credOk = false; }
+    m_tls = false;
+    m_tlsEntree.clear();
     m_tampon.clear();
     m_message.clear();
 }
 
-bool ReseauAP::EnvoyerTout(const char* d, size_t n)
+bool ReseauAP::EnvoyerBrut(const char* d, size_t n)
 {
     while (n) {
         int e = send(m_sock, d, (int)std::min(n, (size_t)65536), 0);
@@ -509,6 +656,82 @@ bool ReseauAP::EnvoyerTout(const char* d, size_t n)
         n -= e;
     }
     return true;
+}
+
+// Envoi des octets clairs : chiffres en enregistrements TLS si wss://.
+bool ReseauAP::EnvoyerTout(const char* d, size_t n)
+{
+    if (!m_tls) return EnvoyerBrut(d, n);
+    std::vector<char> paquet(m_tailles.cbHeader + m_tailles.cbMaximumMessage + m_tailles.cbTrailer);
+    while (n) {
+        ULONG part = (ULONG)std::min(n, (size_t)m_tailles.cbMaximumMessage);
+        memcpy(paquet.data() + m_tailles.cbHeader, d, part);
+        SecBuffer b[4] = {};
+        b[0].BufferType = SECBUFFER_STREAM_HEADER;
+        b[0].pvBuffer = paquet.data();
+        b[0].cbBuffer = m_tailles.cbHeader;
+        b[1].BufferType = SECBUFFER_DATA;
+        b[1].pvBuffer = paquet.data() + m_tailles.cbHeader;
+        b[1].cbBuffer = part;
+        b[2].BufferType = SECBUFFER_STREAM_TRAILER;
+        b[2].pvBuffer = paquet.data() + m_tailles.cbHeader + part;
+        b[2].cbBuffer = m_tailles.cbTrailer;
+        b[3].BufferType = SECBUFFER_EMPTY;
+        SecBufferDesc desc = { SECBUFFER_VERSION, 4, b };
+        SECURITY_STATUS st = EncryptMessage(&m_ctx, 0, &desc, 0);
+        if (st != SEC_E_OK) { printf("[AP NET] TLS : EncryptMessage %s\n", CodeSspi(st).c_str()); return false; }
+        if (!EnvoyerBrut(paquet.data(), (size_t)b[0].cbBuffer + b[1].cbBuffer + b[2].cbBuffer)) return false;
+        d += part;
+        n -= part;
+    }
+    return true;
+}
+
+// Une lecture de la socket (prete) ; octets clairs ajoutes a 'sortie'. En TLS,
+// tous les enregistrements complets sont dechiffres (rien ne reste en attente
+// cote clair : select() sur la socket suffit).
+int ReseauAP::RecevoirOctets(std::string& sortie)
+{
+    char buf[65536];
+    int n = recv(m_sock, buf, sizeof(buf), 0);
+    if (n == 0) return -1;
+    if (n < 0) { printf("[AP NET] recv : erreur %d\n", WSAGetLastError()); return -2; }
+    if (!m_tls) { sortie.append(buf, n); return n; }
+    m_tlsEntree.append(buf, n);
+    return Dechiffrer(sortie);
+}
+
+int ReseauAP::Dechiffrer(std::string& sortie)
+{
+    int ajoutes = 0;
+    while (!m_tlsEntree.empty()) {
+        SecBuffer b[4] = {};
+        b[0].BufferType = SECBUFFER_DATA;
+        b[0].pvBuffer = &m_tlsEntree[0];
+        b[0].cbBuffer = (ULONG)m_tlsEntree.size();
+        b[1].BufferType = b[2].BufferType = b[3].BufferType = SECBUFFER_EMPTY;
+        SecBufferDesc desc = { SECBUFFER_VERSION, 4, b };
+        SECURITY_STATUS st = DecryptMessage(&m_ctx, &desc, 0, nullptr);
+        if (st == SEC_E_INCOMPLETE_MESSAGE) break;   // enregistrement pas encore complet
+        if (st == SEC_I_CONTEXT_EXPIRED) { printf("[AP NET] TLS : fermeture par le serveur\n"); return -2; }
+        if (st != SEC_E_OK) {
+            // SEC_I_RENEGOTIATE (0x00090321) : renegociation / messages TLS 1.3,
+            // non geres (TLS 1.2 avec SCHANNEL_CRED).
+            printf("[AP NET] TLS : DecryptMessage %s\n", CodeSspi(st).c_str());
+            return -2;
+        }
+        std::string reste;
+        for (int i = 1; i < 4; ++i) {
+            if (b[i].BufferType == SECBUFFER_DATA && b[i].cbBuffer) {
+                sortie.append((const char*)b[i].pvBuffer, b[i].cbBuffer);
+                ajoutes += (int)b[i].cbBuffer;
+            }
+            else if (b[i].BufferType == SECBUFFER_EXTRA && b[i].cbBuffer)
+                reste.assign((const char*)b[i].pvBuffer, b[i].cbBuffer);
+        }
+        m_tlsEntree.swap(reste);   // dechiffrement en place : copies faites avant
+    }
+    return ajoutes;
 }
 
 // Trame client : FIN, masque obligatoire.
@@ -532,11 +755,9 @@ bool ReseauAP::EnvoyerTrame(uint8_t opcode, const std::string& donnees)
 
 bool ReseauAP::Recevoir()
 {
-    char buf[65536];
-    int n = recv(m_sock, buf, sizeof(buf), 0);
-    if (n == 0) { printf("[AP NET] le serveur a ferme la connexion\n"); return false; }
-    if (n < 0) { printf("[AP NET] recv : erreur %d\n", WSAGetLastError()); return false; }
-    m_tampon.append(buf, n);
+    int n = RecevoirOctets(m_tampon);
+    if (n == -1) { printf("[AP NET] le serveur a ferme la connexion\n"); return false; }
+    if (n < 0) return false;   // erreur deja au journal
     return DecouperTrames();
 }
 
