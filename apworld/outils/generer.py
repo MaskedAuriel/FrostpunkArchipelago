@@ -503,14 +503,13 @@ def main():
                                   cle="|".join(groupe)))
 
         # --- Temperature ----------------------------------------------------
+        # Plus de LOCATIONS de montee (decision de l'auteur, 2026-11-04 : la
+        # frise etant masquee, le joueur ne peut plus situer ces checks). Les
+        # ids "loc_temp|..." restent dans ids.tsv (jamais retires). Les ITEMS
+        # Temperature Rise restent : le mod retire toujours les montees du
+        # jeu, chaque item rend un niveau.
         maxi = max(MONTEES[scn])
         temp_noms = []
-        for k in range(1, maxi + 1):
-            nom = unique("%s - Temperature Rise %d" % (affiche, k), noms_loc)
-            temp_noms.append(nom)
-            locations.append(dict(id=ids("loc_temp", "%s|%d" % (scn, k)), nom=nom, scn=scn, region=None,
-                                  genre="temperature", tiers=0, eclaireurs=False, exclue_option=False,
-                                  cle=str(k)))
         if maxi:
             items.append(dict(id=ids("item_temp", scn), nom="%s - Temperature Rise" % affiche, scn=scn,
                               genre="temperature", classe="useful", nombre=0, cle=scn))

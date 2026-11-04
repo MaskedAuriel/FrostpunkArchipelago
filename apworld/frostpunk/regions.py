@@ -4,7 +4,7 @@ from BaseClasses import ItemClassification, LocationProgressType, Region
 
 from .data import LOCATIONS
 from .items import FrostpunkItem
-from .locations import FrostpunkLocation, regions_montees
+from .locations import FrostpunkLocation
 from .rules import regle_location
 
 
@@ -40,12 +40,9 @@ def creer_regions(world, scenarios, difficulte, exclure_purpose_politics):
             regle_location(loc, info, s, player)
             region.locations.append(loc)
 
-        # Montees de temperature (nombre selon la difficulte)
-        n = s["montees"][difficulte]
-        for k, r in enumerate(regions_montees(n, len(regions))):
-            nom = s["temperature"][k]
-            info = next(l for l in LOCATIONS if l["nom"] == nom)
-            regions[r].locations.append(FrostpunkLocation(player, nom, info["id"], regions[r]))
+        # Montees de temperature : plus de locations (decision de l'auteur,
+        # 2026-11-04 : frise masquee, checks impossibles a situer). Seuls les
+        # items Temperature Rise restent dans le pool (items.py).
 
         # Victoire : evenement dans la derniere region (rien de plus, Q4.5 b)
         nom_victoire = "%s - Victory" % s["nom"]

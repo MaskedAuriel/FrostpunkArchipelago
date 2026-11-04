@@ -147,6 +147,13 @@ static bool LivrerContenu(const ApItemInfo& it, const char* expediteur)
     int slot = GroupeCreer(g);
     printf("[AP ITEMS] \"%s\" (%s) : groupe %s (slot %d, arrivee dans %.1f h = %.1f h d'attente + %d h)\n",
         it.nom, liste, slot >= 0 ? "parti" : "NON cree", slot, g.heures, attente, g_heuresLivraison);
+    // Message a la reception (demande de l'auteur, 2026-11-04 : aucun message
+    // quand un contenu de site arrivait, seulement la bulle a l'arrivee).
+    if (slot >= 0) {
+        char msg[256];
+        sprintf_s(msg, "%s from %s - convoy arrives in %.0f h", it.nom, expediteur, g.heures);
+        AfficherNotificationAP("Item received", msg);
+    }
     return slot >= 0;
 }
 
@@ -663,6 +670,18 @@ bool ReceiveScenarioUnlock(const char* scenario, const char* fromPlayer)
 //  Jeu -> serveur
 // ============================================================================
 
+// Texte du message "Check sent" : "<check> -> <joueur> - <item>" d'apres le
+// scout de la location (demande de l'auteur, 2026-11-04 : le check de quete
+// doit dire ce qu'il envoie), "<check>" seul sans scout.
+static void TexteCheckEnvoye(const ApLocationInfo* l, const char* check, char* out, size_t taille)
+{
+    char item[200];
+    if (l && ApNomDuCheckLocation(l->id, item, sizeof(item)))
+        _snprintf_s(out, taille, _TRUNCATE, "%s -> %s", check, item);
+    else
+        _snprintf_s(out, taille, _TRUNCATE, "%s", check);
+}
+
 void SendResearchCheck(uint64_t techHash)
 {
     // 1. Location AP de cette techno (cle = hash en hexadecimal).
@@ -736,10 +755,10 @@ void SendLawCheck(const char* tree, int rank, const char* lawName, bool effectPe
         effectPending ? " (effet en attente)" : "");
     EnvoyerLocation(l);
 
-    // 3. Popup.
-    char texte[200];
-    sprintf_s(texte, "Law: %s (%s #%d)%s", lawName, tree, rank,
-        effectPending ? " - effect pending" : "");
+    // 3. Popup : la loi et ce que le check envoie.
+    char check[200], texte[256];
+    sprintf_s(check, "Law: %s%s", lawName, effectPending ? " (effect pending)" : "");
+    TexteCheckEnvoye(l, check, texte, sizeof(texte));
     AfficherNotificationAP("Check sent", texte);
 }
 
@@ -764,9 +783,10 @@ void SendQuestCheck(const char* questName, const char* displayName)
     printf("[AP CHECK] quete \"%s\" (\"%s\") accomplie\n", questName, displayName);
     EnvoyerLocation(l);
 
-    // 3. Popup.
-    char texte[200];
-    sprintf_s(texte, "Quest: %s", displayName && displayName[0] && displayName[0] != '(' ? displayName : questName);
+    // 3. Popup : la quete et ce que le check envoie.
+    char check[200], texte[256];
+    sprintf_s(check, "Quest: %s", displayName && displayName[0] && displayName[0] != '(' ? displayName : questName);
+    TexteCheckEnvoye(l, check, texte, sizeof(texte));
     AfficherNotificationAP("Check sent", texte);
 }
 
@@ -788,9 +808,10 @@ void SendTemperatureCheck(int rank)
     printf("[AP CHECK] montee de temperature %d retiree\n", rank);
     EnvoyerLocation(l);
 
-    // 3. Popup.
-    char texte[160];
-    sprintf_s(texte, "Temperature level #%d held back", rank);
+    // 3. Popup : la montee et ce que le check envoie.
+    char check[64], texte[256];
+    sprintf_s(check, "Temperature level #%d held back", rank);
+    TexteCheckEnvoye(l, check, texte, sizeof(texte));
     AfficherNotificationAP("Check sent", texte);
 }
 

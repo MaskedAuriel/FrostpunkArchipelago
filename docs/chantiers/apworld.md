@@ -1100,4 +1100,38 @@ d'ouverture de l'arbre**, condition des lois. Lignes finales `# exclues`.
   Refugees 18, 11, 9 ; Winterhome 26, —, 2, 15 ; Last Autumn 11, 7, 6 ; On
   the Edge 12, 11, 5.
 - Tests (0.6.8) : banc 5 × 5 et 70 générations solo OK ; ids inchangés ;
-  `frostpunk.apworld` reconstruit.
+  `frostpunk.apworld` reconstruit. Commit `fdfa316`.
+
+### 2026-11-04 — Messages des checks et des items de site (mod)
+
+- **Problème remonté** : le message du check de quête (« Quest: FIGHT THE
+  COLD ») ne dit pas ce qu'il envoie ; l'item reçu en retour (`A New Home -
+  Children's Hideout Supplies`, trouvé par le slot lui-même) n'a donné
+  **aucun message** (journal : `[AP RECU]` puis groupe créé, rien d'autre).
+- **Causes** : `SendQuestCheck` (et `SendLawCheck`, `SendTemperatureCheck`)
+  ne lisaient pas le scout ; un contenu de site / filler ne produisait
+  qu'une bulle à l'arrivée du groupe, et le message réseau `ItemSend` n'est
+  montré que pour les échanges avec un autre joueur (décision du
+  2026-11-04).
+- **Correctif (compilé, déployé, non testé)** : `TexteCheckEnvoye`
+  (archipelago.cpp) → « Check sent » = `<check> -> <joueur> - <item>` pour
+  les quêtes, lois et montées (comme les technos et les sites) ;
+  `LivrerContenu` → message « Item received » `<item> from <joueur> -
+  convoy arrives in N h` au départ du groupe.
+
+### 2026-11-04 — Plus de locations de montée de température
+
+- **Décision de l'auteur** : les montées ne peuvent pas être des
+  locations : la frise de température est masquée, le joueur n'a plus rien
+  pour situer ces checks.
+- `generer.py` ne crée plus les locations `<Scénario> - Temperature Rise k`
+  (ids `loc_temp|…` gardés dans `ids.tsv`, jamais retirés) ; `regions.py`
+  ne les pose plus. Les **items** `Temperature Rise` restent dans le pool
+  (le mod retire toujours les montées du jeu, chaque item rend un niveau) ;
+  le pool s'ajuste en retirant du filler de complément. 862 locations au
+  lieu de 893 ; A New Home seul : 174.
+- Mod : `known_ap_ids.h` régénéré sans ces locations ; une montée retirée
+  appelle encore `SendTemperatureCheck`, qui ne trouve plus de location →
+  journal « aucune location AP », ni envoi ni message. Compilé, déployé.
+- Tests (0.6.8) : banc 5 × 5 et 70 générations solo OK ; `frostpunk.apworld`
+  reconstruit.

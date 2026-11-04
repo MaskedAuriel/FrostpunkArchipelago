@@ -532,8 +532,9 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
 
 - **Température** — `docs/chantiers/temperature.md` (tableaux complets des
   chronologies et des montées par scénario et difficulté). Décisions :
-  Endless ignoré, **seules les montées** deviennent des checks, montées de
-  fin de partie exclues. Étape 2 **VALIDÉE le 2026-11-01** (On the Edge) :
+  Endless ignoré, montées de fin de partie exclues ; **plus de checks de
+  montée** (décision de l'auteur, 2026-11-04 : frise masquée, impossibles
+  à situer), seuls les items `Temperature Rise` restent. Étape 2 **VALIDÉE le 2026-11-01** (On the Edge) :
   montées retirées (hook du recalcul `FUN_141812c10`), décalage cumulé,
   `ReceiveTemperatureRise` (F8), frise et panneau masqués. Pas de borne
   haute du niveau. Pas encore vu : une vraie montée retirée en jeu, le
