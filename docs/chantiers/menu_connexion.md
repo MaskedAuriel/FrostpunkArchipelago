@@ -196,3 +196,20 @@ l'original, Scenario forcé actif, New game inactif
 (`FUN_14105a3a0(élément, actif, 1)` + état d'animation `ENABLED` / `DISABLED`
 par `FUN_1410240d0(élément, &nom, 1, 0, 0, 0, 1, 0, 0)`). Déployé à 11:18.
 Non testé.
+### 2026-11-04 — Menu verrouillé sans connexion (demande de l'auteur)
+
+Tant que le joueur n'est pas connecté au serveur : pas de choix du
+scénario, pas de Continue, pas de Load game. Décompilé `FUN_141b28f10`
+(rafraîchissement du panneau) : `+0xD0` CONTINUE (montré s'il y a une
+sauvegarde), `+0xD8` NEWGAME, `+0xE0` **LOAD** (actif si sauvegardes > 0),
+`+0xE8` SCENARIO. `hkRafraichirPanneau` → `AppliquerVerrouConnexion` :
+New game toujours inactif ; Scenario actif seulement si `ApEstConnecte()`
+(archipelago.cpp : état `Connected` / `Reconnected` du libellé) ; sans
+connexion, Continue et Load inactifs, sinon état du jeu. Au changement de
+connexion, la minuterie d'état (`MinuterieEtat`, thread de l'interface,
+panneau vivant) relance le rafraîchissement complet
+(`VerrouSuivreConnexion`). Journal `[MENU] bouton … force …`,
+`[MENU] connexion etablie / perdue`. Non testé.
+Test de l'auteur (2026-11-04) : journal conforme — sans connexion, NEWGAME,
+SCENARIO, CONTINUE et LOAD forcés inactifs ; à la connexion,
+`[MENU] connexion etablie`, SCENARIO actif. **Validé.**

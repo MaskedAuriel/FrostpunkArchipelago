@@ -1116,6 +1116,8 @@ long      g_etatVu = 0;          // generation de l'etat affiche
 DWORD     g_threadInterface = 0; // thread de Construire
 UINT_PTR  g_minuterieEtat = 0;
 
+void VerrouSuivreConnexion();   // plus bas (boutons du menu sans connexion)
+
 VOID CALLBACK MinuterieEtat(HWND, UINT, UINT_PTR, DWORD)
 {
     static bool premierPassage = true;
@@ -1130,6 +1132,8 @@ VOID CALLBACK MinuterieEtat(HWND, UINT, UINT_PTR, DWORD)
     if (gen == g_etatVu) return;
     uintptr_t t = ObjetDePoignee(g_poigneeEtat);
     if (!t || !EstTexte(t)) return;   // panneau detruit (partie lancee)
+    // Panneau vivant (son intitule l'est) : boutons selon la connexion.
+    VerrouSuivreConnexion();
     // Latin-1 -> UTF-16 : chaque octet est son point de code.
     wchar_t w[96];
     int i = 0;
@@ -1281,7 +1285,9 @@ void ReleverPlusTard()
 constexpr uintptr_t OFF_RAFRAICHIR_PANNEAU = 0x1B28F10;
 constexpr uintptr_t OFF_ACTIVER_ELEMENT    = 0x105A3A0;
 constexpr uintptr_t OFF_ETAT_ANIMATION     = 0x10240D0;
+constexpr int PAN_BOUTON_CONTINUER       = 0xD0;
 constexpr int PAN_BOUTON_NOUVELLE_PARTIE = 0xD8;
+constexpr int PAN_BOUTON_CHARGER         = 0xE0;   // LOAD (actif si sauvegardes, FUN_141b28f10)
 constexpr int PAN_BOUTON_SCENARIOS       = 0xE8;
 
 typedef void (*Rafraichir_t)(uintptr_t panneau, uintptr_t p2, uintptr_t p3, uintptr_t p4);
@@ -1289,6 +1295,7 @@ typedef void (*ActiverElement_t)(uintptr_t element, uintptr_t actif, uintptr_t p
 typedef void (*EtatAnimation_t)(uintptr_t element, uintptr_t* nom, uintptr_t p3, uintptr_t p4, uintptr_t p5,
                                 uintptr_t p6, uintptr_t p7, uintptr_t p8, uintptr_t p9);
 Rafraichir_t oRafraichirPanneau = nullptr;
+uintptr_t    g_panneauRafraichi = 0;   // dernier panneau rafraichi (verrou de connexion)
 
 // Bouton du panneau (poignee rangee en panneau + off), actif ou non.
 void ForcerBouton(uintptr_t panneau, int off, bool actif, const char* qui)
@@ -1308,17 +1315,54 @@ void ForcerBouton(uintptr_t panneau, int off, bool actif, const char* qui)
         printf("[MENU] EXCEPTION 0x%08lX sur le bouton %s\n", GetExceptionCode(), qui);
         return;
     }
-    static bool journalise[2] = {};
-    bool& j = journalise[off == PAN_BOUTON_SCENARIOS ? 0 : 1];
-    if (!j) { j = true; printf("[MENU] bouton %s force %s\n", qui, actif ? "actif" : "inactif"); }
+    // Journal a chaque changement d'etat d'un bouton (decalages 0xD0..0xE8).
+    static int dernier[4] = { -1, -1, -1, -1 };
+    int k = (off - PAN_BOUTON_CONTINUER) / 8;
+    if (k >= 0 && k < 4 && dernier[k] != (actif ? 1 : 0)) {
+        dernier[k] = actif ? 1 : 0;
+        printf("[MENU] bouton %s force %s\n", qui, actif ? "actif" : "inactif");
+    }
+}
+
+// Verrou des boutons selon la connexion (demande de l'auteur, 2026-11-04) :
+// sans connexion au serveur, ni choix du scenario, ni Continue, ni Load game
+// (New game, qui lance A New Home, est toujours inactif). Connecte : Scenario
+// actif ; Continue et Load gardent l'etat pose par le jeu (sauvegardes de la
+// session, sauvegardes_ap.cpp) -- d'ou l'appel apres l'original seulement.
+bool g_verrouApplique = false, g_verrouConnecte = false;
+
+void AppliquerVerrouConnexion(uintptr_t panneau)
+{
+    bool connecte = ApEstConnecte();
+    ForcerBouton(panneau, PAN_BOUTON_NOUVELLE_PARTIE, false, "NEWGAME_BUTTON");
+    ForcerBouton(panneau, PAN_BOUTON_SCENARIOS, connecte, "SCENARIO_BUTTON");
+    if (!connecte) {
+        ForcerBouton(panneau, PAN_BOUTON_CONTINUER, false, "CONTINUE_BUTTON");
+        ForcerBouton(panneau, PAN_BOUTON_CHARGER, false, "LOAD_BUTTON");
+    }
+    g_verrouApplique = true;
+    g_verrouConnecte = connecte;
 }
 
 void hkRafraichirPanneau(uintptr_t panneau, uintptr_t p2, uintptr_t p3, uintptr_t p4)
 {
     oRafraichirPanneau(panneau, p2, p3, p4);
     if (!panneau) return;
-    ForcerBouton(panneau, PAN_BOUTON_SCENARIOS, true, "SCENARIO_BUTTON");
-    ForcerBouton(panneau, PAN_BOUTON_NOUVELLE_PARTIE, false, "NEWGAME_BUTTON");
+    g_panneauRafraichi = panneau;
+    AppliquerVerrouConnexion(panneau);
+}
+
+// Minuterie d'etat : la connexion a change -> rafraichissement complet du
+// panneau (le jeu repose Continue / Load, puis notre verrou).
+void VerrouSuivreConnexion()
+{
+    if (!g_panneauRafraichi || !g_verrouApplique || ApEstConnecte() == g_verrouConnecte) return;
+    printf("[MENU] connexion %s : boutons du menu mis a jour\n", ApEstConnecte() ? "etablie" : "perdue");
+    __try { hkRafraichirPanneau(g_panneauRafraichi, 0, 0, 0); }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        printf("[MENU] EXCEPTION 0x%08lX au rafraichissement du panneau\n", GetExceptionCode());
+        g_panneauRafraichi = 0;
+    }
 }
 
 uintptr_t hkInitPanneau(uintptr_t panneau, uintptr_t a, uintptr_t b, uintptr_t c)

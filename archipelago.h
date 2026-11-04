@@ -175,8 +175,9 @@ struct ApScoutInfo {
 // contenu n'est pas encore connu (jamais connecte). Tout thread.
 bool ApScoutLoi(const char* arbre, int rang, ApScoutInfo* out);
 bool ApScoutTechno(uint64_t hash, ApScoutInfo* out);
-// Nom affiche d'un check (noeuds des arbres) : "<item>" pour ce slot,
-// "<item> (<joueur>)" sinon. Latin-1.
+// Nom affiche d'un check (noeuds des arbres) : "<joueur> - <item>", le
+// destinataire en tete, meme pour ce slot (auteur, 2026-11-04 ; '|' coupe
+// le texte en jeu). Latin-1.
 void ApNomDuScout(const ApScoutInfo& s, char* out, size_t taille);
 
 // Etat de la connexion, texte court en anglais (Latin-1) pour le libelle du
@@ -185,6 +186,10 @@ void ApNomDuScout(const ApScoutInfo& s, char* out, size_t taille);
 // ApMessageReseau. Copie dans 'out' ; renvoie un compteur qui change a chaque
 // nouvel etat. Tout thread.
 long ApEtatConnexion(char* out, size_t taille);
+// Connecte au serveur Archipelago (Connected recu, connexion pas perdue
+// depuis). Au menu principal, sans connexion : choix du scenario, Continue
+// et Load game desactives (menu_ap.cpp). Tout thread.
+bool ApEstConnecte();
 
 // Bouton "Connect" du menu principal (menu_ap.cpp) : chaines UTF-8 saisies.
 // Appele sur le thread du jeu, hors partie : ReseauConnecter (reseau_ap.h).
@@ -198,3 +203,6 @@ void RequestConnection(const char* server, const char* slot, const char* passwor
 // nullptr si la location n'existe pas ou n'est pas encore scoutee : garder
 // alors l'icone de test. Tout thread.
 const char* ApIconeDuCheck(const char* genre, const char* cle);
+// Nom du check d'une location AP par son id (scout) : "<joueur> - <item>"
+// (ApNomDuScout). false si pas encore scoutee. Tout thread.
+bool ApNomDuCheckLocation(int64_t locationId, char* out, size_t taille);

@@ -1437,15 +1437,9 @@ void LoisDemanderReleve()
     printf("[LOIS] releve demande : il s'execute sur le thread du jeu (jeu hors pause)\n");
 }
 
-// --- Debug : pas de delai entre deux lois -----------------------------------
-// FUN_141700760(systeme) = commande console ResetSociotechCooldown : systeme
-// +0xF8 (SociotechActivationCooldown) = DAT_142c2fca8 (temps nul), puis
-// evenement "cooldown expire" (systeme +0xA0) s'il a change.
-constexpr bool      LOIS_SANS_DELAI          = true;
-constexpr uintptr_t OFF_RAZ_DELAI_LOIS       = 0x1700760;
-constexpr uintptr_t OFF_TEMPS_NUL            = 0x2C2FCA8;
-constexpr int       SYS_DELAI_ACTIVATION     = 0xF8;
-
+// Debug LOIS_SANS_DELAI (remise a zero continue du delai entre deux lois par
+// FUN_141700760 = ResetSociotechCooldown) retire le 2026-11-04 a la demande
+// de l'auteur : le delai du jeu s'applique.
 void LoisPompe()
 {
     if (g_releveDemande) {
@@ -1455,31 +1449,6 @@ void LoisPompe()
         DiagUnlocks();
         printf("[LOIS] releve termine\n");
         DiagTechnos();   // releve des technos (palier, arbre, prerequis)
-    }
-    if (!LOIS_SANS_DELAI || !PartiePrete()) return;
-
-    static uintptr_t sysValide = 0;
-    static int       nRaz = 0;
-    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
-    uintptr_t sys = 0;
-    if (!SafeRead((void*)(base + OFF_SYSTEME_LOIS), &sys, 8) || sys <= 0x10000) return;
-    if (sys != sysValide) {
-        char cls[64] = "?";
-        if (!GetClassNameFP(sys, cls, sizeof(cls)) || strcmp(cls, "FrostpunkSociotechSystem") != 0) return;
-        sysValide = sys;
-    }
-
-    uint64_t delai = 0, nul = 0;
-    if (!SafeRead((void*)(sys + SYS_DELAI_ACTIVATION), &delai, 8) ||
-        !SafeRead((void*)(base + OFF_TEMPS_NUL), &nul, 8)) return;
-    if (delai == nul) return;
-
-    typedef void (*RazDelai_t)(uintptr_t);
-    ((RazDelai_t)(base + OFF_RAZ_DELAI_LOIS))(sys);
-    if (nRaz < 10) {
-        ++nRaz;
-        printf("[LOIS] debug : delai entre deux lois remis a zero (%llX -> %llX)\n",
-            (unsigned long long)delai, (unsigned long long)nul);
     }
 }
 

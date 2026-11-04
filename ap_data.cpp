@@ -1,6 +1,7 @@
 // ---- ap_data.cpp ----
 #include "ap_data.h"
 #include "mod_common.h"
+#include "archipelago.h"   // ApNomDuCheckLocation (scouts)
 
 // Table compacte : les identifiants de location peuvent valoir n'importe quoi,
 // on ne les utilise pas comme indices.
@@ -32,7 +33,21 @@ ApSlot* SlotById(int id)
     return nullptr;
 }
 
-void ApSetCheck(int id, const char* joueur, const char* description, int arbreTest)
+// Nom du check d'apres le scout (2026-11-04, demande de l'auteur : le meme
+// "<joueur> - <item>" que les technos et les lois). Id local d'un site =
+// 100000 + n, location AP = 7747300000 + n. Recopie seulement si le texte a
+// change (lu depuis plusieurs threads : le texte reecrit est identique).
+static void RafraichirDepuisScout(ApSlot* s)
+{
+    if (s->c.id < 100000) return;
+    char nom[160];
+    if (!ApNomDuCheckLocation(7747300000LL + (s->c.id - 100000), nom, sizeof(nom))) return;
+    if (strcmp(nom, s->c.description) == 0) return;
+    CopieAscii(s->c.description, sizeof(s->c.description), nom);
+    s->descPrete = false;
+}
+
+void ApSetCheck(int id, const char* joueur, const char* description)
 {
     ApSlot* s = SlotById(id);
     if (!s) {
@@ -43,7 +58,6 @@ void ApSetCheck(int id, const char* joueur, const char* description, int arbreTe
     s->descPrete = false;
     s->joueurPret = false;
     s->c.id = id;
-    s->c.arbreTest = arbreTest;
     CopieAscii(s->c.joueur, sizeof(s->c.joueur), joueur);
     CopieAscii(s->c.description, sizeof(s->c.description), description);
 }
@@ -51,16 +65,18 @@ void ApSetCheck(int id, const char* joueur, const char* description, int arbreTe
 const ApCheck* ApCheckById(int id)
 {
     ApSlot* s = SlotById(id);
-    return s ? &s->c : nullptr;
+    if (!s) return nullptr;
+    RafraichirDepuisScout(s);
+    return &s->c;
 }
 
 const wchar_t* ApDescriptionW(int id)
 {
     ApSlot* s = SlotById(id);
     if (!s) return nullptr;
+    RafraichirDepuisScout(s);
     if (!s->descPrete) {
-        // Conversion octet a octet : suffit pour du latin simple. A remplacer
-        // par MultiByteToWideChar quand le serveur enverra de l'UTF-8.
+        // Octet -> caractere : le texte est en Latin-1 (scouts, ApNoterScout).
         int j = 0;
         for (; s->c.description[j] && j < 159; ++j)
             s->descW[j] = (wchar_t)(unsigned char)s->c.description[j];
@@ -70,15 +86,8 @@ const wchar_t* ApDescriptionW(int id)
     return s->descW;
 }
 
-
-void ApChargerChecksDeTest()
-{
-    // Les identifiants doivent correspondre a ceux de SITE_PAYLOADS.
-    ApSetCheck(1001, "[Masked Frostpunk Item]", "[AP] Sending: Coal Mine Progressive", 28);
-    ApSetCheck(1003, "[Masked Frostpunk Item]", "[AP] Sending: Generator Power Progressive", 12);
-    ApSetCheck(1002, "Alice", "[AP] Sending: Smoke Bombs", -1);
-    ApSetCheck(1004, "Bob", "[AP] Sending: Heater Progressive", -1);   // Refugees, "Lone Boulder"
-}
+// (ApChargerChecksDeTest, 4 checks de test 1001-1004 dont deux simulaient
+// la reception d'une progressive, retire le 2026-11-04.)
 
 const wchar_t* ApJoueurW(int id)
 {

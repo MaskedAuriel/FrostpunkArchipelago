@@ -1495,16 +1495,11 @@ void DiagNoeudsLivre(uintptr_t livre)
             ic = nullptr;
             if (journal) printf("[LOIUI]   noeud %d : \"%s\" inaccessible (branche exclue) : pas d'icone\n", k, nom);
         }
-        // Paire exclusive : un seul texte (demande de l'auteur, 2026-11-04),
-        // sur le demi-rond gauche ; celui de droite est vide.
-        if (ic && !strcmp(racine, "RIGHT_OR_ENTRY")) {
-            EffacerNomLoi(elem);
-            if (nDemi[1] < 64) { demi[1][nDemi[1]] = elem; loiDemi[1][nDemi[1]++] = i; }
-        }
-        else if (ic) {
-            PoserNomCheckLoi(elem, i, e);
-            if (gauchePaire && nDemi[0] < 64) { demi[0][nDemi[0]] = elem; loiDemi[0][nDemi[0]++] = i; }
-        }
+        // Nom du noeud : celui de la loi, vanilla (changement de plan de
+        // l'auteur, 2026-11-04 : le nom du check n'est plus que dans le
+        // panneau d'info, hkInfoLoi). Plus de PoserNomCheckLoi ni
+        // d'EffacerNomLoi ici ; demi[] reste vide, donc pas de recentrage
+        // des paires (CentrerNomPaire), chaque demi-rond garde son nom.
         // 10e test (2026-10-31) : une fois la loi d'une paire signee, la plume
         // du jeu s'affiche exactement au centre du rond (sous notre icone).
         // Releve, une fois par cote, de l'arbre (avec translations et

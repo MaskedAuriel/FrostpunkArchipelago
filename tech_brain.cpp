@@ -99,15 +99,12 @@ void AP_NomDuCheck(uint64_t hash, char* out, int maxlen)
     _snprintf_s(out, maxlen, _TRUNCATE, "%s", t ? t->name : "unknown location");
 }
 
-// Texte Archipelago associe a cette techno (= a ce location check).
-// Tant que le reseau n'existe pas, on affiche ce qu'on sait localement.
+// Texte Archipelago associe a cette techno (= a ce location check) :
+// description de la techno et popup "Check sent". Demande de l'auteur
+// (2026-11-04) : plus de "[AP] Sending:", seulement "<joueur> - <item>".
 void AP_LocationText(uint64_t hash, char* out, int maxlen)
 {
-    TechRuntime* r = RT_Get(hash);
-    char nom[128];
-    AP_NomDuCheck(hash, nom, sizeof(nom));
-    _snprintf_s(out, maxlen, _TRUNCATE,
-        "[AP] Sending: %s%s", nom, (r && r->researched) ? " (already sent)" : "");
+    AP_NomDuCheck(hash, out, maxlen);
 }
 static const int MAX_TREES = 96;          // arbres 0..81 (outils\technos_arbres.tsv)
 static int g_progressive[MAX_TREES];      // nb de progressives recues par arbre

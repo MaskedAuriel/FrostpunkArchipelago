@@ -905,3 +905,12 @@ bien vide, mais le texte du demi-rond gauche est trop à gauche du rond.
 du rond, ancres en miroir). Recalculé à chaque construction du livre (0 si
 déjà centré). Journal `[LOIUI] paire : texte gauche en …`. Compilé, pas
 encore déployé (jeu lancé). Non testé.
+### 2026-11-04 — Changement de plan de l'auteur : nœuds du livre en vanilla
+
+Le nom du check (`"<joueur> - <item>"`, scouts) n'est plus posé sur les
+nœuds du livre des lois : chaque nœud (et chaque demi-rond d'une paire)
+garde le nom vanilla de la loi. Le nom du check reste dans le **panneau
+d'info** de la loi sélectionnée (`hkInfoLoi`, `TECH_NAME_TEXT`), comme la
+description des technos. `DiagNoeudsLivre` n'appelle plus
+`PoserNomCheckLoi` / `EffacerNomLoi` (gardés, inutilisés) ; recentrage des
+paires (`CentrerNomPaire`) inactif. Icônes inchangées. Non testé.

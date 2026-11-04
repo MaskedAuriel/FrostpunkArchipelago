@@ -199,14 +199,13 @@ DWORD WINAPI PayloadThread(LPVOID)
 	InstallHooksLoisAP(modBase);
 	InstallHooksTemperature(modBase);   // montees de temperature Archipelago
 	InstallHooksQuetes(modBase);        // trace des demarrages de quete
-	InstallHooksExpeditions(modBase);   // DEBUG : trajets d'expedition de 15 min
+	InstallHooksExpeditions(modBase);   // marqueurs et tirage fixe des sites
 	InstallMenuAP(modBase);   // ecran de connexion Archipelago du menu principal
 	InstallHooksScenarios(modBase);   // scenarios verrouilles tant qu'Archipelago ne les debloque pas
 	InstallHooksVictoire(modBase);    // fin de partie : checks de victoire selon le mode
 	InstallHooksSauvegardes(modBase); // liste des sauvegardes : celles de la session Archipelago seulement
 
 
-	ApChargerChecksDeTest();
 	ScootingPayloadsInit();   // tous les sites AP (known_ap_ids.h) deviennent des checks
 	ApChargerTechnosDeTest();
 	// Reseau Archipelago : derniere session (slot_data, scenarios debloques par
@@ -221,109 +220,7 @@ DWORD WINAPI PayloadThread(LPVOID)
 	InstallNotifHooks(modBase);
 		
 	while (true) {		
-		if (ToucheAppuyee(VK_F4) & 1) {
-			printf("[F4] appui detecte\n");
-			// Releve des lois : arbres, prerequis, reglages des scenarios.
-			// (Remplace ResetSeenKeys, reste de l'ancienne fenetre de releve
-			// des cles.)
-			LoisDemanderReleve();   // execute sur le thread du jeu (hors pause)
-			printf("[F4] End\n");
-
-		}
-
-		if (ToucheAppuyee(VK_F5) & 1) {
-			printf("[F5] appui detecte\n");
-			// Test des lois AP : un item progressif pour l'arbre de la loi
-			// en attente la plus ancienne (remplace BaselineKeys, reste de
-			// l'ancienne fenetre de releve des cles).
-			LoisAPDemanderTest();   // execute sur le thread du jeu (hors pause)
-			printf("[F5] End\n");
-		}
-		if (ToucheAppuyee(VK_F6) & 1) {
-			printf("[F6] appui detecte\n");
-			// Test : pieges Archipelago par dilemme (perdre 50 bois, charbon
-			// ou acier), a tour de role. Remplace l'ancienne fenetre de releve
-			// des cles (OpenKeyLogWindow), F10 etant le menu des options du jeu.
-			static const char* PIEGES_TEST[] = { "trap_wood", "trap_coal", "trap_steel" };
-			static int piegeTest = 0;
-			DilemmeAPDemander(PIEGES_TEST[piegeTest]);
-			piegeTest = (piegeTest + 1) % 3;
-			printf("[F6] End\n");
-		}
-		
-		if (ToucheAppuyee(VK_F7) & 1) {
-			printf("[F7] appui detecte\n");
-			// Test de la couche Archipelago : une progressive au hasard,
-			// recue par son id Archipelago (known_ap_ids.h), comme du serveur.
-			// Maj+F7 : un item d'arbre d'un AUTRE scenario (items par scenario).
-			if (GetAsyncKeyState(VK_SHIFT) & 0x8000) {
-				int64_t id = ApItemIdAutreScenarioDeTest();
-				if (!id) printf("[F7] aucun item d'un autre scenario\n");
-				else ReceiveItem(id, "Test Maj+F7");
-			}
-			else {
-				int arbre = ArbreProgressifAuHasard();
-				char cle[16];
-				sprintf_s(cle, "%d", arbre);
-				int64_t id = arbre < 0 ? 0 : ApItemIdCourant("tree", cle);
-				if (arbre < 0) printf("[F7] tous les arbres sont epuises\n");
-				else if (!id) printf("[F7] arbre %d : aucun item AP dans ce scenario\n", arbre);
-				else ReceiveItem(id, "Test F7");
-			}
-			printf("[F7] End\n");
-		}
-
-		if (ToucheAppuyee(VK_F8) & 1) {
-			printf("[F8] appui detecte\n");
-			// Test : un item "Temperature rise" de 1 niveau (+10 degres).
-			// Remplace le rapprochement du premier groupe (valide), sur
-			// decision de l'auteur (2026-11-01).
-			// Recu par son id Archipelago (known_ap_ids.h), comme du serveur.
-			int64_t id = ApItemIdCourant("temperature", nullptr);
-			if (!id) printf("[F8] aucun item Temperature Rise dans ce scenario\n");
-			else ReceiveItem(id, "Test F8");
-			printf("[F8] End\n");
-		}
-
-		if (ToucheAppuyee(VK_F9) & 1) {
-			bool maj = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
-			bool ctrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
-			if (maj || ctrl) {
-				// Test de la fin de partie (2026-11-01) : Maj+F9 = victoire,
-				// Ctrl+F9 = defaite, par EndGame du jeu, sur le thread du jeu.
-				printf("[F9] %s+F9 : fin de partie de test (%s)\n", maj ? "Maj" : "Ctrl", maj ? "victoire" : "defaite");
-				VictoireDemanderTest(maj);
-			}
-			else {
-				printf("[F9] appui detecte\n");
-				// Releve des quetes (repertoires, quetes, objectifs, effets,
-				// evenements), sur le thread du jeu. Le releve de temperature,
-				// exploite, n'est plus lie a une touche (2026-11-01).
-				QuetesDemanderReleve();
-			}
-			printf("[F9] End\n");
-		}
-
-		// Pas de F10 : c'est la touche du menu des options du jeu.
-		if (ToucheAppuyee(VK_F3) & 1) {
-			printf("[F3] appui detecte\n");
-			// Test : un item commun recu par son id (contenu de site livre
-			// par un groupe AP, filler, piege), a tour de role ; livre sur le
-			// thread du jeu par ApItemsPompe. Remplace le groupe de test
-			// (GroupesDemanderCreation, valide).
-			ReceiveItem(ApItemCommunDeTest(), "Test F3");
-			printf("[F3] End\n");
-		}
-
-		if (ToucheAppuyee(VK_F11) & 1) {
-			printf("[F11] appui detecte\n");
-			// Test de la couche Archipelago : ressources recues, dont une que
-			// le jeu touche rarement (coeurs de vapeur).
-			ReceiveResource("wood", 500, "F11 test");
-			ReceiveResource("steamcore", 1, "F11 test");
-			printf("[F11] End\n");
-		}
-
+		// Touches de debug (F3-F9, F11) retirees le 2026-11-04 a la demande de l'auteur.
 		static DWORD prochain = 0;
 		if (GetTickCount() > prochain) {
 			

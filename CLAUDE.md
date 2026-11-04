@@ -91,7 +91,7 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
 
 | Fichier | Rôle |
 |---|---|
-| `version.cpp` | Point d'entrée : proxy des 17 exports de `version.dll`, `DllMain`, `PayloadThread` (console + journal `logs\console.log`, `MH_Initialize`, hooks des constructeurs de templates **en premier**, puis les autres hooks), boucle principale : touches de debug (F3–F9 ; F11 réservée aux tests demandés par l'auteur ; jamais F10 = menu des options ; F3 = item commun de test par son id (contenu de site livré par un groupe AP, filler, piège, à tour de rôle ; l'ancienne création de groupe n'est plus liée), F4 = relevé des lois, F5 = item de loi de test, F6 = dilemme piège de test (remplace l'ancienne fenêtre `OpenKeyLogWindow`), F7 = progressive de test (Maj+F7 = item d'un autre scénario), F8 = item « Temperature rise » de test (+1 niveau ; l'ancien rapprochement du premier groupe n'est plus lié), F9 = relevé des quêtes (`quetes.cpp` ; le relevé de température et l'ancien `DiagGroupes` ne sont plus liés), Maj+F9 / Ctrl+F9 = fin de partie de test victoire / défaite (`victoire.cpp`), F11 = ressources de test) + tick d'une seconde (`EnsureTechSelf`, `EnsureResSelf`, **`PartieTick`**, `CaptureRunState`, `ScootingTick`, `SurveillerArbreTechno`) |
+| `version.cpp` | Point d'entrée : proxy des 17 exports de `version.dll`, `DllMain`, `PayloadThread` (console + journal `logs\console.log`, `MH_Initialize`, hooks des constructeurs de templates **en premier**, puis les autres hooks), boucle principale : **plus de touches de debug** (F3–F9 et F11 retirées le 2026-11-04 à la demande de l'auteur ; jamais F10 = menu des options) + tick d'une seconde (`EnsureTechSelf`, `EnsureResSelf`, **`PartieTick`**, `CaptureRunState`, `ScootingTick`, `SurveillerArbreTechno`) |
 | `mod_common.h/.cpp` | Socle : `SafeRead`/`SafeWrite`, `GetClassNameFP` (RTTI), ancrages (`SystemeParId`, `ComposantsDuSysteme`, `IdSysteme::*`), captures (`ListeCaptures`), **cycle de vie de la partie** (`PartieTick`, `PartiePrete`, `PartieGeneration`, `PartieSelection`, `PartieRechargee`, garde-fou sur la liste des sites), **diagnostics d'ancrage** (`DiagAncrages`, `DiagGabaritsPrecoces`, `ChercherValeurDansTas`, `ChercherReferencesVtable`…), balayage mémoire historique (`CollectObjectsByClasses`), résolution des self par globaux, dumps (PropertyManager, vtables), hooks d'E/S (`NtReadFile`/`NtWriteFile`), allocateur du moteur, `ToucheAppuyee`, offsets (`GameOffsets`, `SetupOffsets`, `TECH_*`, `RES_*`), macro `CHRONO` |
 | `hooks_loc.h/.cpp` | `hkTranslate` : cœur du détournement de **tous** les textes affichés |
 | `hooks_research.h/.cpp` | Les 4 hooks de recherche : `CanResearch`, `ResearchStart`, `ResearchComplete` (location check), `CancelResearch` |
@@ -493,8 +493,8 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   la liste de droite (une chaîne par expédition) : non testé. Sites
   landmarks : affichage du contenu à faire. Sauvegarde empoisonnée :
   `ScootingApresChargement` (cargaisons mortes vidées avant le 1er tick) :
-  non testé. **Debug : `EXPEDITIONS_RAPIDES = true`** (trajets ramenés à
-  15 min, validé) — **à remettre à false hors debug**.
+  non testé. Debug `EXPEDITIONS_RAPIDES` (trajets de 15 min) **retiré le
+  2026-11-04** (hook de l'envoi d'expédition supprimé).
 
 - **Lois (sociotechs)** — `docs/chantiers/lois.md`. Déblocage progressif par
   arbre (18 arbres ; Order + Faith = `Purpose`, Left + Right = `Politics`).
@@ -515,9 +515,11 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   paire exclusive : texte sur le demi-rond gauche seulement (droit = un
   espace) — **centrage du texte sous le rond pas encore juste**
   (`CentrerNomPaire`, à reprendre plus tard). Persistance
-  `ap_lois_<GameId>.txt`. **Debug : `LOIS_SANS_DELAI = true`, à remettre à
-  false.** Lois par scénario : tableau F4 v5 dans le fichier (The Arks et
-  On the Edge n'ont pas Purpose). F4 = relevé, F5 = item de test.
+  `ap_lois_<GameId>.txt`. Debug `LOIS_SANS_DELAI` **retiré le 2026-11-04**
+  (délai du jeu entre deux lois rétabli). Lois par scénario : tableau F4 v5
+  dans le fichier (The Arks et On the Edge n'ont pas Purpose). Relevé
+  (`LoisDemanderReleve`) et item de test : plus de touche depuis le
+  2026-11-04.
 
 - **Écran de connexion au menu principal** — `docs/chantiers/menu_connexion.md`.
   **VALIDÉ le 2026-10-31** (rendu, saisie, centrage par remise en page de
@@ -595,8 +597,8 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   plus de lecture des curseurs) : `SendScenarioVictory`,
   `mods\ap_victoires.txt`, goal = tous les scénarios du slot gagnés
   (**validé le 2026-11-04**, A New Home).
-  Maj+F9 / Ctrl+F9 = victoire / défaite de test (la partie se termine
-  vraiment).
+  Victoire / défaite de test (`VictoireDemanderTest`) : plus de touche
+  depuis le 2026-11-04.
 
 - **Difficulté imposée** — `docs/chantiers/difficulte.md`. Décisions de
   l'auteur (2026-11-03) : difficulté du YAML **imposée**, curseurs
@@ -641,24 +643,33 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   `mods\ap_<graine>_<slot>\` (index des items, checks, slot_data, items
   reçus / livrés, victoires) ; dernière session relue au démarrage
   (`mods\ap_session.txt`). PrintJSON en message : items qui concernent le
-  slot seulement. Connexion, réception d'un item, envoi d'un check : vus au
-  journal du 1er test (2026-11-04) ; goal, reconnexion : non testés.
+  slot seulement. **VALIDÉ le 2026-11-04** (serveur local 0.6.7) :
+  connexion, réception, envoi des checks, goal (`StatusUpdate 30`),
+  reconnexion sans doublon (`index 0 … 0 nouveau(x)`), icônes d'après les
+  scouts. Menu principal sans connexion : Scenario, Continue, Load et New
+  game inactifs (`AppliquerVerrouConnexion`, menu_ap.cpp) : validé.
   Scouts : `LocationScouts` à la connexion, `<session>\scouts.txt`,
-  transmis par `ApNoterScout` (archipelago.h) ; noms des nœuds de lois et
-  de technos branchés ; icônes par `ApIconeDuCheck` (technos, sites ; lois
+  transmis par `ApNoterScout` (archipelago.h) ; nom du check = `"<joueur> -
+  <item>"` (`ApNomDuScout` ; pas de `|`, il coupe le texte en jeu), dans la
+  **description** des technos seulement : les nœuds de l'arbre gardent le
+  nom de la techno (décision de l'auteur, 2026-11-04) ; lois : nœuds du
+  livre en vanilla, nom du check dans le panneau d'info (`hkInfoLoi`) ;
+  icônes par `ApIconeDuCheck` (technos, sites ; lois
   par la session des bugs), **selon les drapeaux** de l'item même pour un
   autre joueur (décision de l'auteur, 2026-11-04 : piège > progression >
   useful > filler) : lois vues en jeu le 2026-11-04. Expéditeur des items
   gardé par réception (`ap_items_recus.txt` = `<id>\t<joueur>`) : popups
   « from <joueur> » (technos, lois, température, convois, pièges).
 
-### Constantes de debug à remettre à false
+### Constantes et touches de debug
 
-`EXPEDITIONS_RAPIDES` (scooting.cpp), `LOIS_SANS_DELAI` (lois.cpp).
-(`SITES_TIRAGE_FIXE = true` est voulu, ce n'est pas du debug.) Valeurs TEMPORAIRES à
-remplacer par le serveur : `IconeCheckDeTest`, `IconeDuCheckDeTest`,
-`AP_NomDuCheck` (`ScenariosRecevoirItemsDeTest` supprimé le 2026-11-04 :
-les déblocages viennent du serveur). Valeurs par défaut
+**Toutes retirées le 2026-11-04** (demande de l'auteur) : `EXPEDITIONS_RAPIDES`
+(scooting.cpp), `LOIS_SANS_DELAI` (lois.cpp), touches F3–F9 et F11
+(version.cpp). (`SITES_TIRAGE_FIXE = true` est voulu, ce n'est pas du
+debug.) Icônes et noms des checks : scouts du serveur (`ApIconeDuCheck`,
+`ApNomDuScout`) ; `IconeCheckDeTest` / `IconeDuCheckDeTest` ne servent plus
+que de repli sans scout (`ScenariosRecevoirItemsDeTest` supprimé le
+2026-11-04 : les déblocages viennent du serveur). Valeurs par défaut
 remplacées par le `slot_data` (`ApAppliquerSlotData`, archipelago.cpp,
 appelé par le réseau ; `mods\ap_slot_data.txt` supprimé le 2026-11-04) :
 `g_difficulteCible` (scenarios_ap.cpp, Hard), `g_scenariosGoal` (A New

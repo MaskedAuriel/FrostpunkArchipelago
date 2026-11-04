@@ -710,19 +710,17 @@ void SendLocationCheck(int locationId, const char* site)
     const ApLocationInfo* l = LocationAP(ApLocGenre::Site, cle);
     if (!l) { LocationAbsente("site", site); return; }
 
+    // Nom du check : "<joueur> - <item>" d'apres le scout (ApCheckById le
+    // reprend), sinon le nom de la location.
     const ApCheck* ac = ApCheckById(locationId);
-    const char* texte = ac ? ac->description : "(unknown content)";
+    const char* texte = ac ? ac->description : l->nom;
 
     // 2. Envoi.
-    printf("[AP CHECK] site \"%s\" (id local %d) -> %s\n", site, locationId, texte);
+    printf("[AP CHECK] site \"%s\" (id local %d)\n", site, locationId);
     EnvoyerLocation(l);
 
     // 3. Popup.
     AfficherNotificationAP("Check sent", texte);
-
-    // TEMPORAIRE : simule la reponse du serveur quand l'item est pour nous.
-    if (ac && ac->arbreTest >= 0)
-        ReceiveProgressive(ac->arbreTest, ac->joueur);
 }
 
 void SendLawCheck(const char* tree, int rank, const char* lawName, bool effectPending)
@@ -959,10 +957,12 @@ bool ApScoutTechno(uint64_t hash, ApScoutInfo* out)
     return ScoutDe(LocationAP(ApLocGenre::Techno, cle), out);
 }
 
+// Format de l'auteur (2026-11-04) : "<joueur> - <item>", destinataire en
+// tete, y compris quand l'item est pour ce slot. Pas de '|' : le texte des
+// noeuds s'arretait a la barre (test du 2026-11-04 : "Simon" seul).
 void ApNomDuScout(const ApScoutInfo& s, char* out, size_t taille)
 {
-    if (s.pourMoi) _snprintf_s(out, taille, _TRUNCATE, "%s", s.nomItem);
-    else           _snprintf_s(out, taille, _TRUNCATE, "%s (%s)", s.nomItem, s.nomJoueur);
+    _snprintf_s(out, taille, _TRUNCATE, "%s - %s", s.nomJoueur, s.nomItem);
 }
 
 // Etat de la connexion pour le libelle du menu principal (bug du 2026-11-04 :
@@ -971,10 +971,17 @@ static char          g_etatConnexion[96] = "Not connected";
 static volatile LONG g_generationEtat = 1;
 static SRWLOCK       g_verrouEtat = SRWLOCK_INIT;
 
+// Connecte au serveur (Connected recu, pas encore perdu) : verrou des boutons
+// du menu principal (menu_ap.cpp, demande de l'auteur du 2026-11-04).
+static volatile bool g_apConnecte = false;
+
+bool ApEstConnecte() { return g_apConnecte; }
+
 static void PoserEtatConnexion(const char* etat)
 {
     AcquireSRWLockExclusive(&g_verrouEtat);
     strncpy_s(g_etatConnexion, etat ? etat : "", _TRUNCATE);
+    g_apConnecte = etat && (strcmp(etat, "Connected") == 0 || strcmp(etat, "Reconnected") == 0);
     ReleaseSRWLockExclusive(&g_verrouEtat);
     InterlockedIncrement(&g_generationEtat);
     printf("[AP CONNEXION] etat affiche au menu : \"%s\"\n", etat ? etat : "");
@@ -1084,6 +1091,18 @@ static const char* IconeDuScout(const ApScoutInfo& s)
     if (s.flags & 1) return "icon_progressive";
     if (s.flags & 2) return "icon_important";
     return "icon_filler";
+}
+
+bool ApNomDuCheckLocation(int64_t locationId, char* out, size_t taille)
+{
+    AcquireSRWLockShared(&g_verrouScouts);
+    auto it = g_scouts.find(locationId);
+    bool ok = it != g_scouts.end();
+    ApScoutInfo s = {};
+    if (ok) s = it->second;
+    ReleaseSRWLockShared(&g_verrouScouts);
+    if (ok) ApNomDuScout(s, out, taille);
+    return ok;
 }
 
 const char* ApIconeDuCheck(const char* genre, const char* cle)

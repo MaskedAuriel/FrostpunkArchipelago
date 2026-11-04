@@ -106,6 +106,87 @@ l'affichage (lois, technos, sites, icônes) = session des bugs.
 `ApNoterScout`, `ApScoutLoi`, `ApScoutTechno` et `ApNomDuScout` ont été écrits
 par la session des bugs (noms des nœuds de lois et de technos).
 
+### 2026-11-04 — Bugs : nom vanilla sur les nœuds de technos, format des noms
+
+Constat de l'auteur : les nœuds de l'arbre des technos gardent le **nom
+vanilla**. Décompilés : le nom est posé par `FUN_141bc5810` seulement
+(`FUN_14111bd70` → `FUN_14111bd80`, clé `techno + 0x18`) ; `FUN_14111bef0`
+(notre texte brut) prend bien `(texte, wchar_t*, &DAT_142bfd628)` ;
+`FUN_141bc63b0` = panneau d'info, `FUN_141bbe840` = livre des lois. Pas de
+cause trouvée en statique → journal `[TECHNOM]` (30 premiers nœuds : texte,
+hash, techno AP ou non, nom posé). Non testé.
+**Format décidé par l'auteur** : `"<joueur> | <item>"`, destinataire en
+tête, même pour ce slot (`ApNomDuScout` ; lois, technos, popup « Check
+sent »).
+Test suivant : `[TECHNOM]` montre le nom complet posé
+(`"Simon | A New Home - Progressive Tree Factory"`), mais le nœud
+n'affiche que « Simon » : **le `|` coupe le texte en jeu** (hypothèse de
+l'auteur) → séparateur ` - ` : `"Simon - A New Home - Progressive Tree
+Factory"`. `AP_LocationText` (description de la techno, popup « Check
+sent ») : plus de `[AP] Sending:` ni `(already sent)`, seulement le nom
+du check (demande de l'auteur). Non testé.
+Test suivant : séparateur ` - ` posé (journal), mais **nom vanilla** à
+l'écran. Décompilé `FUN_140e339a0` : `FUN_14111bd70` passe la **clé**
+`techno + 0x18` (char*), seulement élargie en UTF-16, **pas traduite** →
+le texte d'un nœud est une clé traduite à l'affichage ; un texte brut
+n'est pas affiché tel quel. → `PoserNomDuCheck` pose la clé
+`@AP/TechNom/<hash>` ; `hkTranslate` (hooks_loc.cpp, modifié par script en
+gardant l'encodage Windows-1252) la traduit en `AP_NomDuCheck` +
+` [Researched]`, objet propre par techno (`ApLocTechNom`, 256). Non testé.
+Si l'auteur lit `@AP/TechNom/…` sur les nœuds, l'hypothèse est fausse.
+Test suivant (capture de l'onglet Heating) : **toujours le nom vanilla**
+avec la clé ; descriptions correctes. `FUN_141bc3eb0` (construction) ne
+réécrit pas le nom ; seul `FUN_141bc5810` appelle `FUN_14111bd70`.
+Indice : avec `|`, le nœud affichait « Simon » (texte court) ; sans `|`
+(texte long), le nom vanilla. Hypothèse : **un texte trop long pour le
+cadre n'est pas affiché**. Test : texte brut, variante par techno
+(`hash % 5`) : 0 « Simon », 1 16 caractères, 2 28 caractères, 3 joueur +
+retour à la ligne + item, 4 nom complet ; journal `[TECHNOM] <techno> :
+variante N`. Non testé.
+Résultat : **aucune variation à l'écran** → l'élément `TECH_NAME` de
+`FUN_141bc5810` (`sortie[1]`) n'est **pas** le label visible (le « Simon »
+du test au `|` venait sans doute d'ailleurs). Variantes retirées (nom
+complet remis). Relevé `[TECHUI]` : arborescence UI des 2 premiers nœuds
+construits (nom, classe, visible, texte UTF-16 `+0x3E0` des `*Text*`),
+avant et après notre pose, pour trouver l'élément qui porte le nom. Non
+testé.
+Résultat `[TECHUI]` : le nœud n'a qu'un texte, `TECH_NAME` (UITextBox),
+qui contient avant nous la **clé** `"H 1_SteamHub"` et après nous notre
+texte → c'est bien lui, mais l'affichage est recalculé ailleurs.
+Décompilé `FUN_14111a680` (validation d'un texte) : si la clé `+0x3D8`
+n'est pas vide, `FUN_140feba40` → `FUN_140feba60` → **Translate**
+(`+0xFEB340`) → texte affiché `+0x3E8`, ce qui écrase le texte brut.
+→ Hook de `FUN_14111a680` (`hkValiderTexte`, IconSubManager) : pour un
+`TECH_NAME` de nœud noté à la construction (boîte → hash, 512), il signale
+à `hkTranslate` (`TechNomEnCoursPrendre`) que la traduction en cours est
+celle d'un nœud ; `hkTranslate` renvoie alors `AP_NomDuCheck` +
+` [Researched]` (`ApLocTechNom`). Seul l'arbre change. Relevé `[TECHUI]`
+retiré ; journal `[TECHNOM] validation du nom du noeud …` (20 premiers).
+Non testé.
+**Décision de l'auteur (2026-11-04) : on n'écrit plus sur les nœuds** —
+le joueur doit voir le nom de la techno qu'il a reçue. Le nom du check
+n'est que dans la **description** (`ApDescBuffer` → `AP_LocationText`).
+Retirés : `PoserNomDuCheck`, `hkValiderTexte` (hook de `FUN_14111a680`),
+`TechNomEnCoursPrendre`, la branche `AP/TechNom/` et `ApLocTechNom` de
+hooks_loc.cpp ; `IconesTechnoRafraichirNoeud` repose la clé vanilla.
+
+### 2026-11-04 — Bug : description d'une techno reçue = nom interne
+
+Constat de l'auteur : techno **reçue mais pas recherchée** → la description
+montre le nom interne de la techno au lieu du nom du check. Piste : une
+techno reçue est mise à l'**état 2** du jeu (`SyncGameState`, « faite,
+effet appliqué ») ; le panneau d'info affiche peut-être une autre clé
+(courte, emplacement 2) ou une clé partagée qui pointe vers une autre
+techno (table `LookupLocKey` : une clé → la première techno trouvée), dont
+le scout manque → repli `AP_NomDuCheck` = nom interne. Journal
+`[TECHDESC]` (hkTranslate) : clé, emplacement, techno, `researched` /
+`received`, nom du check calculé, une ligne par cas nouveau. Non testé.
+**Testé par l'auteur (2026-11-04) : « ça semble bon »** après le retrait
+de l'écriture sur les nœuds ; `[TECHDESC]` donne bien `"Simon - …"` pour
+les technos du scénario. (Le défaut venait probablement du code des nœuds
+retiré dans la même version.) Le journal `[TECHDESC]` reste en place
+(dédoublonné, 256 cas).
+
 ### 2026-11-04 — Icônes d'après les scouts (compilé, déployé, non testé)
 
 `ApIconeDuCheck(genre, cle)` (fin d'archipelago.cpp) : règle unique
@@ -123,3 +204,28 @@ l'apworld, Connect avec `localhost:38281`. Attendu au journal :
 `[AP NET] RoomInfo`, `Connect envoye`, `DataPackage …`, `Connected : …`,
 `[AP SESSION] dossier mods\ap_…`, `ReceivedItems index 0, … nouveau(x)`,
 puis les scénarios du slot débloqués au menu.
+
+### 2026-11-04 — Validation de l'auteur, nettoyage du debug
+
+Validés par l'auteur (et vus au journal) : goal (victoire hors connexion,
+puis `envoye : 0 location(s) + goal (StatusUpdate 30)` à la connexion),
+reconnexion sans doublon (`ReceivedItems index 0, 5 item(s), 0
+nouveau(x)`), icônes d'après les scouts. Retirés à sa demande :
+`EXPEDITIONS_RAPIDES` (et le hook de l'envoi d'expédition),
+`LOIS_SANS_DELAI`, toutes les touches de debug (F3–F9, F11). Ajout : menu
+principal verrouillé sans connexion (voir `menu_connexion.md`).
+
+### 2026-11-04 — Avant le test grandeur nature
+
+- Sites : le texte d'un check porté par un scout (survol du dilemme,
+  inventaire du scout, popup « Check sent ») = nom du check du scout
+  (`ApNomDuCheckLocation`, archipelago ; repris par `ApCheckById` /
+  `ApDescriptionW`, ap_data.cpp), repli = nom de la location (plus de
+  `[AP] Check:`).
+- Retirés : `ApChargerChecksDeTest` (checks 1001-1004), le champ
+  `arbreTest` et la simulation de réception dans `SendLocationCheck`.
+- Constat (`checks.txt` de la session de test) : seuls des checks de lois
+  sont allés jusqu'au serveur ; technos, sites, quêtes, montées de
+  température à voir dans le test grandeur nature.
+- `apworld\test\frostpunk.apworld` reconstruit (sources du 2026-11-03,
+  inchangées).

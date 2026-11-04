@@ -605,60 +605,16 @@ static void hkPoserCaseUi(uintptr_t image, uint64_t cas, uint64_t nb)
 
 static uintptr_t g_panneauTechnos = 0;   // panneau de l'arbre (vu au 1er noeud construit)
 
-// Nom affiche sur le noeud de l'arbre = nom du check que la techno enverra
-// (demande de l'auteur, 2026-11-01), suivi de " [Researched]" une fois
-// recherchee. Pose en texte brut sur TECH_NAME par FUN_14111bef0 (poignee
-// en sortie[1] de FUN_141bc5810, +0x18 d'un enregistrement de noeud) : seul
-// l'arbre change, le reste du jeu (atelier, messages) garde le nom de la
-// techno.
-typedef void(*PoserTexteBrut_t)(uintptr_t texte, const wchar_t* chaine, uintptr_t cfg, uintptr_t p4);
-constexpr uintptr_t OFF_POSER_TEXTE_BRUT = 0x111BEF0, OFF_FORMAT_TEXTE_BRUT = 0x2BFD628;
-
-static bool PoserNomDuCheck(uintptr_t texte, uintptr_t tech)
-{
-    uint64_t h = 0;
-    if (texte <= 0x10000 || !SafeRead((void*)(tech + 0x20), &h, 8) || !h) return false;
-    bool notre = false;
-    for (int i = 0; i < g_nTechnosAP && !notre && TechEstUnCheck(h); ++i) notre = g_technosAP[i].hash == h;
-    if (!notre) return false;
-    char nom[128];
-    AP_NomDuCheck(h, nom, sizeof(nom));
-    TechRuntime* r = RT_Get(h);
-    wchar_t w[160];
-    int j = 0;
-    for (; nom[j] && j < 120; ++j) w[j] = (wchar_t)(unsigned char)nom[j];
-    if (r && r->researched)
-        for (const wchar_t* s = L" [Researched]"; *s && j < 158; ++s) w[j++] = *s;
-    w[j] = 0;
-    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
-    ((PoserTexteBrut_t)(base + OFF_POSER_TEXTE_BRUT))(texte, w, base + OFF_FORMAT_TEXTE_BRUT, 0);
-    return true;
-}
-
-static void NomDuNoeudConstruit(uintptr_t tech, uintptr_t sortie)
-{
-    __try {
-        uintptr_t pTexte = 0, texte = 0;
-        if (sortie > 0x10000 && SafeRead((void*)(sortie + 8), &pTexte, 8) && pTexte > 0x10000 &&
-            SafeRead((void*)pTexte, &texte, 8))
-            PoserNomDuCheck(texte, tech);
-    }
-    __except (EXCEPTION_EXECUTE_HANDLER) {
-        static int n = 0;
-        if (n++ < 5) printf("[ICON] EXCEPTION 0x%08lX a la pose du nom d'un noeud\n", GetExceptionCode());
-    }
-}
-
+// Nom des noeuds : le noeud garde le nom de la techno (decision de l'auteur,
+// 2026-11-04 : sinon le joueur ne sait plus quelle techno il a recue). Le
+// nom du check n'apparait que dans la description (hkTranslate, ApDescBuffer).
+// Historique des essais (texte brut, cle "@AP/TechNom", traduction a la
+// validation FUN_14111a680) : docs/chantiers/reseau.md.
 static uintptr_t hkNoeudTechno(uintptr_t panneau, uintptr_t tech, uintptr_t sortie, uintptr_t p4)
 {
     g_panneauTechnos = panneau;
-    uintptr_t r;
-    {
-        ContexteIconeUi c(tech);
-        r = oNoeudTechno(panneau, tech, sortie, p4);
-    }
-    NomDuNoeudConstruit(tech, sortie);
-    return r;
+    ContexteIconeUi c(tech);
+    return oNoeudTechno(panneau, tech, sortie, p4);
 }
 
 // Test du 2026-11-01 : une techno recherchee arbre deja construit gardait
@@ -704,7 +660,7 @@ void IconesTechnoRafraichirNoeud(uintptr_t tech)
                 ((PoserTextureUi_t)(base + OFF_POSER_TEXTURE_UI))(image, base + OFF_TEXTURE_ARBRE, 0, 0);
                 oPoserCaseUi(image, CasePackee(ic->techCol, ic->techRow), nb);
             }
-            if (texte > 0x10000 && !PoserNomDuCheck(texte, tech))
+            if (texte > 0x10000)
                 ((PoserTexteCle_t)(base + OFF_POSER_TEXTE_CLE))(texte, tech + 0x18, base + OFF_FORMAT_TEXTE);
             printf("[ICON] noeud de l'arbre mis a jour apres recherche (icone \"%s\", image 0x%llX, nom 0x%llX)\n",
                 ic ? ic->nom : "-", (unsigned long long)image, (unsigned long long)texte);
@@ -739,8 +695,7 @@ void InstallHooksIconesTechnos(uintptr_t modBase)
         { OFF_BATIMENTS_DEBLOQUES, (void*)&hkBatimentsDebloques, (void**)&oBatimentsDebloques, "batiments debloques par une techno" },
         { OFF_NOEUD_TECHNO, (void*)&hkNoeudTechno, (void**)&oNoeudTechno, "noeud de l'arbre des technos" },
         { OFF_RECHERCHE_EN_COURS, (void*)&hkRechercheEnCours, (void**)&oRechercheEnCours, "recherche en cours" },
-        { OFF_PANNEAU_TECHNO, (void*)&hkPanneauTechno, (void**)&oPanneauTechno, "panneau d'une techno" },
-    };
+        { OFF_PANNEAU_TECHNO, (void*)&hkPanneauTechno, (void**)&oPanneauTechno, "panneau d'une techno" },    };
     for (auto& x : h) {
         void* p = (void*)(modBase + x.off);
         bool ok = MH_CreateHook(p, x.hk, x.orig) == MH_OK && MH_EnableHook(p) == MH_OK;

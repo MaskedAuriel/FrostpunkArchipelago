@@ -58,6 +58,6 @@ void ScootingSitesDuNom(uintptr_t adrNom, char* out, int taille);
 // F9 (thread du jeu) : toutes les tables de tirage des sites (tous scenarios)
 // et les sites possibles de chacune, lignes "[TXLS]".
 void ScootingReleverTablesDeSites();
-// Au demarrage : hook de l'envoi d'une expedition (FUN_1418a0a60) ; en debug
-// (EXPEDITIONS_RAPIDES), trajets ramenes a 15 minutes de jeu.
+// Au demarrage : hooks des marqueurs de site, du tirage fixe des sites, de la
+// repartition de leur contenu et des reglages du scenario.
 void InstallHooksExpeditions(uintptr_t modBase);

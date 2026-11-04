@@ -80,10 +80,9 @@ void ScootingPayloadsInit()
     for (int i = 0; i < n; ++i) {
         int id = 100000 + (int)(locs[i].id - 7747300000LL);
         SITE_PAYLOADS[SITE_PAYLOAD_COUNT++] = { locs[i].scenario, locs[i].cle, id };
-        // TODO reseau : l'objet reel de la location (joueur, nom de l'item).
-        char desc[160];
-        sprintf_s(desc, "[AP] Check: %s", locs[i].nom);
-        ApSetCheck(id, "", desc);
+        // Texte de repli = nom de la location ; des que le scout est connu,
+        // ApCheckById affiche "<joueur> - <item>" (ap_data.cpp).
+        ApSetCheck(id, "", locs[i].nom);
     }
     printf("[SCOUT] %d site(s) AP (locations de known_ap_ids.h)\n", SITE_PAYLOAD_COUNT);
 }
@@ -1686,55 +1685,6 @@ void ScootingReleverTablesDeSites()
 }
 
 // ---------------------------------------------------------------------------
-// DEBUG : trajets d'expedition courts (demande de l'auteur, 2026-11-01, pour
-// atteindre vite les Londoniens d'une partie neuve). FUN_1418a0a60(systeme,
-// entite, composant, cible) = envoyer une expedition vers une cible
-// (frostpunkexpeditionsystem.cpp ; aller et retour) : destination puis
-// FUN_1418853b0 -> FUN_141885250, qui pose dans le LinearMovementComponent
-// +0x50 la date de depart (= maintenant) et +0x58 la date d'arrivee. Apres
-// l'original, la date d'arrivee est ramenee a depart + EXPEDITIONS_DUREE_H
-// si le trajet est plus long. A REMETTRE a false hors debug.
-// ---------------------------------------------------------------------------
-static const bool   EXPEDITIONS_RAPIDES = true;
-static const double EXPEDITIONS_DUREE_H = 0.25;   // 15 minutes de jeu
-
-typedef void (*EnvoyerExpedition_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
-static EnvoyerExpedition_t oEnvoyerExpedition = nullptr;
-
-static void hkEnvoyerExpedition(uintptr_t sys, uintptr_t entite, uintptr_t comp, uintptr_t cible)
-{
-    oEnvoyerExpedition(sys, entite, comp, cible);
-    if (!EXPEDITIONS_RAPIDES || entite <= 0x10000) return;
-
-    typedef uintptr_t (*MouvementDe_t)(uintptr_t, uintptr_t);
-    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
-    MouvementDe_t mouvementDe = (MouvementDe_t)(base + 0x1884960);
-    uintptr_t sysMouv = 0;
-    int32_t secParHeure = 0;
-    if (!SafeRead((void*)(base + 0x409AC18), &sysMouv, 8) || sysMouv <= 0x10000) return;
-    if (!SafeRead((void*)(base + 0x2C38FF0), &secParHeure, 4) || secParHeure <= 0) return;
-
-    uintptr_t mouv = mouvementDe(sysMouv, entite);
-    int64_t depart = 0, arrivee = 0;
-    if (mouv <= 0x10000
-        || !SafeRead((void*)(mouv + 0x50), &depart, 8)
-        || !SafeRead((void*)(mouv + 0x58), &arrivee, 8)) {
-        printf("[EXP] debug : mouvement illisible (entite 0x%llX)\n", (unsigned long long)entite);
-        return;
-    }
-    const double ticksParHeure = (double)secParHeure * 2147483648.0;
-    int64_t courte = depart + (int64_t)(EXPEDITIONS_DUREE_H * ticksParHeure);
-    double heures = (double)(arrivee - depart) / ticksParHeure;
-    if (arrivee > courte) {
-        SafeWrite((void*)(mouv + 0x58), &courte, 8);
-        printf("[EXP] debug : trajet %.2f h -> %.2f h (cible 0x%llX)\n",
-               heures, EXPEDITIONS_DUREE_H, (unsigned long long)cible);
-    } else {
-        printf("[EXP] debug : trajet %.2f h garde (deja court)\n", heures);
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Tirage des sites FIXE (decision de l'auteur du 2026-11-01, option 2 : un
 // check par site, la carte d'un scenario doit donc toujours etre la meme).
 // FUN_1418f2a30(systeme, &emplacements, table) = tirage d'une table
@@ -2226,13 +2176,10 @@ void InstallHooksExpeditions(uintptr_t modBase)
     bool okM = MH_CreateHook(m, (void*)&hkMajTrackerSite, (void**)&oMajTrackerSite) == MH_OK &&
         MH_EnableHook(m) == MH_OK;
     printf("[SITEUI] hook mise a jour du tracker de site (+1C1A0E0) %s\n", okM ? "OK" : "KO");
-    void* p = (void*)(modBase + 0x18A0A60);
-    bool ok = MH_CreateHook(p, (void*)&hkEnvoyerExpedition, (void**)&oEnvoyerExpedition) == MH_OK
-           && MH_EnableHook(p) == MH_OK;
-    printf("[EXP] hook envoi d'expedition (+18A0A60) %s%s\n", ok ? "OK" : "KO",
-           EXPEDITIONS_RAPIDES ? " - DEBUG trajets de 15 min" : "");
+    // (Hook de l'envoi d'expedition FUN_1418a0a60, debug EXPEDITIONS_RAPIDES,
+    // retire le 2026-11-04 a la demande de l'auteur.)
     void* t = (void*)(modBase + 0x18F2A30);
-    ok = MH_CreateHook(t, (void*)&hkTirerTable, (void**)&oTirerTable) == MH_OK && MH_EnableHook(t) == MH_OK;
+    bool ok = MH_CreateHook(t, (void*)&hkTirerTable, (void**)&oTirerTable) == MH_OK && MH_EnableHook(t) == MH_OK;
     printf("[SITES] hook tirage des sites (+18F2A30) %s%s\n", ok ? "OK" : "KO",
            SITES_TIRAGE_FIXE ? " - tirage fixe" : "");
     void* c = (void*)(modBase + 0x18EF2F0);

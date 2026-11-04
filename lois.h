@@ -17,9 +17,8 @@ void DiagLois();
 // jeu). Jeu hors pause.
 void LoisDemanderReleve();
 
-// Thread du jeu (hook du setter de ressources, a cote des autres pompes).
-// Debug : tant que LOIS_SANS_DELAI vaut true, le delai entre deux lois est
-// remis a zero en continu (comme la commande ResetSociotechCooldown).
+// Thread du jeu (hook du setter de ressources, a cote des autres pompes) :
+// execute le releve demande (LoisDemanderReleve).
 void LoisPompe();
 
 // Appelee par hkTranslate pour chaque traduction (cle sans '@') : memorise le
