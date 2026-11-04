@@ -1001,3 +1001,81 @@ d'ouverture de l'arbre**, condition des lois. Lignes finales `# exclues`.
 - Tests (Archipelago 0.6.8) : banc habituel 5 jeux × 5 graines (2 joueurs)
   et 70 générations **solo** (options de l'auteur + chaque scénario seul en
   Hard) : toutes réussies.
+- `frostpunk.apworld` reconstruit dans
+  `C:\Users\Simon\Desktop\Archipelago\custom_worlds` (commit `54dc5b8`).
+
+### 2026-11-04 — Tests grandeur nature : description de la Sawmill = « RW Sawmill » (mod)
+
+- **Problème remonté** (graine 46672752910410918624, A New Home) : la
+  description de la recherche de base **Sawmill** affiche « RW Sawmill »
+  au lieu du check (`A New Home - Sawmill` porte `A New Home - Progressive
+  Tree Tier`).
+- **Cause (mod, pas la logique)** : `[TECHDESC] cle "Technologies/Sawmill/
+  Name" -> techno 9B8662D8557103EF` = `[Builders] RW 0_Sawmill` de Last
+  Autumn. Le tableau des technos du jeu contient aussi des technos d'autres
+  scénarios (172 dans A New Home), qui **partagent la clé de localisation**
+  ; `LookupLocKey` (tech_state.cpp) gardait la **première** trouvée. Sans
+  scout pour cette techno hors scénario → repli sur le nom court. Même cas :
+  `Technologies/SawmillUpgradeRange` → `9222D9DF836D090A` (RW Sawmill
+  Upgrade - range).
+- **Correctif (compilé, déployé, non testé)** : `BuildLocKeyTable` ne garde
+  qu'une techno par clé, **celle du scénario en cours** (groupe de
+  `known_techs.h`, `TechDuScenario`) si elle existe ; table reconstruite
+  aussi quand le scénario change. Journal : `[LOC] cle "…" : techno …
+  (hors scenario) remplacee par …` et le bilan `[LOC] table construite
+  (<scénario>) : … cle(s) partagee(s), … remplacee(s)`.
+- **Vu en jeu (2026-11-04)** : `[LOC] table construite (DEFAULT) : 462 cles
+  pour 172 technos, 45 cle(s) partagee(s), 22 remplacee(s)` (Sawmill, Steam
+  Sawmill, Boilers, Infirmary, Kiln…).
+
+### 2026-11-04 — Tests grandeur nature : lois non exclusives au même check (mod)
+
+- **Problème remonté** : Duelling Law et Public House (arbre Fightclub)
+  montrent le même check.
+- **Cause** : le mod envoyait le check de rang r à la **r-ième signature**
+  de l'arbre (et l'affichage suivait), donc deux lois sœurs non exclusives
+  montraient le même « prochain » check.
+- **Décision de l'auteur** : deux lois **non exclusives** ont toujours des
+  checks **différents** ; seules les lois exclusives (paires, lois
+  exclusives par leurs parents) partagent un check.
+- **Correctif (mod, compilé, déployé, non testé)** : chaque loi a un **rang
+  fixe**, celui de `outils\lois_table.tsv` (déjà la référence de
+  l'apworld : Fightclub = Fighting Arena 1, Duelling Law 2, Public House 3,
+  House of Pleasure 4, Moonshine 5 ; Ceremonial Funerals = 2 rangs).
+  `generer.py` écrit `AP_LOIS_RANGS` (scénario, arbre, loi interne, rang)
+  dans `known_ap_ids.h` ; `ApRangsDeLoi` (archipelago.cpp) ; `lois_ap.cpp` :
+  `RangsFixes`, `EnvoyerChecks` (rangs fixes, repli sur l'ordre des
+  signatures avec journal si la loi manque à la table), `RangAffiche` et
+  `PoserTexteNomCheck` (nom et icône = check fixe, signée ou non).
+  L'**effet** suit toujours l'ordre des signatures (k-ième item reçu =
+  effet de la k-ième loi signée).
+- apworld inchangé (`data.py`, `ids.tsv` identiques) : la logique des lois
+  n'exige aucun item, une région plus tardive pour un rang fixe ne peut que
+  rendre la logique plus stricte. `frostpunk.apworld` n'est pas à
+  reconstruire.
+- Ouvert : demi-rond droit de Child Labour (Child Shelters) ni nommé ni
+  signable (« juste un demi-cercle ») ; **les autres paires marchent**
+  (auteur), donc pas l'icône de paire posée par-dessus. Journal antérieur :
+  à la 2e construction du livre, le nœud de Child Shelters n'avait **aucun
+  élément d'interface** (absent du relevé). Diagnostic ajouté (déployé) :
+  `[LOIDIAG]` = arbre d'éléments des deux demi-ronds de Child Labour et de
+  Food Additives (témoin sain), état et accessibilité de la loi ; `[LOIUI]
+  … AUCUN element d'interface` pour un nœud sans élément.
+- **Partie suivante (auteur)** : le défaut **ne s'est pas reproduit** ;
+  `[LOIDIAG]` : Child Shelters état 0, accessible. Défaut **intermittent**,
+  diagnostic laissé en place jusqu'à la prochaine occurrence.
+
+### 2026-11-04 — Plus de « Tree » dans les noms affichés
+
+- **Demande de l'auteur** : retirer le mot « Tree » des `Progressive Tree`
+  dans tous les affichages.
+- apworld : items renommés `<Scénario> - Progressive <arbre>` (ex. `A New
+  Home - Progressive Tier`, `- Progressive Beacon`) ; **ids inchangés** (clé
+  = numéro d'arbre), `known_ap_ids.h` régénéré, aucun doublon de nom.
+  Tests (0.6.8) : banc 5 × 5 et 70 générations solo OK. `frostpunk.apworld`
+  reconstruit dans `custom_worlds`.
+- Mod (graines générées avant : le serveur garde les anciens noms) :
+  `ApTexteSansTree` (archipelago.cpp) remplace « Progressive Tree » par
+  « Progressive » dans toutes les popups (`AfficherNotificationAP`) et dans
+  le nom du check d'après les scouts (`ApNomDuScout` : descriptions des
+  technos, panneau d'info des lois, sites). Compilé, déployé, non testé.

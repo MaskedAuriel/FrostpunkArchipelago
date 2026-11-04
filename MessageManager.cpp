@@ -2,6 +2,7 @@
 #include "evenements.h"   // TuileAtlasBulles
 #include "IconSubManager.h"   // ARCHIPELAGO_ICONS_TECH
 #include "groupes.h"          // CleMoteur (cles des messages)
+#include "archipelago.h"      // ApTexteSansTree
 #include <cstring>
 #include <cmath>      // powf, fabsf
 #include <intrin.h>   // _ReturnAddress
@@ -375,6 +376,8 @@ void AfficherNotificationAP(const char* titre, const char* texte, const char* ic
     PopupEnAttente& p = g_filePopups[(g_debutPopups + g_nbPopups) % 16];
     strncpy_s(p.titre, titre ? titre : "", _TRUNCATE);
     strncpy_s(p.texte, texte ? texte : "", _TRUNCATE);
+    ApTexteSansTree(p.titre);       // plus de "Progressive Tree" a l'ecran
+    ApTexteSansTree(p.texte);
     strncpy_s(p.icone, icone ? icone : "icon_vanilla", _TRUNCATE);
     g_nbPopups++;
     ReleaseSRWLockExclusive(&g_verrouPopups);

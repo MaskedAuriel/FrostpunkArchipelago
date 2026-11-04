@@ -310,6 +310,7 @@ def main():
         contenus.setdefault((c["scenario"], c["site"]), []).append(c)
 
     scenarios_out, locations, items = [], [], []
+    lois_rangs = []                 # (scenario, arbre, loi interne, rang) pour le mod
     noms_loc, noms_item = set(), set()
     erreurs = []
 
@@ -376,7 +377,9 @@ def main():
         # eclaireurs ; sinon useful ("important" en jeu).
         noms_items_arbres = {}
         for a, lst in sorted(arbres.items()):
-            nom = unique("%s - Progressive Tree %s" % (affiche, noms_arbres[a]), noms_item)
+            # "Progressive <arbre>" sans "Tree" (decision de l'auteur, 2026-11-04 ;
+            # ids inchanges : la cle est le numero d'arbre)
+            nom = unique("%s - Progressive %s" % (affiche, noms_arbres[a]), noms_item)
             noms_items_arbres[a] = nom
             if (scn, a) not in classification:
                 erreurs.append("arbre sans classification : %s / %d" % (scn, a))
@@ -407,6 +410,11 @@ def main():
             regs = []
             for l in sorted(lst, key=lambda l: int(l["rang"])):
                 r = int(l["rang"])
+                # Rang FIXE de chaque loi (decision de l'auteur, 2026-11-04 :
+                # seules les lois exclusives partagent un check) ; une loi de
+                # poids 2 (Ceremonial Funerals) a deux lignes.
+                for loi in l["lois (nom interne)"].split(" | "):
+                    lois_rangs.append((scn, arbre, loi.replace(" (2e check)", "").strip(), r))
                 regs.append(min(ouverture + r - 1, n_regions - 1))
                 nom = unique("%s - %s Law %d" % (affiche, court, r), noms_loc)
                 locations.append(dict(id=ids("loc_loi", "%s|%s|%d" % (scn, arbre, r)), nom=nom, scn=scn,
@@ -515,9 +523,9 @@ def main():
                                   goulots=[goulots_loc.get(i) for i in range(len(GOULOTS[scn]))],
                                   montees=MONTEES[scn], temperature=temp_noms,
                                   quetes_progressifs=quetes_progressifs,
-                                  eclaireurs=("%s - Progressive Tree %s" % (affiche, noms_arbres[ARBRE_ECLAIREURS[scn]]))
+                                  eclaireurs=noms_items_arbres[ARBRE_ECLAIREURS[scn]]
                                   if ARBRE_ECLAIREURS[scn] is not None else None,
-                                  paliers="%s - Progressive Tree Tier" % affiche if ARBRE_PALIERS in arbres else None))
+                                  paliers=noms_items_arbres[ARBRE_PALIERS] if ARBRE_PALIERS in arbres else None))
 
     for nom, res in FILLER_GENERIQUE:
         items.append(dict(id=ids("item_filler", nom), nom=unique(nom, noms_item), scn=None, genre="filler",
@@ -533,7 +541,7 @@ def main():
 
     ids.sauver()
     ecrire_data(scenarios_out, locations, items)
-    ecrire_h(locations, items)
+    ecrire_h(locations, items, lois_rangs)
     for scn, affiche in SCENARIOS:
         nl = sum(1 for l in locations if l["scn"] == scn and l["genre"] != "temperature")
         print("%-12s %4d locations (hors temperature)" % (scn, nl))
@@ -550,7 +558,7 @@ def ecrire_data(scenarios, locations, items):
             f.write("    %r,\n" % s)
         f.write("]\n\n")
         f.write("# genre : techno, loi, site, quete, temperature ; region None = calculee\n")
-        f.write("# (temperature) ; tiers = Progressive Tree Tier requis ; eclaireurs =\n")
+        f.write("# (temperature) ; tiers = Progressive Tier requis ; eclaireurs =\n")
         f.write("# Beacon / Forager Quarters requis ; exclue_option = Purpose / Politics.\n")
         f.write("LOCATIONS = [\n")
         for l in locations:
@@ -567,7 +575,7 @@ def ecrire_data(scenarios, locations, items):
         f.write("]\n")
 
 
-def ecrire_h(locations, items):
+def ecrire_h(locations, items, lois_rangs):
     chemin = os.path.join(MOD, "known_ap_ids.h")
 
     def c(s):
@@ -603,6 +611,14 @@ def ecrire_h(locations, items):
             cle = ";".join("%s %d" % r for r in i["ressources"]) if "ressources" in i else i["cle"]
             scn = '"%s"' % i["scn"] if i["scn"] else "nullptr"
             f.write('    { %dLL, ApItemGenre::%s, %s, "%s", "%s" },\n' % (i["id"], genres[i["genre"]], scn, c(cle), c(i["nom"])))
+        f.write("};\n\n")
+        f.write("// Rang du check de chaque loi (outils\\lois_table.tsv) : le check d'une loi\n")
+        f.write("// ne depend pas de l'ordre des signatures ; seules les lois exclusives\n")
+        f.write("// partagent un rang. Une loi de poids 2 a deux lignes (deux checks).\n")
+        f.write("struct ApLoiRang { const char* scenario; const char* arbre; const char* loi; int rang; };\n\n")
+        f.write("static const ApLoiRang AP_LOIS_RANGS[] = {\n")
+        for scn, arbre, loi, r in lois_rangs:
+            f.write('    { "%s", "%s", "%s", %d },\n' % (scn, c(arbre), c(loi), r))
         f.write("};\n")
 
 

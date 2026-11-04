@@ -578,14 +578,24 @@ void CleUnite(int i, char* out, size_t taille)
     _snprintf_s(out, taille, _TRUNCATE, "L%d", i);
 }
 
-// Rang du check affiche par la loi i (demande de l'auteur, 2026-11-04 :
-// chaque etape montre SON check, pas toutes celle du prochain). Loi signee :
-// son rang reel (Rang). Sinon : 1 + poids des lois signees de l'arbre + poids
+// Rang(s) FIXE(s) du check de la loi i (decision de l'auteur, 2026-11-04 :
+// deux lois non exclusives n'ont jamais le meme check, ex. Duelling Law et
+// Public House ; seules les lois exclusives partagent un check). Table de
+// l'apworld (outils\lois_table.tsv -> AP_LOIS_RANGS). 0 : loi absente.
+int RangsFixes(int i, int rangs[4])
+{
+    return ApRangsDeLoi(g_arbres[g_lois[i].arbre].nom, g_lois[i].nom, rangs, 4);
+}
+
+// Rang du check affiche par la loi i : son rang fixe (RangsFixes, le premier
+// pour une loi de poids 2). Repli, loi absente de la table : loi signee ->
+// son rang reel (Rang) ; sinon 1 + poids des lois signees de l'arbre + poids
 // des etapes plus hautes (profondeur inferieure) encore a signer et
 // accessibles, une unite par paire / par lois exclusives par leurs parents.
-// Ex. Child Labour, rien de signe : etape 1 -> rang 1, etape 2 -> rang 2.
 int RangAffiche(int i, const Etats& e)
 {
+    int fixes[4];
+    if (RangsFixes(i, fixes) > 0) return fixes[0];
     if (e.Signee(i)) return Rang(i, e);
     Accessibilite acc;
     acc.e = &e;
@@ -761,15 +771,26 @@ void NoterAttente(int i, uint64_t dateActivation)
     g_lois[i].retenue = true;
 }
 
-// Checks pas encore envoyes de la loi signee i (rangs r..r+poids-1).
-// Renvoie le nombre de checks envoyes.
+// Checks pas encore envoyes de la loi signee i : ses rangs FIXES (table de
+// l'apworld, RangsFixes) ; repli, loi absente de la table : rangs
+// r..r+poids-1 d'apres l'ordre des signatures (Rang). Renvoie le nombre de
+// checks envoyes. (L'effet, lui, suit toujours l'ordre des signatures :
+// k-ieme item recu = effet de la k-ieme loi signee, cf. hkEffets.)
 int EnvoyerChecks(int i, const Etats& e, bool differe)
 {
-    int r = Rang(i, e), n = 0;
     ArbreAP& a = g_arbres[g_lois[i].arbre];
     char nom[96];
     NomDeLoi(i, nom, sizeof(nom));
-    for (int k = r; k < r + Poids(i) && k <= MAX_RANG; ++k) {
+    int rangs[4], nr = RangsFixes(i, rangs);
+    if (nr == 0) {
+        int r = Rang(i, e);
+        printf("[LOIAP]   \"%s\" absente de la table des rangs : rang d'apres les signatures (%d)\n", nom, r);
+        for (int k = r; k < r + Poids(i) && nr < 4; ++k) rangs[nr++] = k;
+    }
+    int n = 0;
+    for (int x = 0; x < nr; ++x) {
+        int k = rangs[x];
+        if (k < 1 || k > MAX_RANG) continue;
         if (a.checks >> k & 1) { printf("[LOIAP]   check %s #%d deja envoye\n", a.nom, k); continue; }
         a.checks |= 1ull << k;
         SendLawCheck(a.nom, k, nom, differe);
@@ -1339,14 +1360,14 @@ typedef void(*PoserTexteBrut_t)(uintptr_t texte, const wchar_t* chaine, uintptr_
 constexpr uintptr_t OFF_POSER_TEXTE_BRUT = 0x111BEF0, OFF_FORMAT_TEXTE_BRUT = 0x2BFD628;
 
 // Reseau (bug du 2026-11-04) : le nom du check = l'item place sur la location
-// (scout, ApScoutLoi) ; loi signee : la location de SON rang (Rang), sinon
-// celle du prochain check de l'arbre (comme IconeDeLoi). Sans scout (jamais
-// connecte, location absente) : le nom de l'arbre, comme avant.
+// (scout, ApScoutLoi) de SON rang fixe (RangAffiche, 2026-11-04 : signee ou
+// non, une loi garde son check). Sans scout (jamais connecte, location
+// absente) : le nom de l'arbre, comme avant.
 void PoserTexteNomCheck(uintptr_t texte, int i, const Etats& e)
 {
     bool signee = e.etat[i] == ETAT_ACTIVE;
     const char* arbre = g_arbres[g_lois[i].arbre].nom;
-    int rang = signee ? Rang(i, e) : RangAffiche(i, e);
+    int rang = RangAffiche(i, e);
     char check[200];
     ApScoutInfo s;
     if (ApScoutLoi(arbre, rang, &s)) ApNomDuScout(s, check, sizeof(check));
@@ -1485,7 +1506,11 @@ void DiagNoeudsLivre(uintptr_t livre)
         int etat = (i >= 0 && etats) ? e.etat[i] : -1;
         char nom[96] = "?";
         if (i >= 0) NomDeLoi(i, nom, sizeof(nom));
-        if (elem <= 0x10000) continue;
+        if (elem <= 0x10000) {
+            if (journal) printf("[LOIUI]   noeud %d : \"%s\" etat %d : AUCUN element d'interface (poignee 0x%llX)\n",
+                k, nom, etat, (unsigned long long)poignee);
+            continue;
+        }
         char racine[32] = "";
         NomElementLoi(elem, racine, sizeof(racine));
         bool gauchePaire = !strcmp(racine, NOEUD_GAUCHE_PAIRE);
@@ -1512,6 +1537,24 @@ void DiagNoeudsLivre(uintptr_t livre)
                 vu = true;
                 printf("[LOIUI]   arbre du demi-rond SIGNE \"%s\" (%s) :\n", nom, racine);
                 int budget = 120;
+                DecrireArbreElement(elem, 0, &budget);
+            }
+        }
+        // Diagnostic (2026-11-04, test grandeur nature) : dans A New Home, le
+        // demi-rond droit de Child Labour ("Child Shelters") n'a ni nom ni
+        // clic, alors que les autres paires marchent. Releve, une fois par
+        // loi, de l'arbre d'elements de ses deux demi-ronds et d'un demi-rond
+        // droit sain ("Food Additives") pour comparaison, avec l'etat de la
+        // loi et son accessibilite.
+        {
+            static bool vus[3] = {};
+            static const char* const suivis[3] = { "Child Shelters", "Child Labour - Safe Jobs", "Food Additives" };
+            for (int s = 0; s < 3; ++s) {
+                if (vus[s] || strcmp(nom, suivis[s]) != 0) continue;
+                vus[s] = true;
+                printf("[LOIDIAG] demi-rond \"%s\" (%s) : loi %d, etat %d, accessible %d, livre #%d\n",
+                    nom, racine, i, etat, (i >= 0 && etats) ? (int)Accessible(acc, i) : -1, nAppels);
+                int budget = 60;
                 DecrireArbreElement(elem, 0, &budget);
             }
         }

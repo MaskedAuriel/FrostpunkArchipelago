@@ -1,6 +1,8 @@
 // tech_state.cpp
 #include "tech_state.h"
 #include "mod_common.h"
+#include "scenario.h"       // ScenarioVictoryId
+#include "known_techs.h"    // groupes de technos par scenario
 
 // Recupere base + count du tableau des technos. false si indisponible.
 static bool TechTable(uintptr_t& base, int& count)
@@ -325,6 +327,7 @@ struct LocKeyEntry { uint32_t h32; uint64_t techHash; int slot; char key[96]; };
 static LocKeyEntry g_locKeys[600];
 static int         g_locKeyCount = 0;
 static uintptr_t   g_locKeyBuiltFor = 0;
+static char        g_locKeyScenario[32] = { 0 };   // scenario de la construction
 
 static uint32_t Fnv32(const char* s)
 {
@@ -333,10 +336,30 @@ static uint32_t Fnv32(const char* s)
     return h;
 }
 
+// La techno fait-elle partie du scenario (groupe de known_techs.h) ?
+static bool TechDuScenario(uint64_t hash, const char* scn)
+{
+    if (!scn || !*scn) return false;
+    for (int g = 0; g < KNOWN_TECH_GROUP_COUNT; ++g) {
+        const TechGroup& grp = KNOWN_TECH_GROUPS[g];
+        if (strcmp(grp.label, scn) != 0) continue;
+        for (int i = 0; i < grp.count; ++i)
+            if (grp.items[i].hash == hash) return true;
+    }
+    return false;
+}
+
+// Le tableau des technos du jeu contient aussi les technos d'autres scenarios
+// (ex. dans A New Home : "[Builders] RW 0_Sawmill" de Last Autumn), qui
+// partagent parfois la cle de localisation d'une techno du scenario
+// ("Technologies/Sawmill/Name"). Une cle ne garde qu'une techno : celle du
+// scenario en cours si elle existe, sinon la premiere trouvee.
 static void BuildLocKeyTable()
 {
     g_locKeyCount = 0;
     g_locKeyBuiltFor = g_selfTech;
+    const char* scn = ScenarioVictoryId();
+    strncpy_s(g_locKeyScenario, sizeof(g_locKeyScenario), scn, _TRUNCATE);
     if (!g_selfTech) return;
 
     uintptr_t base = 0; int count = 0;
@@ -345,32 +368,55 @@ static void BuildLocKeyTable()
         base <= 0x10000 || count <= 0 || count > 4096) return;
 
     const int offs[3] = { TECH_LOCNAME_OFF, TECH_LOCDESC_OFF, TECH_LOCSHORT_OFF };
+    int remplacees = 0, doublons = 0;
 
     for (int i = 0; i < count; ++i) {
         uintptr_t entry = base + (uintptr_t)i * TECH_ENTRY_SIZE, tech = 0;
         if (!SafeRead((void*)(entry + TECH_ENTRY_PTR), &tech, 8) || tech <= 0x10000) continue;
         uint64_t th = HashOfTechPtr(tech);
         if (!th) continue;
+        bool duScenario = TechDuScenario(th, scn);
 
         for (int s = 0; s < 3; ++s) {
-            if (g_locKeyCount >= 600) break;
             char k[96];
             if (!TechLocKeyAt(tech, offs[s], k, sizeof(k))) continue;
+            uint32_t h = Fnv32(k);
+
+            // cle deja connue : on garde la techno du scenario en cours
+            LocKeyEntry* existant = nullptr;
+            for (int x = 0; x < g_locKeyCount; ++x)
+                if (g_locKeys[x].h32 == h && strcmp(g_locKeys[x].key, k) == 0) { existant = &g_locKeys[x]; break; }
+            if (existant) {
+                ++doublons;
+                if (duScenario && !TechDuScenario(existant->techHash, scn)) {
+                    printf("[LOC] cle \"%s\" : techno %016llX (hors scenario) remplacee par %016llX (%s)\n",
+                        k, (unsigned long long)existant->techHash, (unsigned long long)th, scn);
+                    existant->techHash = th;
+                    existant->slot = s;
+                    ++remplacees;
+                }
+                continue;
+            }
+
+            if (g_locKeyCount >= 600) break;
             LocKeyEntry* e = &g_locKeys[g_locKeyCount++];
             int j = 0; for (; k[j] && j < 95; ++j) e->key[j] = k[j]; e->key[j] = 0;
-            e->h32 = Fnv32(e->key);
+            e->h32 = h;
             e->techHash = th;
             e->slot = s;                    // 0 = Name, 1 = Description, 2 = Short
         }
     }
-    printf("[LOC] table construite : %d cles pour %d technos\n", g_locKeyCount, count);
+    printf("[LOC] table construite (%s) : %d cles pour %d technos, %d cle(s) partagee(s), %d remplacee(s)\n",
+        scn, g_locKeyCount, count, doublons, remplacees);
 }
 
 // La cle appartient-elle a une techno ? Renvoie son hash et l'emplacement.
 bool LookupLocKey(const char* localKey, uint64_t* outHash, int* outSlot)
 {
     if (!localKey || !*localKey || !g_selfTech) return false;
-    if (g_locKeyBuiltFor != g_selfTech) BuildLocKeyTable();   // nouvelle partie
+    // nouvelle partie, ou scenario connu / change depuis la construction
+    if (g_locKeyBuiltFor != g_selfTech || strcmp(g_locKeyScenario, ScenarioVictoryId()) != 0)
+        BuildLocKeyTable();
 
     uint32_t h = Fnv32(localKey);
     for (int i = 0; i < g_locKeyCount; ++i) {

@@ -96,6 +96,17 @@ int ApSitesLocations(ApSiteLoc* out, int max);
 // Loi signee : check de rang 'rank' de l'arbre de lois 'tree'.
 // 'effectPending' : l'effet de la loi attend l'item de l'arbre.
 void SendLawCheck(const char* tree, int rank, const char* lawName, bool effectPending);
+
+// Rang(s) FIXE(s) du check de la loi 'loi' (nom interne) de l'arbre 'arbre',
+// dans le scenario en cours (AP_LOIS_RANGS de known_ap_ids.h, d'apres
+// outils\lois_table.tsv). Seules les lois exclusives partagent un rang ; une
+// loi de poids 2 en a deux. Renvoie le nombre de rangs ecrits (0 : absente).
+int ApRangsDeLoi(const char* arbre, const char* loi, int* rangs, int max);
+
+// Texte affiche en jeu : "Progressive Tree " -> "Progressive " (demande de
+// l'auteur, 2026-11-04 : plus de mot "Tree" a l'ecran). Sur place. Couvre
+// les noms venus du serveur pour les graines generees avant le renommage.
+void ApTexteSansTree(char* s);
 // Quete de l'histoire du scenario accomplie (quetes.cpp, hook de la fin de
 // quete FUN_1416d22a0 ; known_quests.h). Popup "Check sent".
 void SendQuestCheck(const char* questName, const char* displayName);

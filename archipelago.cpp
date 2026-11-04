@@ -743,6 +743,17 @@ void SendLawCheck(const char* tree, int rank, const char* lawName, bool effectPe
     AfficherNotificationAP("Check sent", texte);
 }
 
+int ApRangsDeLoi(const char* arbre, const char* loi, int* rangs, int max)
+{
+    const char* scn = ScenarioVictoryId();
+    int n = 0;
+    if (!arbre || !loi || !scn || !*scn) return 0;
+    for (const ApLoiRang& r : AP_LOIS_RANGS)
+        if (n < max && !strcmp(r.scenario, scn) && !strcmp(r.arbre, arbre) && !strcmp(r.loi, loi))
+            rangs[n++] = r.rang;
+    return n;
+}
+
 void SendQuestCheck(const char* questName, const char* displayName)
 {
     // 1. Location AP de la quete (quetes paralleles : une seule location).
@@ -963,6 +974,19 @@ bool ApScoutTechno(uint64_t hash, ApScoutInfo* out)
 void ApNomDuScout(const ApScoutInfo& s, char* out, size_t taille)
 {
     _snprintf_s(out, taille, _TRUNCATE, "%s - %s", s.nomJoueur, s.nomItem);
+    ApTexteSansTree(out);
+}
+
+void ApTexteSansTree(char* s)
+{
+    static const char motif[] = "Progressive Tree ";
+    const size_t nMotif = sizeof(motif) - 1, nRetire = 5;   // "Tree "
+    if (!s) return;
+    for (char* p = strstr(s, motif); p; p = strstr(p, motif)) {
+        char* fin = p + nMotif;
+        memmove(p + nMotif - nRetire, fin, strlen(fin) + 1);
+        p += nMotif - nRetire;
+    }
 }
 
 // Etat de la connexion pour le libelle du menu principal (bug du 2026-11-04 :
