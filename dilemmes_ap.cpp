@@ -78,17 +78,25 @@ const DilemmeAP* DilemmeAPParId(const char* id)
 
 // --- File des demandes (thread du mod -> thread du jeu) ----------------------
 constexpr int TAILLE_FILE = 16;
-static const DilemmeAP* g_file[TAILLE_FILE] = {};
-static int              g_nFile = 0;
-static SRWLOCK          g_verrouFile = SRWLOCK_INIT;
+// Demande en file : le sous-titre est COPIE (le nom de l'expediteur vient
+// d'un tampon temporaire de l'appelant).
+struct DemandeDilemme { const DilemmeAP* def; char sousTitre[64]; };
+static DemandeDilemme g_file[TAILLE_FILE] = {};
+static int            g_nFile = 0;
+static SRWLOCK        g_verrouFile = SRWLOCK_INIT;
 
-bool DilemmeAPDemander(const char* id)
+bool DilemmeAPDemander(const char* id, const char* expediteur)
 {
     const DilemmeAP* d = DilemmeAPParId(id);
     if (!d) { printf("[DIL] dilemme \"%s\" inconnu du catalogue\n", id ? id : "?"); return false; }
+    DemandeDilemme dem = {};
+    dem.def = d;
+    if (expediteur && expediteur[0])
+        _snprintf_s(dem.sousTitre, sizeof(dem.sousTitre), _TRUNCATE, "%s - from %s",
+            d->sousTitre ? d->sousTitre : "Archipelago", expediteur);
     AcquireSRWLockExclusive(&g_verrouFile);
     bool ok = g_nFile < TAILLE_FILE;
-    if (ok) g_file[g_nFile++] = d;
+    if (ok) g_file[g_nFile++] = dem;
     ReleaseSRWLockExclusive(&g_verrouFile);
     if (ok) printf("[DIL] dilemme \"%s\" demande : cree sur le thread du jeu au prochain mouvement "
                    "de ressource (jeu hors pause)\n", id);
@@ -99,11 +107,11 @@ bool DilemmeAPDemander(const char* id)
 void DilemmesPompe()
 {
     if (g_nFile <= 0 || !PartiePrete()) return;
-    const DilemmeAP* aCreer[TAILLE_FILE];
+    DemandeDilemme aCreer[TAILLE_FILE];
     AcquireSRWLockExclusive(&g_verrouFile);
     int n = g_nFile;
     memcpy(aCreer, g_file, n * sizeof(aCreer[0]));
     g_nFile = 0;
     ReleaseSRWLockExclusive(&g_verrouFile);
-    for (int i = 0; i < n; ++i) DilemmeAPCreer(*aCreer[i]);
+    for (int i = 0; i < n; ++i) DilemmeAPCreer(*aCreer[i].def, aCreer[i].sousTitre);
 }

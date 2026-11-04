@@ -868,3 +868,40 @@ Exclues (cachees) : [Adaptation - level 0 - Endless] Bathhouse, [Adaptation - le
 | [People - level 1] Fightclub | 5 | Moonshine | [Adaptation- level 1] Moonshine | [People - level 0] PublicHouses unlock |  |  |
 
 <!-- FIN TABLE LOIS -->
+
+
+### 2026-11-04 — Nom du nœud = item du scout (réseau)
+
+Les scouts sont faits par la couche réseau (`reseau_ap.cpp`), transmis par
+`ApNoterScout` (archipelago.cpp, table par id de location, vidée à chaque
+`ApDefinirSession`). `PoserTexteNomCheck` : loi signée → location de son rang
+(`Rang`), sinon le prochain rang de l'arbre ; texte = `ApNomDuScout` (« item »
+pour ce slot, « item (joueur) » sinon) + ` [Signed]`. Sans scout : nom de
+l'arbre comme avant. Même branchement pour les technos (`AP_NomDuCheck` →
+`ApScoutTechno`). Icônes : encore `IconeDuCheckDeTest`. Non testé.
+Icônes : `IconeDeLoi` appelle `ApIconeDuCheck("law", "<arbre>|<rang>")` (session réseau),
+repli `IconeDuCheckDeTest` sans scout. Déployé à 11:08. Non testé.
+
+Retour de l'auteur (2026-11-04) : presque bon, deux remarques. (1) Paire
+exclusive (Child Labour) : le nom du check apparaissait sur les deux
+demi-ronds → seulement à gauche (`LEFT_OR_ENTRY`), `TECH_NAME` du demi-rond
+droit (`RIGHT_OR_ENTRY`) vidé (`EffacerNomLoi`). (2) Toutes les étapes
+non signées montraient le check du rang 1 (seed : rang 1 = Progressive
+Sawmill, rang 2 = Food Crate) → `RangAffiche` : profondeur de chaque loi
+(lois requises relevées dans `UnirParExigences`, `LoiAP.requises /
+profondeur`), rang = 1 + poids signés + poids des étapes plus hautes non
+signées et accessibles, une unité par paire et par lois exclusives par
+leurs parents (`CleUnite`). Sert au nom et à l'icône. Déployé à 11:18.
+Non testé.
+Test (2026-11-04) : demi-rond droit vidé par une chaîne vide → le nom
+d'origine revient (« Child Shelters »). Correctif : un espace (`L" "`),
+comme pour le champ du menu. Non testé.
+
+Test (2026-11-04, capture de l'auteur, arbre Adaptation) : demi-rond droit
+bien vide, mais le texte du demi-rond gauche est trop à gauche du rond.
+`CentrerNomPaire` : position de chaque `TECH_NAME` = somme des translations
+(`+0x80`) jusqu'à la racine du demi-rond ; le texte gauche est déplacé
+(`FUN_14102a3e0`) de la moitié de l'écart gauche → droite (mi-chemin = centre
+du rond, ancres en miroir). Recalculé à chaque construction du livre (0 si
+déjà centré). Journal `[LOIUI] paire : texte gauche en …`. Compilé, pas
+encore déployé (jeu lancé). Non testé.

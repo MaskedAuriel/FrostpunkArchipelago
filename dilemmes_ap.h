@@ -36,7 +36,10 @@ const DilemmeAP* DilemmeAPParId(const char* id);
 
 // N'importe quel thread : met le dilemme en file ; il est cree sur le thread
 // du jeu au prochain passage de DilemmesPompe (jeu hors pause, partie prete).
-bool DilemmeAPDemander(const char* id);
+// 'expediteur' (copie dans la file) : joueur Archipelago qui envoie le piege,
+// affiche en sous-titre ("Archipelago - from <joueur>") ; nullptr : sous-titre
+// du catalogue.
+bool DilemmeAPDemander(const char* id, const char* expediteur = nullptr);
 
 // Thread du jeu (hook du setter de ressources) : cree les dilemmes en file.
 void DilemmesPompe();

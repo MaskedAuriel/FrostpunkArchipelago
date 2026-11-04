@@ -2164,7 +2164,16 @@ static void IconeMarqueurSite(uintptr_t trk)
 
     int32_t etat = 0;
     SafeRead((void*)(comp + SITE_ETAT), &etat, 4);
-    const char* icone = etat >= 2 ? "icon_done" : IconeCheckDeTest(m->site, 0);
+    // Type du check d'apres le serveur (scout) ; a defaut, icone de test.
+    const char* icone = "icon_done";
+    if (etat < 2) {
+        icone = ApIconeDuCheck("site", m->site);
+        if (!icone) {
+            static int nSansScout = 0;
+            if (nSansScout++ < 10) printf("[SITEUI] \"%s\" : pas de scout, icone de test\n", m->site);
+            icone = IconeCheckDeTest(m->site, 0);
+        }
+    }
 
     static int nJournal = 0;
     for (int k = 0; k < 2; ++k) {

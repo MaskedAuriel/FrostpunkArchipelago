@@ -163,3 +163,36 @@
     connexion au serveur (`RequestConnection` ne fait que journaliser).
     Restent non vérifiés en jeu : la casse conservée à la saisie (« Upper
     case » coupé) et la valeur du mot de passe envoyée après effacements.
+
+
+### 2026-11-04 — Libellé d'état de la connexion (bug du premier test réseau)
+
+Au menu, aucun message ne s'affiche (pas de partie, pompes arrêtées).
+Décision de l'auteur : un **libellé d'état sous Connect** (clone du texte
+d'`EXIT_BUTTON`, `AjouterLibelle`). États (anglais, courts) : `Not connected`,
+`Connecting...` (`RequestConnection`), `Connected` / `Reconnected`,
+`Refused: <erreurs>`, `Disconnected, retrying...`,
+`Server unreachable, retrying...`, `Failed: use ws://`. Source :
+`ApEtatConnexion` (archipelago.cpp), alimenté par `ApMessageReseau` d'après
+le titre du message ; `reseau_ap.*` non modifié.
+Rafraîchissement : aucun hook ne tourne à chaque image au menu
+(`FUN_14102f720` = événements souris seulement, vérifié dans Ghidra) →
+**minuterie Windows sans fenêtre** (`SetTimer(nullptr, 0, 250, …)`) armée
+dans `Construire` : le rappel est exécuté par la boucle de messages du
+thread qui l'a armée (thread de l'interface). Garde : le rappel compare son
+thread à celui de `Construire` (journal `[MENU] minuterie d'etat : thread …`),
+l'intitulé est relu par poignée (panneau détruit = rien). Non testé.
+
+### 2026-11-04 — Menu sans sauvegarde : Scenario actif, New game grisé
+
+Retour de l'auteur : sans sauvegarde (liste filtrée par `sauvegardes_ap.cpp`),
+impossible de choisir le scénario ; seul reste le bouton qui lance A New Home.
+Décompilé : `FUN_141b28f10` = rafraîchissement du panneau principal (vtable
++0x08). Profil `FUN_14125aed0`, nombre de sauvegardes `+0x1B8` ; sans
+sauvegarde : `CONTINUE_BUTTON` (`+0xD0`) caché, `NEWGAME_BUTTON` (`+0xD8`,
+lance A New Home) montré, `SCENARIO_BUTTON` (`+0xE8`) désactivé sauf scénario
+« à débloquer » passé (`FUN_141283ea0`). Hook `hkRafraichirPanneau` : après
+l'original, Scenario forcé actif, New game inactif
+(`FUN_14105a3a0(élément, actif, 1)` + état d'animation `ENABLED` / `DISABLED`
+par `FUN_1410240d0(élément, &nom, 1, 0, 0, 0, 1, 0, 0)`). Déployé à 11:18.
+Non testé.

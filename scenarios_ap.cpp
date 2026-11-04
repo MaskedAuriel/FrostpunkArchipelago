@@ -478,14 +478,13 @@ int ScenarioDebloquer(const char* nomInterne)
     return 1;
 }
 
-void ScenariosRecevoirItemsDeTest()
+void ScenariosReverrouiller()
 {
-    // TEMPORAIRE : items de depart simules, en attendant le serveur.
-    // Demande de l'auteur (2026-11-03, releve du contenu des sites dans les 6
-    // scenarios) : les 6 debloques (avant : DEFAULT et REFUGEES pour le bug
-    // des icones des lois, et encore avant : REFUGEES seul).
-    static const char* const DEBLOQUES[] = { "DEFAULT", "TechHaven", "REFUGEES", "WINTERHOME", "BUILDERS", "Reconquest" };
-    for (const char* s : DEBLOQUES) ReceiveScenarioUnlock(s, "Server (test)");
+    // Changement de session (graine / slot) : les deblocages de la session
+    // precedente ne valent plus ; ceux de la nouvelle sont rejoues par
+    // ApDefinirSession. (Remplace ScenariosRecevoirItemsDeTest, TEMPORAIRE :
+    // les items de deblocage viennent desormais du serveur.)
+    for (int i = 0; i < NB_SCENARIOS_AP; ++i) g_debloque[i] = false;
 }
 
 void InstallHooksScenarios(uintptr_t modBase)

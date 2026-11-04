@@ -167,3 +167,23 @@
   relecture, puis `SyncGameState` de chaque techno connue ; `TechSauver`
   n'écrit rien avant cette relecture (sinon un chargement écraserait le
   fichier par un état vide). Non testé.
+
+
+## 2026-11-04 — Sauvegardes de la session Archipelago seulement
+
+Bug du premier test réseau : avec le mod, on ne doit pas voir les parties
+faites sans lui. Décisions de l'auteur : **masquer** dans la liste (pas
+refuser le chargement), et seulement les sauvegardes **de la session**
+(graine + slot). `sauvegardes_ap.cpp` (journal `[SAV]`) :
+- `FUN_1412892f0(profil, nom, p3, p4)` = écriture d'une sauvegarde (thread
+  principal, « [GameSave] Game save created on the main thread ») ; `nom`
+  = `wchar_t*` sans extension, fichier `<nom>.save` dans `saves`. Hook : nom
+  ajouté à `<session>\ap_sauvegardes.txt` (UTF-8, sans doublon).
+- `FUN_141284eb0` = liste des sauvegardes : `FUN_141cdee60(profil, &liste,
+  L"saves", L"*.save")` (seul appelant), `liste = {+0 tableau de chaînes du
+  moteur, +8 nombre, +0xC capacité, +0x10 allocateur}`, éléments =
+  `"<nom>.save"`, libérés par `FUN_140e1d180(&élément)`. Hook : éléments
+  absents de la session libérés et retirés, nombre réécrit.
+Conséquence : sans session (jamais connecté), aucune sauvegarde visible ; une
+sauvegarde faite avant ce correctif est masquée (la réécrire une fois). Non
+testé (liste, Continue, sauvegarde automatique).

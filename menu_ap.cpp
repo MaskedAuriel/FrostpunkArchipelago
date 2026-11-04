@@ -1103,6 +1103,43 @@ void AjouterSeparateur(uintptr_t modele, uintptr_t parent, uintptr_t avant)
     Inserer(parent, s, avant);
 }
 
+// --- Libelle d'etat de la connexion (bug du 2026-11-04) ----------------------------
+// Au menu, aucune pompe ne tourne et les messages attendent la partie : l'etat
+// de la connexion (ApEtatConnexion, archipelago.cpp) s'affiche dans un intitule
+// sous Connect. Aucun de nos hooks ne tourne a chaque image au menu (le clic
+// de l'ecran FUN_14102f720 ne voit que la souris) : minuterie Windows SANS
+// fenetre, armee depuis Construire (thread de l'interface) ; son rappel est
+// execute par la boucle de messages de CE thread (DispatchMessage), donc sur
+// le thread de l'interface. Le rappel verifie le thread (journal [MENU]).
+uintptr_t g_poigneeEtat = 0;     // poignee de l'intitule d'etat
+long      g_etatVu = 0;          // generation de l'etat affiche
+DWORD     g_threadInterface = 0; // thread de Construire
+UINT_PTR  g_minuterieEtat = 0;
+
+VOID CALLBACK MinuterieEtat(HWND, UINT, UINT_PTR, DWORD)
+{
+    static bool premierPassage = true;
+    if (premierPassage) {
+        premierPassage = false;
+        printf("[MENU] minuterie d'etat : thread %lu (interface %lu)%s\n", GetCurrentThreadId(), g_threadInterface,
+            GetCurrentThreadId() == g_threadInterface ? "" : " -> DIFFERENT, libelle non mis a jour");
+    }
+    if (GetCurrentThreadId() != g_threadInterface || !g_poigneeEtat) return;
+    char etat[96];
+    long gen = ApEtatConnexion(etat, sizeof(etat));
+    if (gen == g_etatVu) return;
+    uintptr_t t = ObjetDePoignee(g_poigneeEtat);
+    if (!t || !EstTexte(t)) return;   // panneau detruit (partie lancee)
+    // Latin-1 -> UTF-16 : chaque octet est son point de code.
+    wchar_t w[96];
+    int i = 0;
+    for (; etat[i] && i < 95; ++i) w[i] = (wchar_t)(unsigned char)etat[i];
+    w[i] = 0;
+    g_etatVu = gen;
+    PoserTexte(t, w);
+    RecalculerColonne();
+}
+
 void Construire(uintptr_t panneau)
 {
     uintptr_t poigneeRacine = 0;
@@ -1171,6 +1208,20 @@ void Construire(uintptr_t panneau)
     }
     AjouterBouton(sortie, cible, avant, panneau, L"Connect", &CbConnect);
 
+    // Intitule d'etat sous Connect, rafraichi par la minuterie (texte pose au
+    // premier passage : g_etatVu remis a zero).
+    LacherPoignee(g_poigneeEtat);
+    g_etatVu = 0;
+    if (texteModele) {
+        uintptr_t e = AjouterLibelle(texteModele, cible, avant, L"Not connected");
+        if (e) g_poigneeEtat = PrendrePoignee(e);
+    }
+    g_threadInterface = GetCurrentThreadId();
+    if (!g_minuterieEtat) {
+        g_minuterieEtat = SetTimer(nullptr, 0, 250, &MinuterieEtat);
+        printf("[MENU] minuterie d'etat %s (thread %lu)\n", g_minuterieEtat ? "armee" : "KO", g_threadInterface);
+    }
+
     char cls[96] = "";
     GetClassNameFP(cible, cls, sizeof(cls));
     if (StrContains(cls, "Layout")) {
@@ -1217,6 +1268,59 @@ void ReleverPlusTard()
     }
 }
 
+// --- Boutons du menu sans sauvegarde (2026-11-04) -------------------------------
+// FUN_141b28f10 = rafraichissement du panneau principal (vtable +0x08 du
+// panneau ; decompile le 2026-11-04). Profil FUN_14125aed0 : nombre de
+// sauvegardes en profil +0x1B8 (liste filtree par sauvegardes_ap.cpp). Sans
+// sauvegarde : CONTINUE_BUTTON (+0xD0) cache, NEWGAME_BUTTON (+0xD8, lance
+// A New Home) montre, SCENARIO_BUTTON (+0xE8) desactive sauf scenario
+// "a debloquer" passe. Demande de l'auteur : le choix du scenario toujours
+// possible, le bouton qui lance A New Home grise et non cliquable.
+// FUN_14105a3a0(element, actif, 1) = cliquable ; FUN_1410240d0(element,
+// &nom, 1, 0, 0, 0, 1, 0, 0) = etat d'animation "ENABLED" / "DISABLED".
+constexpr uintptr_t OFF_RAFRAICHIR_PANNEAU = 0x1B28F10;
+constexpr uintptr_t OFF_ACTIVER_ELEMENT    = 0x105A3A0;
+constexpr uintptr_t OFF_ETAT_ANIMATION     = 0x10240D0;
+constexpr int PAN_BOUTON_NOUVELLE_PARTIE = 0xD8;
+constexpr int PAN_BOUTON_SCENARIOS       = 0xE8;
+
+typedef void (*Rafraichir_t)(uintptr_t panneau, uintptr_t p2, uintptr_t p3, uintptr_t p4);
+typedef void (*ActiverElement_t)(uintptr_t element, uintptr_t actif, uintptr_t p3, uintptr_t p4);
+typedef void (*EtatAnimation_t)(uintptr_t element, uintptr_t* nom, uintptr_t p3, uintptr_t p4, uintptr_t p5,
+                                uintptr_t p6, uintptr_t p7, uintptr_t p8, uintptr_t p9);
+Rafraichir_t oRafraichirPanneau = nullptr;
+
+// Bouton du panneau (poignee rangee en panneau + off), actif ou non.
+void ForcerBouton(uintptr_t panneau, int off, bool actif, const char* qui)
+{
+    uintptr_t poignee = 0;
+    SafeRead((void*)(panneau + off), &poignee, 8);
+    uintptr_t bouton = ObjetDePoignee(poignee);
+    if (!bouton) return;
+    uintptr_t nom = 0;
+    __try {
+        ((ActiverElement_t)(Base() + OFF_ACTIVER_ELEMENT))(bouton, actif ? 1 : 0, 1, 0);
+        ((NomConstruire_t)(Base() + OFF_NOM_CONSTRUIRE))(&nom, actif ? "ENABLED" : "DISABLED");
+        ((EtatAnimation_t)(Base() + OFF_ETAT_ANIMATION))(bouton, &nom, 1, 0, 0, 0, 1, 0, 0);
+        ((NomDetruire_t)(Base() + OFF_NOM_DETRUIRE))(&nom);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        printf("[MENU] EXCEPTION 0x%08lX sur le bouton %s\n", GetExceptionCode(), qui);
+        return;
+    }
+    static bool journalise[2] = {};
+    bool& j = journalise[off == PAN_BOUTON_SCENARIOS ? 0 : 1];
+    if (!j) { j = true; printf("[MENU] bouton %s force %s\n", qui, actif ? "actif" : "inactif"); }
+}
+
+void hkRafraichirPanneau(uintptr_t panneau, uintptr_t p2, uintptr_t p3, uintptr_t p4)
+{
+    oRafraichirPanneau(panneau, p2, p3, p4);
+    if (!panneau) return;
+    ForcerBouton(panneau, PAN_BOUTON_SCENARIOS, true, "SCENARIO_BUTTON");
+    ForcerBouton(panneau, PAN_BOUTON_NOUVELLE_PARTIE, false, "NEWGAME_BUTTON");
+}
+
 uintptr_t hkInitPanneau(uintptr_t panneau, uintptr_t a, uintptr_t b, uintptr_t c)
 {
     uintptr_t r = oInitPanneau(panneau, a, b, c);
@@ -1239,6 +1343,8 @@ void InstallMenuAP(uintptr_t modBase)
         { OFF_CLIC_ECRAN, (void*)&hkClicEcran, (void**)&oClicEcran, "clic de l'ecran" },
         { OFF_INSERER_CAR, (void*)&hkInsererCar, (void**)&oInsererCar, "insertion d'un caractere" },
         { OFF_TOUCHE, (void*)&hkTouche, (void**)&oTouche, "touche d'un champ" },
+        { OFF_RAFRAICHIR_PANNEAU, (void*)&hkRafraichirPanneau, (void**)&oRafraichirPanneau,
+          "rafraichissement du panneau principal" },
     };
     for (auto& x : h) {
         void* p = (void*)(modBase + x.off);

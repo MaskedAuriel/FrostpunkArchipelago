@@ -57,6 +57,9 @@ struct GroupeAP {
     // Survivants par classe : si classes[0].classe est renseigne, une entree
     // par classe ; 'survivants' et 'cheminSurvivants' sont alors ignores.
     SurvivantsAP classes[MAX_CLASSES_AP];
+    // Joueur Archipelago qui envoie le contenu (popups de l'arrivee :
+    // "(from <joueur>)") ; nullptr -> le nom du groupe. Copie.
+    const char* expediteur;
 };
 
 // Thread du jeu uniquement (pompe). Renvoie le slot du groupe (0..15) ou -1.

@@ -82,6 +82,9 @@ struct LoiAP {
     char      nom[96];
     char      exclusion[64];
     bool      requiertLoi;     // a au moins une loi en prerequis (pas une racine)
+    int       requises[4];     // lois requises directement (prerequis), 4 au plus
+    int       nRequises;
+    int       profondeur;      // etape dans l'arbre : 0 racine, 1 + max des requises
     // Sauvegarde locale : derniere application de l'effet (E) ...
     bool      enregistree;
     uint64_t  dateActivation, dateApplication;
@@ -234,7 +237,14 @@ void UnirParExigences(uintptr_t adrTableau, int i, int profondeur, bool unir)
             Guid g{};
             if (unir && SafeRead((void*)(req + REQ_LIEN), &g, sizeof(g))) {
                 int j = IndexParGuid(g);
-                if (j >= 0) { Unir(i, j); g_lois[i].requiertLoi = true; }
+                if (j >= 0) {
+                    Unir(i, j);
+                    LoiAP& l = g_lois[i];
+                    l.requiertLoi = true;
+                    bool deja = j == i;
+                    for (int k2 = 0; k2 < l.nRequises; ++k2) deja |= l.requises[k2] == j;
+                    if (!deja && l.nRequises < 4) l.requises[l.nRequises++] = j;
+                }
             }
         } else if (strcmp(cls, "FrostpunkCompositeRequirement") == 0) {
             UnirParExigences(req + COMPOSITE_LISTE, i, profondeur + 1, unir);
@@ -275,6 +285,22 @@ bool BatirArbres()
     for (int i = 0; i < g_nLois; ++i) {
         UnirParExigences(g_lois[i].adr + LOI_PREREQUIS, i, 0, true);
         UnirParExigences(g_lois[i].adr + LOI_AFFICHAGE, i, 0, false);
+    }
+    // Etape de chaque loi (rang affiche des lois non signees, RangAffiche) :
+    // 0 pour une racine, 1 + la plus profonde des requises. Passes bornees
+    // (un cycle ne bloque pas).
+    for (int passe = 0; passe < 32; ++passe) {
+        bool change = false;
+        for (int i = 0; i < g_nLois; ++i) {
+            int p = 0;
+            for (int k = 0; k < g_lois[i].nRequises; ++k) {
+                int q = g_lois[g_lois[i].requises[k]].profondeur + 1;
+                if (q > p) p = q;
+            }
+            if (p > 31) p = 31;
+            if (p != g_lois[i].profondeur) { g_lois[i].profondeur = p; change = true; }
+        }
+        if (!change) break;
     }
     for (int a = 1; a < g_nReqLois; ++a)          // tri par insertion (une seule fois)
         for (int b = a; b > 0 && g_reqLois[b - 1] > g_reqLois[b]; --b) {
@@ -456,17 +482,21 @@ bool CaseDeLIcone(const TechIcons* ic, int atlas, int32_t c[2])
     return false;
 }
 
+int RangAffiche(int i, const Etats& e);   // plus bas (apres Accessible)
+
 // Icone AP de la loi i : "icon_done" si active (lois de depart comprises),
-// sinon celle du prochain check de son arbre.
+// sinon celle du check de son etape (RangAffiche, 2026-11-04).
 const TechIcons* IconeDeLoi(int i, const Etats& e)
 {
     const char* nomIcone = nullptr;
     if (e.etat[i] == ETAT_ACTIVE) nomIcone = "icon_done";
     else {
-        int r = 1;
-        for (int j = 0; j < g_nLois; ++j)
-            if (g_lois[j].arbre == g_lois[i].arbre && e.Signee(j)) r += Poids(j);
-        nomIcone = IconeDuCheckDeTest(g_arbres[g_lois[i].arbre].nom, r);
+        int r = RangAffiche(i, e);
+        // Scout de la location (reseau) ; sans scout, l'ancienne valeur de test.
+        char cle[128];
+        sprintf_s(cle, "%s|%d", g_arbres[g_lois[i].arbre].nom, r);
+        nomIcone = ApIconeDuCheck("law", cle);
+        if (!nomIcone) nomIcone = IconeDuCheckDeTest(g_arbres[g_lois[i].arbre].nom, r);
     }
     for (const TechIcons& t : ARCHIPELAGO_ICONS_TECH) if (!strcmp(t.nom, nomIcone)) return &t;
     return nullptr;
@@ -532,6 +562,50 @@ bool Accessible(Accessibilite& a, int i)
     if (ok) ok = ListeSatisfaisable(a, g_lois[i].adr + LOI_PREREQUIS, false, 0);
     a.etat[i] = ok ? 2 : 3;
     return ok;
+}
+
+// Unite de check d'une loi (une etape = un check) : une paire exclusive
+// compte une fois (cle = son groupe d'exclusion), des lois exclusives par
+// leurs parents aussi (cle = groupe du parent + etape) ; sinon la loi seule.
+void CleUnite(int i, char* out, size_t taille)
+{
+    const LoiAP& l = g_lois[i];
+    if (l.exclusion[0]) { _snprintf_s(out, taille, _TRUNCATE, "X%d:%s", l.arbre, l.exclusion); return; }
+    if (l.nRequises == 1 && g_lois[l.requises[0]].exclusion[0]) {
+        _snprintf_s(out, taille, _TRUNCATE, "P%d:%s:%d", l.arbre, g_lois[l.requises[0]].exclusion, l.profondeur);
+        return;
+    }
+    _snprintf_s(out, taille, _TRUNCATE, "L%d", i);
+}
+
+// Rang du check affiche par la loi i (demande de l'auteur, 2026-11-04 :
+// chaque etape montre SON check, pas toutes celle du prochain). Loi signee :
+// son rang reel (Rang). Sinon : 1 + poids des lois signees de l'arbre + poids
+// des etapes plus hautes (profondeur inferieure) encore a signer et
+// accessibles, une unite par paire / par lois exclusives par leurs parents.
+// Ex. Child Labour, rien de signe : etape 1 -> rang 1, etape 2 -> rang 2.
+int RangAffiche(int i, const Etats& e)
+{
+    if (e.Signee(i)) return Rang(i, e);
+    Accessibilite acc;
+    acc.e = &e;
+    memset(acc.etat, 0, sizeof(acc.etat));
+    int r = 1;
+    char vues[64][80];
+    int nVues = 0;
+    for (int j = 0; j < g_nLois; ++j) {
+        if (j == i || g_lois[j].arbre != g_lois[i].arbre) continue;
+        if (e.Signee(j)) { r += Poids(j); continue; }
+        if (g_lois[j].profondeur >= g_lois[i].profondeur || !Accessible(acc, j)) continue;
+        char cle[80];
+        CleUnite(j, cle, sizeof(cle));
+        bool deja = false;
+        for (int k = 0; k < nVues && !deja; ++k) deja = strcmp(vues[k], cle) == 0;
+        if (deja) continue;
+        if (nVues < 64) strcpy_s(vues[nVues++], cle);
+        r += Poids(j);
+    }
+    return r;
 }
 
 // Pose l'icone de chaque loi dans sa case +0x80. Thread du jeu, apres une
@@ -1264,14 +1338,24 @@ const TechIcons* IconeDePaire(int i, const Etats& e)
 typedef void(*PoserTexteBrut_t)(uintptr_t texte, const wchar_t* chaine, uintptr_t cfg, uintptr_t p4);
 constexpr uintptr_t OFF_POSER_TEXTE_BRUT = 0x111BEF0, OFF_FORMAT_TEXTE_BRUT = 0x2BFD628;
 
+// Reseau (bug du 2026-11-04) : le nom du check = l'item place sur la location
+// (scout, ApScoutLoi) ; loi signee : la location de SON rang (Rang), sinon
+// celle du prochain check de l'arbre (comme IconeDeLoi). Sans scout (jamais
+// connecte, location absente) : le nom de l'arbre, comme avant.
 void PoserTexteNomCheck(uintptr_t texte, int i, const Etats& e)
 {
     bool signee = e.etat[i] == ETAT_ACTIVE;
-    char nom[160];
-    sprintf_s(nom, "%s%s", g_arbres[g_lois[i].arbre].nom, signee ? " [Signed]" : "");
-    wchar_t w[160];
+    const char* arbre = g_arbres[g_lois[i].arbre].nom;
+    int rang = signee ? Rang(i, e) : RangAffiche(i, e);
+    char check[200];
+    ApScoutInfo s;
+    if (ApScoutLoi(arbre, rang, &s)) ApNomDuScout(s, check, sizeof(check));
+    else strcpy_s(check, arbre);
+    char nom[220];
+    sprintf_s(nom, "%s%s", check, signee ? " [Signed]" : "");
+    wchar_t w[220];
     int j = 0;
-    for (; nom[j] && j < 159; ++j) w[j] = (wchar_t)(unsigned char)nom[j];
+    for (; nom[j] && j < 219; ++j) w[j] = (wchar_t)(unsigned char)nom[j];
     w[j] = 0;
     ((PoserTexteBrut_t)(Base() + OFF_POSER_TEXTE_BRUT))(texte, w, Base() + OFF_FORMAT_TEXTE_BRUT, 0);
 }
@@ -1281,6 +1365,56 @@ void PoserNomCheckLoi(uintptr_t elem, int i, const Etats& e)
     uintptr_t parent = 0, texte = 0;
     if (!TrouverElement(elem, "TECH_NAME", parent, texte) || texte <= 0x10000) return;
     PoserTexteNomCheck(texte, i, e);
+}
+
+// Position (x, y) de 'el' dans le repere du parent de 'racine' : somme des
+// translations (+0x80) de 'el' jusqu'a 'racine' comprise (echelles ignorees).
+bool PositionDansPaire(uintptr_t racine, uintptr_t el, float out[2])
+{
+    out[0] = out[1] = 0.f;
+    for (int garde = 0; el > 0x10000 && garde < 16; ++garde) {
+        float tr[2] = {};
+        if (!SafeRead((void*)(el + ELEM_TRANSLATION), tr, sizeof(tr))) return false;
+        out[0] += tr[0];
+        out[1] += tr[1];
+        if (el == racine) return true;
+        if (!SafeRead((void*)(el + ELEM_PARENT), &el, 8)) return false;
+    }
+    return false;
+}
+
+// Paire exclusive (demande de l'auteur, 2026-11-04) : le seul texte, celui
+// du demi-rond gauche, est recentre sous le rond = a mi-chemin de la place du
+// texte gauche et de celle du texte droit (meme mise en page en miroir : les
+// ancres inconnues s'annulent). Decalage recalcule a chaque construction du
+// livre : 0 si le texte est deja centre.
+void CentrerNomPaire(uintptr_t gauche, uintptr_t droite)
+{
+    uintptr_t pG = 0, tG = 0, pD = 0, tD = 0;
+    if (!TrouverElement(gauche, "TECH_NAME", pG, tG) || tG <= 0x10000 ||
+        !TrouverElement(droite, "TECH_NAME", pD, tD) || tD <= 0x10000) return;
+    float xG[2], xD[2], tr[4] = {};
+    if (!PositionDansPaire(gauche, tG, xG) || !PositionDansPaire(droite, tD, xD) ||
+        !SafeRead((void*)(tG + ELEM_TRANSLATION), tr, sizeof(tr))) return;
+    float dx = (xD[0] - xG[0]) / 2.f;
+    static int nJournal = 0;
+    if (nJournal++ < 4)
+        printf("[LOIUI] paire : texte gauche en (%.1f, %.1f), droit en (%.1f, %.1f) -> decalage %.1f\n",
+            xG[0], xG[1], xD[0], xD[1], dx);
+    if (dx > -0.5f && dx < 0.5f) return;
+    float pos[4] = { tr[0] + dx, tr[1], tr[2], tr[3] };
+    ((PoserPosition_t)(Base() + OFF_POSER_POSITION))(tG, pos);
+}
+
+// Demi-rond droit d'une paire : TECH_NAME sans texte (le nom du check est sur
+// le demi-rond gauche). Test du 2026-11-04 : une chaine VIDE fait revenir le
+// texte d'origine (nom de la loi, ex. "Child Shelters"), comme le champ du
+// menu qui affichait "New save" : on pose un espace.
+void EffacerNomLoi(uintptr_t elem)
+{
+    uintptr_t parent = 0, texte = 0;
+    if (!TrouverElement(elem, "TECH_NAME", parent, texte) || texte <= 0x10000) return;
+    ((PoserTexteBrut_t)(Base() + OFF_POSER_TEXTE_BRUT))(texte, L" ", Base() + OFF_FORMAT_TEXTE_BRUT, 0);
 }
 
 // Panneau d'info d'une loi selectionnee (demande de l'auteur, 2026-11-01) :
@@ -1337,6 +1471,10 @@ void DiagNoeudsLivre(uintptr_t livre)
     uintptr_t paires[64];
     const TechIcons* iconesPaires[64];
     int nPaires = 0;
+    // Demi-ronds portant un nom (0 gauche) ou vides (1 droite), pour recentrer
+    // le texte de chaque paire (CentrerNomPaire).
+    uintptr_t demi[2][64];
+    int loiDemi[2][64], nDemi[2] = {};
     for (int k = 0; k < n; ++k) {
         uintptr_t noeud = tab + (uintptr_t)k * NOEUD_PAS;
         Guid g{};
@@ -1357,7 +1495,16 @@ void DiagNoeudsLivre(uintptr_t livre)
             ic = nullptr;
             if (journal) printf("[LOIUI]   noeud %d : \"%s\" inaccessible (branche exclue) : pas d'icone\n", k, nom);
         }
-        if (ic) PoserNomCheckLoi(elem, i, e);
+        // Paire exclusive : un seul texte (demande de l'auteur, 2026-11-04),
+        // sur le demi-rond gauche ; celui de droite est vide.
+        if (ic && !strcmp(racine, "RIGHT_OR_ENTRY")) {
+            EffacerNomLoi(elem);
+            if (nDemi[1] < 64) { demi[1][nDemi[1]] = elem; loiDemi[1][nDemi[1]++] = i; }
+        }
+        else if (ic) {
+            PoserNomCheckLoi(elem, i, e);
+            if (gauchePaire && nDemi[0] < 64) { demi[0][nDemi[0]] = elem; loiDemi[0][nDemi[0]++] = i; }
+        }
         // 10e test (2026-10-31) : une fois la loi d'une paire signee, la plume
         // du jeu s'affiche exactement au centre du rond (sous notre icone).
         // Releve, une fois par cote, de l'arbre (avec translations et
@@ -1400,6 +1547,21 @@ void DiagNoeudsLivre(uintptr_t livre)
             printf("[LOIUI]   arbre du noeud %s \"%s\" :\n", signe ? "SIGNE" : "NON SIGNE", nom);
             int budget = 80;
             DecrireArbreElement(elem, 0, &budget);
+        }
+    }
+    // Texte de chaque paire recentre : demi-rond droit = loi du meme arbre et
+    // du meme groupe d'exclusion que celle du gauche.
+    for (int a = 0; a < nDemi[0]; ++a) {
+        const LoiAP& lg = g_lois[loiDemi[0][a]];
+        for (int b = 0; b < nDemi[1]; ++b) {
+            const LoiAP& ld = g_lois[loiDemi[1][b]];
+            if (loiDemi[1][b] == loiDemi[0][a] || ld.arbre != lg.arbre || !lg.exclusion[0] ||
+                strcmp(ld.exclusion, lg.exclusion) != 0) continue;
+            __try { CentrerNomPaire(demi[0][a], demi[1][b]); }
+            __except (EXCEPTION_EXECUTE_HANDLER) {
+                printf("[LOIUI] EXCEPTION 0x%08lX au recentrage du texte d'une paire\n", GetExceptionCode());
+            }
+            break;
         }
     }
     int posees = 0;

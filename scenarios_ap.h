@@ -18,9 +18,10 @@ bool ScenarioDebloque(const char* nomInterne);
 // -1 = nom inconnu. Tout thread.
 int ScenarioDebloquer(const char* nomInterne);
 
-// TEMPORAIRE : simule la reception des items de scenario de depart
-// (REFUGEES), en attendant le serveur.
-void ScenariosRecevoirItemsDeTest();
+// Changement de session Archipelago (ApDefinirSession) : tous les scenarios
+// AP redeviennent verrouilles, avant que les items de la session ne soient
+// rejoues. Tout thread.
+void ScenariosReverrouiller();
 
 // Difficulte imposee (docs/chantiers/difficulte.md) : niveau general cible
 // des parties AP (0 Easy .. 3 Very Hard), -1 si aucun. Reglee par le

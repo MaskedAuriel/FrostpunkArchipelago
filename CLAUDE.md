@@ -107,6 +107,7 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
 | `ap_data.h/.cpp` | Table des checks Archipelago (`ApCheck` : id, joueur, description) ; `ApChargerChecksDeTest` en attendant le serveur |
 | `scooting.h/.cpp` | Expéditions, sites, checks portés par les scouts, persistance ; contient la table `SITE_PAYLOADS` (contenu de chaque site par scénario) et `ScootingInit`, qui ne lit **que** les objets du scouting (sites, ville, expéditions) dans les listes des systèmes. Refait son init quand `PartieGeneration()` change |
 | `scenario.h/.cpp` | Scénario courant, difficultés, `g_run`, systèmes du jeu, `FindSceneSystem` |
+| `reseau_ap.h/.cpp` | **Couche réseau Archipelago** (classe `ReseauAP`, thread dédié) : WebSocket fait main (Winsock, `ws://`), protocole AP (nlohmann/json), session par graine et slot, reconnexion. N'appelle que `archipelago.h` |
 | `IconSubManager.h/.cpp` | Substitution des icônes (arbre des technos, bâtiments), atlas |
 | `MessageManager.h/.cpp` | Émission de notifications (popup gauche de l'écran) — **fonctionnel** |
 | `groupes.h/.cpp` | Groupes de survivants sur la carte du monde : création d'entité par `Creer` (`+0x1016250`) sur le thread du jeu (`GroupesPompe`) ; F3 = test de création |
@@ -118,6 +119,7 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
 | `scenarios_ap.h/.cpp` | **Verrou des scénarios au menu** : hook de `FUN_141283ea0` (prérequis de profil) ; pour la liste de déblocage (`scénario +0x20`) d'un des 6 scénarios AP, la réponse = `ScenarioDebloque(nom)`, alimenté **uniquement** par `ReceiveScenarioUnlock` (archipelago) ; preset `LOCKED_<nom>` sauté (texte de la condition du jeu) ; log `[SCN]` |
 | `victoire.h/.cpp` | **Fin de partie** : hook de `EndGame` (`+0x1301490`, journal `[FIN]` victoire / défaite) ; toute victoire dans un scénario AP = **événement du goal**, sans item (difficulté imposée, ironman sans effet) (`SendScenarioVictory`, archipelago : `mods\ap_victoires.txt`, goal = tous les scénarios du slot gagnés) ; modes de victoire supprimés le 2026-11-04 |
 | `temperature.h/.cpp` | **Température / météo** : relevé F9 (`[TEMP]`, thread du jeu via `TemperaturePompe`) des niveaux, météos, chronologies météo, actes, modifications de difficulté et de la chronologie calculée de la partie ; **montées AP** : hook du recalcul `+0x1812C10`, montées retirées, `TemperatureRecevoirMontee` (← `ReceiveTemperatureRise`, archipelago), `mods\ap_temperature_<GameId>.txt` |
+| `sauvegardes_ap.h/.cpp` | **Sauvegardes de la session AP seulement** : hook de l'écriture `FUN_1412892f0` (nom noté dans `<session>\ap_sauvegardes.txt`) et de l'énumération `FUN_141cdee60` (`"saves"`, `"*.save"` : les autres sont retirées de la liste) ; log `[SAV]` |
 | `quetes.h/.cpp` | **Quêtes** : relevé F9 (`[QUETE]`, thread du jeu via `QuetesPompe`) des répertoires, quêtes, objectifs, effets, et des événements portant un effet de quête ou d'acte |
 
 ---
@@ -483,7 +485,9 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   plantage, icône reposée par `hkMajTrackerDilemme`). Messages
   (`ap_messages.txt`, id unique croissant) : contenu et couleur OK, icône
   après rechargement non testée. Technos (`ap_technos_<GameId>.txt`,
-  **cumulatif**) : non testé.
+  **cumulatif**) : non testé. **2026-11-04 (décision de l'auteur)** : avec
+  le mod, seules les sauvegardes **écrites dans la session AP** (graine +
+  slot) sont visibles, les autres sont masquées (`sauvegardes_ap.cpp`).
 
 - **Scouting** — `docs/chantiers/scouting.md`. Infobulle de la case AP de
   la liste de droite (une chaîne par expédition) : non testé. Sites
@@ -505,17 +509,24 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   de loi bloqués par `hkEvaluerPrerequis` (validé). Icônes AP dans le livre
   **VALIDÉES le 2026-11-01** (copies de `circle_inside` sans animateur,
   `PAIRE_DECALAGE = (0,7, −1,9)`). Non testés : lois inaccessibles sans
-  icône, nom du nœud = nom de l'arbre (+ ` [Signed]`, pas de rang),
-  `AssurerPartie` (partie neuve mise en pause). Persistance
+  icône, `AssurerPartie` (partie neuve mise en pause). **2026-11-04** :
+  nom et icône du nœud = item du scout (`ApScoutLoi`, `ApIconeDuCheck`),
+  rang propre à chaque étape (`RangAffiche`, profondeur dans l'arbre) ;
+  paire exclusive : texte sur le demi-rond gauche seulement (droit = un
+  espace) — **centrage du texte sous le rond pas encore juste**
+  (`CentrerNomPaire`, à reprendre plus tard). Persistance
   `ap_lois_<GameId>.txt`. **Debug : `LOIS_SANS_DELAI = true`, à remettre à
   false.** Lois par scénario : tableau F4 v5 dans le fichier (The Arks et
   On the Edge n'ont pas Purpose). F4 = relevé, F5 = item de test.
 
 - **Écran de connexion au menu principal** — `docs/chantiers/menu_connexion.md`.
   **VALIDÉ le 2026-10-31** (rendu, saisie, centrage par remise en page de
-  la colonne, mot de passe masqué). En pause : `RequestConnection` ne fait
-  que journaliser. Non vérifiés : casse conservée, valeur du mot de passe
-  après effacements.
+  la colonne, mot de passe masqué). Non vérifiés : casse conservée, valeur
+  du mot de passe après effacements. **2026-11-04** : libellé d'état de la
+  connexion sous Connect (`ApEtatConnexion`, minuterie Windows sans fenêtre
+  sur le thread de l'interface) : non testé. Menu sans sauvegarde : hook du
+  rafraîchissement `FUN_141b28f10`, **SCENARIO_BUTTON toujours actif,
+  NEWGAME_BUTTON (lance A New Home) grisé**.
 
 - **Température** — `docs/chantiers/temperature.md` (tableaux complets des
   chronologies et des montées par scénario et difficulté). Décisions :
@@ -614,24 +625,42 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   verrous qu'elle suppose. Fichier = référence AP + format de dictée +
   questions à trancher + journal des décisions dictées par l'auteur.
   **Logique dictée et apworld écrit le 2026-11-03** (`apworld/frostpunk/`,
-  non testé dans Archipelago) : une région par quête goulot, goal =
+  **générations testées** avec les sources d'Archipelago 0.6.8 ; commit
+  `47a2eba` avec le mod branché sur les ids) : une région par quête goulot,
+  quêtes = 80 % des items progression de leur région, goal =
   victoire dans tous les scénarios choisis à la difficulté du YAML (forcée
   par le mod), items par scénario. Données générées par
   `apworld/outils/generer.py` → `data.py`, `apworld/ids.tsv` (ids
   **stables à vie**) et **`known_ap_ids.h`** (table des ids pour le mod).
 
-- **Réseau Archipelago** : à n'aborder que sur demande explicite. L'auteur
-  prévoit « une classe spécifique pour toutes les interactions avec le serveur
-  qui s'occupera de manager les notifications et leur véritable envoi ».
+- **Réseau Archipelago** — `docs/chantiers/reseau.md`. **Démarré le
+  2026-11-04** (demande de l'auteur : dernière couche). Classe `ReseauAP`
+  (`reseau_ap.h/.cpp`), thread dédié, n'appelle que `archipelago.h`.
+  WebSocket **fait main** sur Winsock (`ws://` seulement, décision de
+  l'auteur), JSON **nlohmann/json 3.11.3** (`nlohmann\json.hpp`). Session =
+  `mods\ap_<graine>_<slot>\` (index des items, checks, slot_data, items
+  reçus / livrés, victoires) ; dernière session relue au démarrage
+  (`mods\ap_session.txt`). PrintJSON en message : items qui concernent le
+  slot seulement. Connexion, réception d'un item, envoi d'un check : vus au
+  journal du 1er test (2026-11-04) ; goal, reconnexion : non testés.
+  Scouts : `LocationScouts` à la connexion, `<session>\scouts.txt`,
+  transmis par `ApNoterScout` (archipelago.h) ; noms des nœuds de lois et
+  de technos branchés ; icônes par `ApIconeDuCheck` (technos, sites ; lois
+  par la session des bugs), **selon les drapeaux** de l'item même pour un
+  autre joueur (décision de l'auteur, 2026-11-04 : piège > progression >
+  useful > filler) : lois vues en jeu le 2026-11-04. Expéditeur des items
+  gardé par réception (`ap_items_recus.txt` = `<id>\t<joueur>`) : popups
+  « from <joueur> » (technos, lois, température, convois, pièges).
 
 ### Constantes de debug à remettre à false
 
 `EXPEDITIONS_RAPIDES` (scooting.cpp), `LOIS_SANS_DELAI` (lois.cpp).
 (`SITES_TIRAGE_FIXE = true` est voulu, ce n'est pas du debug.) Valeurs TEMPORAIRES à
 remplacer par le serveur : `IconeCheckDeTest`, `IconeDuCheckDeTest`,
-`AP_NomDuCheck`, `ScenariosRecevoirItemsDeTest`. Valeurs par défaut
-remplacées par le `slot_data` (`ApAppliquerSlotData`, archipelago.cpp ;
-test sans réseau : `mods\ap_slot_data.txt`, `ApChargerSlotDataDeTest`) :
+`AP_NomDuCheck` (`ScenariosRecevoirItemsDeTest` supprimé le 2026-11-04 :
+les déblocages viennent du serveur). Valeurs par défaut
+remplacées par le `slot_data` (`ApAppliquerSlotData`, archipelago.cpp,
+appelé par le réseau ; `mods\ap_slot_data.txt` supprimé le 2026-11-04) :
 `g_difficulteCible` (scenarios_ap.cpp, Hard), `g_scenariosGoal` (A New
 Home seul), `g_heuresLivraison` (24 h).
 

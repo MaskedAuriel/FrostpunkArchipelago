@@ -26,6 +26,7 @@
 #include "IconSubManager.h"
 #include "MessageManager.h"
 #include "archipelago.h"
+#include "sauvegardes_ap.h"
 #include "groupes.h"
 #include "evenements.h"
 #include "dilemmes_ap.h"
@@ -36,6 +37,7 @@
 #include "victoire.h"
 #include "temperature.h"
 #include "quetes.h"
+#include "reseau_ap.h"
 
 #include <io.h>
 #include <fcntl.h>
@@ -201,13 +203,15 @@ DWORD WINAPI PayloadThread(LPVOID)
 	InstallMenuAP(modBase);   // ecran de connexion Archipelago du menu principal
 	InstallHooksScenarios(modBase);   // scenarios verrouilles tant qu'Archipelago ne les debloque pas
 	InstallHooksVictoire(modBase);    // fin de partie : checks de victoire selon le mode
+	InstallHooksSauvegardes(modBase); // liste des sauvegardes : celles de la session Archipelago seulement
 
 
 	ApChargerChecksDeTest();
 	ScootingPayloadsInit();   // tous les sites AP (known_ap_ids.h) deviennent des checks
 	ApChargerTechnosDeTest();
-	ScenariosRecevoirItemsDeTest();   // TEMPORAIRE : items de scenario de depart (les 6)
-	ApChargerSlotDataDeTest();        // TEST : mods\ap_slot_data.txt s'il existe (en attendant le reseau)
+	// Reseau Archipelago : derniere session (slot_data, scenarios debloques par
+	// les items deja recus), puis thread reseau ; connexion au clic sur Connect.
+	ReseauDemarrer();
 	InstallResourceHooks(modBase);
 	InstallResearchHooks(modBase);
 	InstallLocHooks(modBase);	

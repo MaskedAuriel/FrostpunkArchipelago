@@ -136,12 +136,65 @@ struct ApSlotData {
 void ApAppliquerSlotData(const ApSlotData& d);
 bool ApExclurePurposePolitics();
 
-// TEST, en attendant le reseau : si mods\ap_slot_data.txt existe, l'applique
-// au demarrage (lignes "cle=valeur" : scenarios=DEFAULT,REFUGEES ;
-// starting_scenario=DEFAULT ; goal_difficulty=hard ;
-// exclude_purpose_politics=0 ; delivery_hours=24).
-void ApChargerSlotDataDeTest();
+// --- Session (couche reseau, reseau_ap.cpp) -----------------------------------
+
+// Session = graine + slot : ses fichiers vivent dans mods\<dossier>\ (items
+// recus, items livres, victoires, et ceux du reseau). Change de session :
+// compteurs relus, scenarios reverrouilles puis debloques selon les items de
+// la session (sans popup). "" = mods\ lui-meme (aucune session connue).
+// Tout thread.
+void ApDefinirSession(const char* dossier);
+// Chemin complet de 'fichier' dans le dossier de la session courante (cree
+// au besoin). Tout thread.
+bool ApCheminSession(char* out, size_t taille, const char* fichier);
+// Goal atteint : tous les scenarios du slot sont gagnes (ap_victoires.txt de
+// la session).
+bool ApGoalAtteint();
+// Message d'etat du reseau (connecte, deconnecte, refuse, item envoye...),
+// texte en anglais, en Latin-1. Mis en file ; affiche en partie seulement.
+void ApMessageReseau(const char* titre, const char* texte);
+
+// --- Scouts (contenu des locations du slot) -------------------------------------
+
+// Couche reseau : la location 'location' (id AP) contient 'item' (id dans le
+// jeu du destinataire), nomme 'nomItem', pour le joueur 'nomJoueur' (Latin-1,
+// copies). flags : 1 progression, 2 useful, 4 trap. 'pourMoi' : destinataire =
+// ce slot. Tout thread.
+void ApNoterScout(int64_t location, int64_t item, const char* nomItem, const char* nomJoueur,
+                  int flags, bool pourMoi);
+
+struct ApScoutInfo {
+    int64_t item;
+    int     flags;
+    bool    pourMoi;
+    char    nomItem[128];
+    char    nomJoueur[64];
+};
+// Contenu de la location AP du scenario en cours : loi (arbre de lois, rang
+// du check), techno (hash). false si la location n'existe pas ou si son
+// contenu n'est pas encore connu (jamais connecte). Tout thread.
+bool ApScoutLoi(const char* arbre, int rang, ApScoutInfo* out);
+bool ApScoutTechno(uint64_t hash, ApScoutInfo* out);
+// Nom affiche d'un check (noeuds des arbres) : "<item>" pour ce slot,
+// "<item> (<joueur>)" sinon. Latin-1.
+void ApNomDuScout(const ApScoutInfo& s, char* out, size_t taille);
+
+// Etat de la connexion, texte court en anglais (Latin-1) pour le libelle du
+// menu principal : "Not connected", "Connecting...", "Connected",
+// "Refused: InvalidSlot"... Tenu a jour par RequestConnection et
+// ApMessageReseau. Copie dans 'out' ; renvoie un compteur qui change a chaque
+// nouvel etat. Tout thread.
+long ApEtatConnexion(char* out, size_t taille);
 
 // Bouton "Connect" du menu principal (menu_ap.cpp) : chaines UTF-8 saisies.
-// Appele sur le thread du jeu, hors partie. TODO reseau : ouvrir la connexion.
+// Appele sur le thread du jeu, hors partie : ReseauConnecter (reseau_ap.h).
 void RequestConnection(const char* server, const char* slot, const char* password);
+
+// Icone du type de check d'une location du scenario en cours, d'apres son
+// scout : "icon_trap", "icon_progressive", "icon_important" ou "icon_filler"
+// (chaine litterale, comparable par pointeur). genre = "techno" (cle = hash
+// en hexadecimal, %016llX), "law" ("<arbre>|<rang>"), "site" (nom interne,
+// "-dead" retire ici), "quest" (nom interne), "temperature" (rang).
+// nullptr si la location n'existe pas ou n'est pas encore scoutee : garder
+// alors l'icone de test. Tout thread.
+const char* ApIconeDuCheck(const char* genre, const char* cle);

@@ -11,7 +11,11 @@
 #include "scenario.h"
 #include "dilemmes_ap.h"
 #include "groupes.h"
+#include "reseau_ap.h"
 #include "known_ap_ids.h"   // inclus ICI SEULEMENT (tables statiques)
+#include <string>
+#include <vector>
+#include <unordered_map>
 
 // ============================================================================
 //  Ids Archipelago (known_ap_ids.h, genere par apworld\outils\generer.py)
@@ -44,10 +48,12 @@ static const ApLocationInfo* LocationAP(ApLocGenre genre, const char* cle)
     return nullptr;
 }
 
-// Envoi d'une location au serveur. TODO reseau : transmettre l'id.
+// Envoi d'une location au serveur : notee dans la session, envoyee par le
+// thread reseau (tout de suite si connecte, sinon a la reconnexion).
 static void EnvoyerLocation(const ApLocationInfo* l)
 {
     printf("[AP CHECK] location %lld \"%s\"\n", (long long)l->id, l->nom);
+    ReseauEnvoyerLocation(l->id);
 }
 
 // Journal d'un check sans location AP dans ce scenario : rien n'est envoye.
@@ -85,7 +91,7 @@ void ApReglerHeuresLivraison(int heures)
 // Contenu d'un site ou filler ("wood 144;workers 27") : UN groupe AP qui
 // part d'un site et marche vers la ville, survivants par classe et
 // ressources livres a son arrivee (groupes.cpp). Thread du jeu.
-static bool LivrerContenu(const ApItemInfo& it)
+static bool LivrerContenu(const ApItemInfo& it, const char* expediteur)
 {
     static const char* SURVIVANTS[] = { "workers", "engineers", "children", "automaton" };
     GroupeAP g = {};
@@ -130,12 +136,13 @@ static bool LivrerContenu(const ApItemInfo& it)
     }
 
     char description[600], texte[600];
-    sprintf_s(description, "Heading to the city: %s.", liste);
-    sprintf_s(texte, "An Archipelago convoy has reached the city: %s.", liste);
+    sprintf_s(description, "Heading to the city: %s (from %s).", liste, expediteur);
+    sprintf_s(texte, "An Archipelago convoy from %s has reached the city: %s.", expediteur, liste);
     g.description = description;
     g.dilemmeTitre = it.nom;
     g.dilemmeTexte = texte;
     g.dilemmeChoix = "Welcome the convoy";
+    g.expediteur = expediteur;
 
     int slot = GroupeCreer(g);
     printf("[AP ITEMS] \"%s\" (%s) : groupe %s (slot %d, arrivee dans %.1f h = %.1f h d'attente + %d h)\n",
@@ -163,7 +170,9 @@ static bool LivrerContenu(const ApItemInfo& it)
 // - Filler, piege (scenario nullptr) : livres UNE fois, dans la partie en
 //   cours quel que soit son scenario ; mods\ap_items_livres.txt.
 // Une ligne "<id>" par livraison. Un item recu hors partie attend.
-// TODO reseau : un fichier par graine / slot, dedoublonne par index d'item.
+// Reseau (2026-11-04) : tous ces fichiers sont dans le dossier de la session
+// (graine + slot, ApDefinirSession) ; le reseau dedoublonne par index d'item
+// (reseau_ap.cpp, index.txt de la session).
 
 static const int AP_ITEM_COUNT = (int)(sizeof(AP_ITEMS) / sizeof(AP_ITEMS[0]));
 static int     g_itemsRecus[AP_ITEM_COUNT];   // receptions par entree de AP_ITEMS
@@ -172,6 +181,17 @@ static int     g_livresPartie[AP_ITEM_COUNT]; // items d'un scenario : livraison
 static char    g_fichierPartie[64] = "";      // "ap_items_livres_<GameId>.txt", vide hors partie
 static bool    g_itemsLus = false;
 static SRWLOCK g_verrouItems = SRWLOCK_INIT;
+// Expediteur de chaque reception, dans l'ordre (bug du 2026-11-04 : la pompe
+// affichait "from Archipelago"). La k-ieme application d'un item dans une
+// partie (ou sa k-ieme livraison) reprend le k-ieme expediteur. Garde dans
+// ap_items_recus.txt ("<id>\t<joueur>"), sous g_verrouItems.
+static std::vector<std::string> g_expediteurs[AP_ITEM_COUNT];
+
+// Dossier de la session sous mods\ ("" : mods\ lui-meme), sous son propre
+// verrou (lu sous g_verrouItems par AjouterLigne : pas d'imbrication du meme).
+static char    g_dossierSession[96] = "";
+static SRWLOCK g_verrouSession = SRWLOCK_INIT;
+static volatile LONG g_generationSession = 0;   // ApItemsPompe : relire la partie
 
 static bool EstItemDeScenario(const ApItemInfo& it)
 {
@@ -184,41 +204,72 @@ static bool EstItemCommun(const ApItemInfo& it)
     return it.genre == ApItemGenre::Site || it.genre == ApItemGenre::Filler || it.genre == ApItemGenre::Piege;
 }
 
+// Chemin d'un fichier de la session : mods\<dossier>\<fichier> (dossier cree
+// au besoin), ou mods\<fichier> sans session.
 static bool CheminItems(char* out, size_t taille, const char* fichier)
 {
-    char base[MAX_PATH] = {};
+    char base[MAX_PATH] = {}, dossier[96];
     if (!GetModuleFileNameA(nullptr, base, MAX_PATH)) return false;
     for (int i = (int)strlen(base) - 1; i >= 0; --i)
         if (base[i] == '\\') { base[i + 1] = 0; break; }
-    _snprintf_s(out, taille, _TRUNCATE, "%smods\\%s", base, fichier);
+    AcquireSRWLockShared(&g_verrouSession);
+    strcpy_s(dossier, g_dossierSession);
+    ReleaseSRWLockShared(&g_verrouSession);
+    if (!dossier[0]) {
+        _snprintf_s(out, taille, _TRUNCATE, "%smods\\%s", base, fichier);
+        return true;
+    }
+    _snprintf_s(out, taille, _TRUNCATE, "%smods\\%s", base, dossier);
+    CreateDirectoryA(out, nullptr);   // deja present : sans effet
+    _snprintf_s(out, taille, _TRUNCATE, "%smods\\%s\\%s", base, dossier, fichier);
     return true;
 }
 
-// Une ligne "<id>" par evenement : compte par entree de AP_ITEMS.
-static int LireComptes(const char* fichier, int* comptes)
+bool ApCheminSession(char* out, size_t taille, const char* fichier)
+{
+    return CheminItems(out, taille, fichier);
+}
+
+// Une ligne "<id>[\t<joueur>]" par evenement : compte par entree de
+// AP_ITEMS ; 'noms' (facultatif) recoit le joueur de chaque ligne, dans
+// l'ordre ("" pour les lignes anciennes, sans joueur).
+static int LireComptes(const char* fichier, int* comptes, std::vector<std::string>* noms = nullptr)
 {
     memset(comptes, 0, sizeof(int) * AP_ITEM_COUNT);
+    if (noms) for (int i = 0; i < AP_ITEM_COUNT; ++i) noms[i].clear();
     char chemin[MAX_PATH];
     FILE* f = nullptr;
     if (!CheminItems(chemin, sizeof(chemin), fichier) || fopen_s(&f, chemin, "r") != 0 || !f) return 0;
-    char ligne[64];
+    char ligne[256];
     int n = 0;
     while (fgets(ligne, sizeof(ligne), f)) {
         long long id = 0;
         if (sscanf_s(ligne, "%lld", &id) != 1) continue;
-        for (int i = 0; i < AP_ITEM_COUNT; ++i)
-            if (AP_ITEMS[i].id == id) { ++comptes[i]; ++n; break; }
+        for (int i = 0; i < AP_ITEM_COUNT; ++i) {
+            if (AP_ITEMS[i].id != id) continue;
+            ++comptes[i];
+            ++n;
+            if (noms) {
+                const char* tab = strchr(ligne, '\t');
+                std::string nom = tab ? tab + 1 : "";
+                while (!nom.empty() && (nom.back() == '\n' || nom.back() == '\r')) nom.pop_back();
+                noms[i].push_back(nom);
+            }
+            break;
+        }
     }
     fclose(f);
     return n;
 }
 
-static void AjouterLigne(const char* fichier, int index)
+// 'joueur' (facultatif) : expediteur, sans tabulation ni fin de ligne.
+static void AjouterLigne(const char* fichier, int index, const char* joueur = nullptr)
 {
     char chemin[MAX_PATH];
     FILE* f = nullptr;
     if (CheminItems(chemin, sizeof(chemin), fichier) && fopen_s(&f, chemin, "a") == 0 && f) {
-        fprintf(f, "%lld\n", (long long)AP_ITEMS[index].id);
+        if (joueur && joueur[0]) fprintf(f, "%lld\t%s\n", (long long)AP_ITEMS[index].id, joueur);
+        else fprintf(f, "%lld\n", (long long)AP_ITEMS[index].id);
         fclose(f);
     } else printf("[AP ITEMS] ecriture de mods\\%s impossible\n", fichier);
 }
@@ -228,20 +279,38 @@ static void ChargerItemsSiBesoin()
 {
     if (g_itemsLus) return;
     g_itemsLus = true;
-    int n = LireComptes("ap_items_recus.txt", g_itemsRecus);
+    int n = LireComptes("ap_items_recus.txt", g_itemsRecus, g_expediteurs);
     int l = LireComptes("ap_items_livres.txt", g_itemsLivres);
     printf("[AP ITEMS] %d item(s) deja recu(s), %d item(s) commun(s) deja livre(s)\n", n, l);
 }
 
-// Note une reception. Renvoie le nombre de receptions de cet item.
-static int NoterItemRecu(int index)
+// Note une reception et son expediteur (copie). Renvoie le nombre de
+// receptions de cet item.
+static int NoterItemRecu(int index, const char* expediteur)
 {
+    char nom[64] = "";
+    if (expediteur) {
+        strncpy_s(nom, expediteur, _TRUNCATE);
+        for (char* c = nom; *c; ++c) if (*c == '\t' || *c == '\r' || *c == '\n') *c = ' ';
+    }
     AcquireSRWLockExclusive(&g_verrouItems);
     ChargerItemsSiBesoin();
     int n = ++g_itemsRecus[index];
-    AjouterLigne("ap_items_recus.txt", index);
+    g_expediteurs[index].push_back(nom);
+    AjouterLigne("ap_items_recus.txt", index, nom);
     ReleaseSRWLockExclusive(&g_verrouItems);
     return n;
+}
+
+// Expediteur de la k-ieme reception (0 = la premiere) de l'item 'index',
+// copie dans 'out' ; "Archipelago" s'il est inconnu (lignes anciennes).
+static void ExpediteurDe(int index, int k, char* out, size_t taille)
+{
+    AcquireSRWLockShared(&g_verrouItems);
+    const std::vector<std::string>& v = g_expediteurs[index];
+    const char* nom = (k >= 0 && k < (int)v.size() && !v[k].empty()) ? v[k].c_str() : "Archipelago";
+    strncpy_s(out, taille, nom, _TRUNCATE);
+    ReleaseSRWLockShared(&g_verrouItems);
 }
 
 static void NoterItemLivre(int index)
@@ -271,14 +340,14 @@ static void ChargerLivresPartie(const uint64_t gid[2])
 }
 
 // Livre un item commun dans la partie en cours. Thread du jeu.
-static bool LivrerItemCommun(const ApItemInfo& it)
+static bool LivrerItemCommun(const ApItemInfo& it, const char* expediteur)
 {
     if (it.genre == ApItemGenre::Piege) {
-        bool ok = DilemmeAPDemander(it.cle);
-        printf("[AP ITEMS] piege \"%s\" (%s) : %s\n", it.nom, it.cle, ok ? "bulle demandee" : "REFUSE");
+        bool ok = DilemmeAPDemander(it.cle, expediteur);
+        printf("[AP ITEMS] piege \"%s\" (%s) de %s : %s\n", it.nom, it.cle, expediteur, ok ? "bulle demandee" : "REFUSE");
         return ok;
     }
-    return LivrerContenu(it);
+    return LivrerContenu(it, expediteur);
 }
 
 // Items de la partie 'gid' deja appliques (compte du module), -1 si le
@@ -295,15 +364,15 @@ static int ItemsAppliques(const ApItemInfo& it, const uint64_t gid[2])
 
 // Applique un item. 'silencieux' : effet seul (rattrapage au chargement,
 // une popup de synthese), sinon le Receive* et sa popup.
-static bool AppliquerItem(const ApItemInfo& it, bool silencieux)
+static bool AppliquerItem(const ApItemInfo& it, bool silencieux, const char* expediteur)
 {
     switch (it.genre) {
     case ApItemGenre::Arbre:
-        return silencieux ? OnProgressiveReceived(atoi(it.cle)) : ReceiveProgressive(atoi(it.cle), "Archipelago");
+        return silencieux ? OnProgressiveReceived(atoi(it.cle)) : ReceiveProgressive(atoi(it.cle), expediteur);
     case ApItemGenre::Loi:
-        return silencieux ? LoisAPRecevoir(it.cle, nullptr) : ReceiveLawProgressive(it.cle, "Archipelago");
+        return silencieux ? LoisAPRecevoir(it.cle, nullptr) : ReceiveLawProgressive(it.cle, expediteur);
     case ApItemGenre::Temperature:
-        if (!silencieux) return ReceiveTemperatureRise(1, "Archipelago");
+        if (!silencieux) return ReceiveTemperatureRise(1, expediteur);
         TemperatureRecevoirMontee(1);
         return true;
     default:
@@ -314,6 +383,7 @@ static bool AppliquerItem(const ApItemInfo& it, bool silencieux)
 void ApItemsPompe()
 {
     static uint64_t partieVue[2] = {};
+    static LONG generationVue = 0;
     static bool silencieux = true;
     static bool refuse[AP_ITEM_COUNT];   // refuse dans cette partie : plus retente
 
@@ -324,9 +394,13 @@ void ApItemsPompe()
     // g_run (thread du mod) doit decrire cette partie : sinon son scenario
     // peut etre celui de la precedente.
     if (!g_run.valid || g_run.gameId[0] != gid[0] || g_run.gameId[1] != gid[1]) return;
-    if (gid[0] != partieVue[0] || gid[1] != partieVue[1]) {
+    // Nouvelle partie, ou nouvelle session (graine / slot) : livraisons de la
+    // partie relues dans le dossier de la session.
+    LONG generation = g_generationSession;
+    if (gid[0] != partieVue[0] || gid[1] != partieVue[1] || generation != generationVue) {
         partieVue[0] = gid[0];
         partieVue[1] = gid[1];
+        generationVue = generation;
         silencieux = true;   // rattrapage de la nouvelle partie : une seule popup
         memset(refuse, 0, sizeof(refuse));
         ChargerLivresPartie(gid);
@@ -351,7 +425,9 @@ void ApItemsPompe()
         for (int i = 0; i < AP_ITEM_COUNT; ++i) {
             if (!EstItemCommun(AP_ITEMS[i]) || livres[i] >= recus[i]) continue;
             if (AP_ITEMS[i].scenario && _stricmp(AP_ITEMS[i].scenario, scenario) != 0) continue;
-            if (LivrerItemCommun(AP_ITEMS[i])) NoterItemLivre(i);
+            char expediteur[64];
+            ExpediteurDe(i, livres[i], expediteur, sizeof(expediteur));
+            if (LivrerItemCommun(AP_ITEMS[i], expediteur)) NoterItemLivre(i);
             else prochainEssai = GetTickCount() + 5000;
             break;
         }
@@ -363,7 +439,9 @@ void ApItemsPompe()
         int faits = ItemsAppliques(it, gid);
         if (faits < 0) { pasPret = true; continue; }
         for (; faits < recus[i]; ++faits) {
-            if (!AppliquerItem(it, silencieux)) {
+            char expediteur[64];
+            ExpediteurDe(i, faits, expediteur, sizeof(expediteur));
+            if (!AppliquerItem(it, silencieux, expediteur)) {
                 printf("[AP ITEMS] \"%s\" : %d/%d applique(s), refuse (arbre epuise ?)\n", it.nom, faits, recus[i]);
                 refuse[i] = true;
                 break;
@@ -411,7 +489,7 @@ bool ReceiveItem(int64_t itemId, const char* fromPlayer)
     // Item d'un scenario : note, puis applique par ApItemsPompe dans toute
     // partie de ce scenario (tout de suite si c'est la partie en cours).
     if (EstItemDeScenario(*it)) {
-        int n = NoterItemRecu(index);
+        int n = NoterItemRecu(index, fromPlayer);
         printf("[AP RECU] item %lld : %d recu(s) pour \"%s\"%s\n", (long long)itemId, n, it->scenario,
             _stricmp(it->scenario, ScenarioVictoryId()) == 0 ? "" : " (autre scenario : applique dans ses parties)");
         return true;
@@ -420,7 +498,7 @@ bool ReceiveItem(int64_t itemId, const char* fromPlayer)
     // Contenu de site (lie a son scenario), filler, piege : note, puis livre
     // par ApItemsPompe.
     if (EstItemCommun(*it)) {
-        int n = NoterItemRecu(index);
+        int n = NoterItemRecu(index, fromPlayer);
         if (it->scenario)
             printf("[AP RECU] item %lld : %d recu(s) pour \"%s\", livre dans chaque partie de ce scenario%s\n",
                 (long long)itemId, n, it->scenario,
@@ -431,7 +509,12 @@ bool ReceiveItem(int64_t itemId, const char* fromPlayer)
         return true;
     }
 
-    if (it->genre == ApItemGenre::Scenario) return ReceiveScenarioUnlock(it->cle, fromPlayer);
+    // Deblocage de scenario : note aussi (rejoue sans popup au changement de
+    // session et au demarrage, ApDefinirSession), puis applique.
+    if (it->genre == ApItemGenre::Scenario) {
+        NoterItemRecu(index, fromPlayer);
+        return ReceiveScenarioUnlock(it->cle, fromPlayer);
+    }
     return false;
 }
 
@@ -704,13 +787,12 @@ void SendTemperatureCheck(int rank)
 
 // --- Goal : victoire dans tous les scenarios du slot -------------------------
 // Victoires comptees (nom interne, une ligne par scenario) dans
-// mods\ap_victoires.txt, cumulatif, tous scenarios. Scenarios du goal :
-// option "scenarios" du slot (ApReglerScenariosGoal, slot_data) ; en
-// attendant, A New Home seul (defaut du YAML) -- TEMPORAIRE.
-// TODO reseau : un fichier par graine / slot.
+// ap_victoires.txt de la session (graine + slot), cumulatif, tous scenarios.
+// Scenarios du goal : option "scenarios" du slot (ApReglerScenariosGoal,
+// slot_data) ; avant tout slot_data, A New Home seul (defaut du YAML).
 static char g_scenariosGoal[6][16] = { "DEFAULT" };
 static int  g_nScenariosGoal = 1;
-static bool g_goalEnvoye = false;
+static bool g_goalEnvoye = false;   // popup "Goal reached" deja montree (session)
 
 void ApReglerScenariosGoal(const char* const* scenarios, int n)
 {
@@ -722,12 +804,7 @@ void ApReglerScenariosGoal(const char* const* scenarios, int n)
 
 static bool CheminVictoires(char* out, size_t taille)
 {
-    char base[MAX_PATH] = {};
-    if (!GetModuleFileNameA(nullptr, base, MAX_PATH)) return false;
-    for (int i = (int)strlen(base) - 1; i >= 0; --i)
-        if (base[i] == '\\') { base[i + 1] = 0; break; }
-    _snprintf_s(out, taille, _TRUNCATE, "%smods\\ap_victoires.txt", base);
-    return true;
+    return CheminItems(out, taille, "ap_victoires.txt");
 }
 
 // Scenario deja gagne (fichier relu a chaque appel : rare).
@@ -767,12 +844,166 @@ void SendScenarioVictory(const char* scenario, const char* displayName)
     sprintf_s(texte, "%s (%d/%d scenarios)", displayName, gagnes, g_nScenariosGoal);
     AfficherNotificationAP("Scenario completed", texte);
 
-    // 3. Goal.  TODO reseau : StatusUpdate CLIENT_GOAL.
-    if (gagnes >= g_nScenariosGoal && !g_goalEnvoye) {
-        g_goalEnvoye = true;
-        printf("[AP GOAL] GOAL ATTEINT : tous les scenarios du slot sont gagnes\n");
-        AfficherNotificationAP("Goal reached", "All scenarios of this slot are completed.");
+    // 3. Goal : StatusUpdate CLIENT_GOAL (renvoye a chaque connexion tant
+    //    que ApGoalAtteint, reseau_ap.cpp).
+    if (gagnes >= g_nScenariosGoal) {
+        ReseauEnvoyerGoal();
+        if (!g_goalEnvoye) {
+            g_goalEnvoye = true;
+            printf("[AP GOAL] GOAL ATTEINT : tous les scenarios du slot sont gagnes\n");
+            AfficherNotificationAP("Goal reached", "All scenarios of this slot are completed.");
+        }
     }
+}
+
+bool ApGoalAtteint()
+{
+    int gagnes = 0;
+    for (int i = 0; i < g_nScenariosGoal; ++i) gagnes += ScenarioGagne(g_scenariosGoal[i]) ? 1 : 0;
+    return g_nScenariosGoal > 0 && gagnes >= g_nScenariosGoal;
+}
+
+// ============================================================================
+//  Session (graine + slot)
+// ============================================================================
+
+static void OublierScouts();   // plus bas (scouts)
+
+void ApDefinirSession(const char* dossier)
+{
+    AcquireSRWLockExclusive(&g_verrouSession);
+    strncpy_s(g_dossierSession, dossier ? dossier : "", _TRUNCATE);
+    ReleaseSRWLockExclusive(&g_verrouSession);
+
+    // Compteurs de la nouvelle session, relus tout de suite.
+    AcquireSRWLockExclusive(&g_verrouItems);
+    g_itemsLus = false;
+    memset(g_livresPartie, 0, sizeof(g_livresPartie));
+    g_fichierPartie[0] = 0;
+    ChargerItemsSiBesoin();
+    int recus[AP_ITEM_COUNT];
+    memcpy(recus, g_itemsRecus, sizeof(recus));
+    ReleaseSRWLockExclusive(&g_verrouItems);
+    InterlockedIncrement(&g_generationSession);
+    g_goalEnvoye = false;
+
+    // Scouts de l'ancienne session oublies : le reseau transmet ceux de la
+    // nouvelle juste apres (relecture de scouts.txt, puis LocationInfo).
+    OublierScouts();
+
+    // Deblocages de scenarios : etat en memoire seulement, rejoue depuis les
+    // items de la session (sans popup).
+    ScenariosReverrouiller();
+    int n = 0;
+    for (int i = 0; i < AP_ITEM_COUNT; ++i)
+        if (AP_ITEMS[i].genre == ApItemGenre::Scenario && recus[i] > 0 && ScenarioDebloquer(AP_ITEMS[i].cle) >= 0) ++n;
+    printf("[AP SESSION] dossier mods\\%s : %d scenario(s) debloque(s)\n", dossier && dossier[0] ? dossier : "", n);
+}
+
+// ============================================================================
+//  Scouts (contenu des locations, couche reseau ; 2026-11-04)
+// ============================================================================
+
+static std::unordered_map<int64_t, ApScoutInfo> g_scouts;
+static SRWLOCK g_verrouScouts = SRWLOCK_INIT;
+
+void ApNoterScout(int64_t location, int64_t item, const char* nomItem, const char* nomJoueur,
+                  int flags, bool pourMoi)
+{
+    ApScoutInfo s = {};
+    s.item = item;
+    s.flags = flags;
+    s.pourMoi = pourMoi;
+    strncpy_s(s.nomItem, nomItem ? nomItem : "?", _TRUNCATE);
+    strncpy_s(s.nomJoueur, nomJoueur ? nomJoueur : "?", _TRUNCATE);
+    AcquireSRWLockExclusive(&g_verrouScouts);
+    bool nouveau = g_scouts.find(location) == g_scouts.end();
+    g_scouts[location] = s;
+    size_t n = g_scouts.size();
+    ReleaseSRWLockExclusive(&g_verrouScouts);
+    // Une ligne par centaine seulement (toutes les locations a chaque connexion).
+    if (nouveau && n % 100 == 1)
+        printf("[AP SCOUT] %zu location(s) connue(s) (derniere : %lld)\n", n, (long long)location);
+}
+
+static void OublierScouts()
+{
+    AcquireSRWLockExclusive(&g_verrouScouts);
+    g_scouts.clear();
+    ReleaseSRWLockExclusive(&g_verrouScouts);
+}
+
+static bool ScoutDe(const ApLocationInfo* l, ApScoutInfo* out)
+{
+    if (!l) return false;
+    AcquireSRWLockShared(&g_verrouScouts);
+    auto it = g_scouts.find(l->id);
+    bool ok = it != g_scouts.end();
+    if (ok && out) *out = it->second;
+    ReleaseSRWLockShared(&g_verrouScouts);
+    return ok;
+}
+
+bool ApScoutLoi(const char* arbre, int rang, ApScoutInfo* out)
+{
+    if (!arbre) return false;
+    char cle[128];
+    sprintf_s(cle, "%s|%d", arbre, rang);
+    return ScoutDe(LocationAP(ApLocGenre::Loi, cle), out);
+}
+
+bool ApScoutTechno(uint64_t hash, ApScoutInfo* out)
+{
+    char cle[20];
+    sprintf_s(cle, "%016llX", (unsigned long long)hash);
+    return ScoutDe(LocationAP(ApLocGenre::Techno, cle), out);
+}
+
+void ApNomDuScout(const ApScoutInfo& s, char* out, size_t taille)
+{
+    if (s.pourMoi) _snprintf_s(out, taille, _TRUNCATE, "%s", s.nomItem);
+    else           _snprintf_s(out, taille, _TRUNCATE, "%s (%s)", s.nomItem, s.nomJoueur);
+}
+
+// Etat de la connexion pour le libelle du menu principal (bug du 2026-11-04 :
+// au menu, aucun message ne s'affiche).
+static char          g_etatConnexion[96] = "Not connected";
+static volatile LONG g_generationEtat = 1;
+static SRWLOCK       g_verrouEtat = SRWLOCK_INIT;
+
+static void PoserEtatConnexion(const char* etat)
+{
+    AcquireSRWLockExclusive(&g_verrouEtat);
+    strncpy_s(g_etatConnexion, etat ? etat : "", _TRUNCATE);
+    ReleaseSRWLockExclusive(&g_verrouEtat);
+    InterlockedIncrement(&g_generationEtat);
+    printf("[AP CONNEXION] etat affiche au menu : \"%s\"\n", etat ? etat : "");
+}
+
+long ApEtatConnexion(char* out, size_t taille)
+{
+    AcquireSRWLockShared(&g_verrouEtat);
+    strncpy_s(out, taille, g_etatConnexion, _TRUNCATE);
+    LONG g = g_generationEtat;
+    ReleaseSRWLockShared(&g_verrouEtat);
+    return g;
+}
+
+void ApMessageReseau(const char* titre, const char* texte)
+{
+    // Etat de la connexion (libelle du menu) : textes courts, le detail est
+    // dans le message (en partie) et au journal [AP NET].
+    if (titre) {
+        char etat[96] = "";
+        if (!strcmp(titre, "Connected to Archipelago"))           strcpy_s(etat, "Connected");
+        else if (!strcmp(titre, "Reconnected to Archipelago"))    strcpy_s(etat, "Reconnected");
+        else if (!strcmp(titre, "Connection refused"))            sprintf_s(etat, "Refused: %.80s", texte ? texte : "?");
+        else if (!strcmp(titre, "Disconnected"))                  strcpy_s(etat, "Disconnected, retrying...");
+        else if (!strcmp(titre, "Archipelago server unreachable")) strcpy_s(etat, "Server unreachable, retrying...");
+        else if (!strcmp(titre, "Connection failed"))             strcpy_s(etat, "Failed: use ws://");
+        if (etat[0]) PoserEtatConnexion(etat);
+    }
+    AfficherNotificationAP(titre, texte);
 }
 
 // ============================================================================
@@ -816,46 +1047,6 @@ void ApAppliquerSlotData(const ApSlotData& d)
         "exclude_purpose_politics=%d\n", d.startingScenario ? d.startingScenario : "?", d.excludePurposePolitics ? 1 : 0);
 }
 
-void ApChargerSlotDataDeTest()
-{
-    char base[MAX_PATH] = {}, chemin[MAX_PATH];
-    if (!GetModuleFileNameA(nullptr, base, MAX_PATH)) return;
-    for (int i = (int)strlen(base) - 1; i >= 0; --i)
-        if (base[i] == '\\') { base[i + 1] = 0; break; }
-    _snprintf_s(chemin, sizeof(chemin), _TRUNCATE, "%smods\\ap_slot_data.txt", base);
-    FILE* f = nullptr;
-    if (fopen_s(&f, chemin, "r") != 0 || !f) {
-        printf("[AP SLOT] pas de mods\\ap_slot_data.txt : valeurs par defaut\n");
-        return;
-    }
-    // Chaines gardees en statique : ApSlotData ne porte que des pointeurs.
-    static char listeScn[128], depart[32], difficulte[16];
-    ApSlotData d = {};
-    d.deliveryHours = 24;
-    char ligne[256];
-    while (fgets(ligne, sizeof(ligne), f)) {
-        ligne[strcspn(ligne, "\r\n")] = 0;
-        char* egal = strchr(ligne, '=');
-        if (!egal) continue;
-        *egal = 0;
-        const char* cle = ligne;
-        const char* val = egal + 1;
-        if (_stricmp(cle, "scenarios") == 0) strcpy_s(listeScn, val);
-        else if (_stricmp(cle, "starting_scenario") == 0) strcpy_s(depart, val);
-        else if (_stricmp(cle, "goal_difficulty") == 0) strcpy_s(difficulte, val);
-        else if (_stricmp(cle, "exclude_purpose_politics") == 0) d.excludePurposePolitics = atoi(val) != 0;
-        else if (_stricmp(cle, "delivery_hours") == 0) d.deliveryHours = atoi(val);
-    }
-    fclose(f);
-    char* ctx = nullptr;
-    for (char* s = strtok_s(listeScn, ",", &ctx); s && d.nScenarios < 6; s = strtok_s(nullptr, ",", &ctx))
-        d.scenarios[d.nScenarios++] = s;
-    d.startingScenario = depart;
-    d.goalDifficulty = difficulte;
-    printf("[AP SLOT] mods\\ap_slot_data.txt applique (test)\n");
-    ApAppliquerSlotData(d);
-}
-
 // Copie ASCII pour la console du jeu (UTF-8 non ASCII -> '?').
 static void AsciiPourJournal(const char* s, char* out, int maxlen)
 {
@@ -867,10 +1058,47 @@ static void AsciiPourJournal(const char* s, char* out, int maxlen)
 
 void RequestConnection(const char* server, const char* slot, const char* password)
 {
-    // 1. Envoi.  TODO reseau : la classe reseau ouvrira la connexion ici.
+    // 1. Journal.
     char s[256], j[256];
     AsciiPourJournal(server, s, sizeof(s));
     AsciiPourJournal(slot, j, sizeof(j));
     printf("[AP CONNEXION] demande : serveur \"%s\", slot \"%s\", mot de passe %s (%d octets)\n",
         s, j, (password && password[0]) ? "fourni" : "vide", password ? (int)strlen(password) : 0);
+
+    // 2. Connexion : thread reseau (reseau_ap.cpp), sans attendre. Etat
+    //    "Connecting..." au menu jusqu'a la reponse du serveur.
+    PoserEtatConnexion("Connecting...");
+    ReseauConnecter(server, slot, password);
+}
+
+// ============================================================================
+//  Icone du type de check (scouts ; 2026-11-04)
+// ============================================================================
+
+// Regle UNIQUE du type de check d'apres les drapeaux de l'item (piege d'abord,
+// puis progression, puis useful, sinon filler), quel que soit le destinataire.
+// Chaines litterales : les appelants comparent les pointeurs.
+static const char* IconeDuScout(const ApScoutInfo& s)
+{
+    if (s.flags & 4) return "icon_trap";
+    if (s.flags & 1) return "icon_progressive";
+    if (s.flags & 2) return "icon_important";
+    return "icon_filler";
+}
+
+const char* ApIconeDuCheck(const char* genre, const char* cle)
+{
+    if (!genre || !cle) return nullptr;
+    ApLocGenre g;
+    char cleLoc[128];
+    strncpy_s(cleLoc, cle, _TRUNCATE);
+    if (_stricmp(genre, "techno") == 0) g = ApLocGenre::Techno;
+    else if (_stricmp(genre, "law") == 0) g = ApLocGenre::Loi;
+    else if (_stricmp(genre, "site") == 0) { g = ApLocGenre::Site; ApCleDeSite(cle, cleLoc, sizeof(cleLoc)); }
+    else if (_stricmp(genre, "quest") == 0) g = ApLocGenre::Quete;
+    else if (_stricmp(genre, "temperature") == 0) g = ApLocGenre::Temperature;
+    else return nullptr;
+    ApScoutInfo s;
+    if (!ScoutDe(LocationAP(g, cleLoc), &s)) return nullptr;
+    return IconeDuScout(s);
 }

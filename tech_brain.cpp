@@ -89,10 +89,12 @@ void ReceiveAll()
         // declarer  extern bool g_showApInfo;  dans le .h
 
 // Nom du check porte par cette techno (ce que le joueur enverra).
-// TODO reseau : l'objet reel fourni par le serveur pour cette location ;
-// en attendant, le nom interne de la techno.
+// Reseau (2026-11-04) : l'item place sur la location (scout, ApScoutTechno) ;
+// sans scout (jamais connecte, techno sans location), le nom de la techno.
 void AP_NomDuCheck(uint64_t hash, char* out, int maxlen)
 {
+    ApScoutInfo s;
+    if (ApScoutTechno(hash, &s)) { ApNomDuScout(s, out, (size_t)maxlen); return; }
     const TechInfo* t = TechByHash(hash);
     _snprintf_s(out, maxlen, _TRUNCATE, "%s", t ? t->name : "unknown location");
 }

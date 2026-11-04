@@ -30,8 +30,9 @@ void EvenementsRemplacerDilemme(uintptr_t entite, uintptr_t orig, uintptr_t remp
 struct DilemmeAP;
 
 // Thread du jeu uniquement (DilemmesPompe). Renvoie l'identifiant du dilemme
-// cree, ou -1.
-int DilemmeAPCreer(const DilemmeAP& def);
+// cree, ou -1. 'sousTitre' (copie) remplace celui du catalogue s'il est non
+// vide ; il est garde dans ap_dilemmes.txt pour le rechargement.
+int DilemmeAPCreer(const DilemmeAP& def, const char* sousTitre = nullptr);
 
 // Textes des cles @AP/Dil/<slot>/T (titre), /X (texte), /C<i> (choix i),
 // /S (sous-titre d'arc), pour hkTranslate ; nullptr si le slot est libre.

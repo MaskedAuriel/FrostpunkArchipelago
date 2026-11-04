@@ -362,6 +362,7 @@ struct GroupeSuivi {
     char      icone[32];
     struct { char ressource[24]; int quantite; } cargaison[MAX_CARGAISON_AP];
     int       nCargaison;
+    char      expediteur[64];         // joueur AP ("" : le nom du groupe), garde dans ap_groupes.txt
     bool      inventaireJournalise;   // log de la 1re injection dans l'inventaire
     bool      inventaireEchec;        // exception a l'ajout d'une case : plus d'essai
     uint64_t  guid[2];                // identifiant de l'entite (+0x18 / +0x20), sauvegarde par le jeu
@@ -551,6 +552,7 @@ void SauverGroupe(const GroupeSuivi& s)
     EcrireChamp(f, s.dilemmeTexte);
     EcrireChamp(f, s.dilemmeChoix);
     EcrireChamp(f, cargaison);
+    EcrireChamp(f, s.expediteur);   // champ 8 (absent des lignes anciennes)
     fputc('\n', f);
     fclose(f);
     printf("[SAV] groupe %016llX%016llX \"%s\" enregistre (%d ressource(s))\n", (unsigned long long)s.guid[0],
@@ -596,6 +598,7 @@ bool LireGroupe(const uint64_t* guid, GroupeSuivi& s)
     ChampLigne(trouvee, 5, s.dilemmeTexte, sizeof(s.dilemmeTexte));
     ChampLigne(trouvee, 6, s.dilemmeChoix, sizeof(s.dilemmeChoix));
     ChampLigne(trouvee, 7, cargaison, sizeof(cargaison));
+    ChampLigne(trouvee, 8, s.expediteur, sizeof(s.expediteur));
     s.nCargaison = 0;
     for (char* tok = cargaison; tok && *tok && s.nCargaison < MAX_CARGAISON_AP; ) {
         char* fin = strchr(tok, ';');
@@ -823,7 +826,7 @@ void hkGroupeArrive(uintptr_t sys, uintptr_t entite, uintptr_t p3, uintptr_t p4)
     // Livraison de la cargaison (celle que montre l'inventaire), comme un scout
     // qui decharge en ville.
     for (int i = 0; i < s.nCargaison; ++i)
-        ReceiveResource(s.cargaison[i].ressource, s.cargaison[i].quantite, s.nom);
+        ReceiveResource(s.cargaison[i].ressource, s.cargaison[i].quantite, s.expediteur[0] ? s.expediteur : s.nom);
     if (s.surArrivee) s.surArrivee(slot);
 }
 
@@ -1881,6 +1884,7 @@ int GroupeCreer(const GroupeAP& g)
     strncpy_s(s.dilemmeTexte, g.dilemmeTexte ? g.dilemmeTexte : s.description, _TRUNCATE);
     strncpy_s(s.dilemmeChoix, g.dilemmeChoix ? g.dilemmeChoix : "Welcome them", _TRUNCATE);
     strncpy_s(s.icone, g.icone ? g.icone : "icon_vanilla_groupe", _TRUNCATE);
+    strncpy_s(s.expediteur, g.expediteur ? g.expediteur : "", _TRUNCATE);
     s.heures = g.heures;
     s.dureeAppliquee = g.heures <= 0;
     s.surArrivee = g.surArrivee;

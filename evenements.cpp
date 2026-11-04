@@ -497,6 +497,7 @@ void SauverBulle(char type, int id, const char* a, const char* b, const char* c)
     fprintf(f, "%c %d %016llX", type, id, (unsigned long long)expire);
     EcrireChampBulle(f, a);
     if (type == 'G') { EcrireChampBulle(f, b); EcrireChampBulle(f, c); }
+    else if (type == 'P' && b && b[0]) EcrireChampBulle(f, b);   // sous-titre (expediteur)
     fputc('\n', f);
     fclose(f);
     printf("[DIL] bulle %d (%c) enregistree, expiration 0x%llX\n", id, type, (unsigned long long)expire);
@@ -635,7 +636,7 @@ uintptr_t ConstruirePiege(int slot, int nChoix, const char* icone)
     return d;
 }
 
-int DilemmeAPCreer(const DilemmeAP& def)
+int DilemmeAPCreer(const DilemmeAP& def, const char* sousTitre)
 {
     int nChoix = 0;
     while (nChoix < MAX_CHOIX_DILEMME_AP && def.choix[nChoix].texte) ++nChoix;
@@ -650,7 +651,8 @@ int DilemmeAPCreer(const DilemmeAP& def)
     p.def = &def;
     strncpy_s(p.titre, def.titre ? def.titre : "", _TRUNCATE);
     strncpy_s(p.texte, def.texte ? def.texte : "", _TRUNCATE);
-    strncpy_s(p.sousTitre, def.sousTitre ? def.sousTitre : "Archipelago", _TRUNCATE);
+    strncpy_s(p.sousTitre, sousTitre && sousTitre[0] ? sousTitre : def.sousTitre ? def.sousTitre : "Archipelago",
+        _TRUNCATE);
     p.nChoix = nChoix;
     p.choixSiIgnore = (def.choixSiIgnore >= 0 && def.choixSiIgnore < nChoix) ? def.choixSiIgnore : 0;
     for (int i = 0; i < nChoix; ++i) strncpy_s(p.choix[i], def.choix[i].texte, _TRUNCATE);
@@ -680,7 +682,7 @@ int DilemmeAPCreer(const DilemmeAP& def)
     if (id < 0) { p.actif = false; return -1; }
     p.id = id;
     p.clone = d;
-    SauverBulle('P', id, def.id, nullptr, nullptr);
+    SauverBulle('P', id, def.id, p.sousTitre, nullptr);
     return id;
 }
 
@@ -836,7 +838,8 @@ void RecollerBulles(const char* quand)
             p.def = def;
             strncpy_s(p.titre, def->titre ? def->titre : "", _TRUNCATE);
             strncpy_s(p.texte, def->texte ? def->texte : "", _TRUNCATE);
-            strncpy_s(p.sousTitre, def->sousTitre ? def->sousTitre : "Archipelago", _TRUNCATE);
+            // Sous-titre garde a la creation (expediteur), sinon celui du catalogue.
+            strncpy_s(p.sousTitre, L.b[0] ? L.b : def->sousTitre ? def->sousTitre : "Archipelago", _TRUNCATE);
             p.nChoix = nChoix;
             p.choixSiIgnore = (def->choixSiIgnore >= 0 && def->choixSiIgnore < nChoix) ? def->choixSiIgnore : 0;
             for (int c = 0; c < nChoix; ++c) strncpy_s(p.choix[c], def->choix[c].texte, _TRUNCATE);

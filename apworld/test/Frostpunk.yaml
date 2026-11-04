@@ -1,0 +1,14 @@
+# YAML de test de la couche reseau (docs/chantiers/reseau.md).
+# A deposer dans le dossier Players de l'installation d'Archipelago.
+name: Simon
+game: Frostpunk
+requires:
+  version: 0.6.4
+
+Frostpunk:
+  scenarios: ["A New Home"]
+  starting_scenario: a_new_home
+  goal_difficulty: hard
+  trap_percentage: 10
+  exclude_purpose_politics: false
+  delivery_hours: 24

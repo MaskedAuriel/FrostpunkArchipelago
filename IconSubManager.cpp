@@ -2,6 +2,7 @@
 #include "tech_runtime.h"
 #include "lois_ap.h"        // IconeCheckDeTest
 #include "tech_brain.h"     // AP_NomDuCheck
+#include "archipelago.h"    // ApIconeDuCheck (scouts)
 
 struct GabaritBat { uintptr_t tpl; char nom[64]; };
 static GabaritBat g_gabaritsBat[256];
@@ -470,6 +471,14 @@ static const TechIcons* IconeEffective(const TechnoAP& t)
     if (r && r->researched) {
         const TechIcons* done = IconeParNom("icon_done");
         if (done) return done;
+    }
+    // Type du check d'apres le serveur (scout) ; a defaut, icone de test.
+    char cle[20];
+    sprintf_s(cle, "%016llX", (unsigned long long)t.hash);
+    const char* nom = ApIconeDuCheck("techno", cle);
+    if (nom) {
+        const TechIcons* ic = IconeParNom(nom);
+        if (ic) return ic;
     }
     return t.icone;
 }

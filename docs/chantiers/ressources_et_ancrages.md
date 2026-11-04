@@ -168,3 +168,22 @@ produits `GatherableResource` ne sont pas décodés.
 **Décision de l'auteur (2026-11-03)** : la conversion retient la **variante
 « cheaper »** (wood 20 ; steel 20 + coal 40 ; steel 16 par unité).
 `outils\recettes_last_autumn.tsv` ne garde que ces trois lignes : **VALIDÉE**.
+
+
+### 2026-11-04 — Expéditeur des popups (bug du premier test réseau)
+
+Popup « Technology received (from Archipelago) » au lieu de « from Simon » :
+`ReceiveItem` notait la réception par un simple compte, et `ApItemsPompe`
+rappelait les `Receive*` avec `"Archipelago"` en dur. Correctif :
+`ap_items_recus.txt` = `<id>\t<joueur>` (copie, lignes anciennes sans joueur
+acceptées), `g_expediteurs[item]` dans l'ordre des réceptions ; la k-ième
+application d'un item dans une partie (ou sa k-ième livraison) reprend le
+k-ième expéditeur (`ExpediteurDe`). Couvert : technos, lois, température
+(pompe), scénarios (direct), contenus livrés par groupe (« Heading to the
+city: … (from X) », bulle « An Archipelago convoy from X … »), pièges
+(sous-titre « Archipelago - from X », copié dans la file de `dilemmes_ap`,
+gardé dans `ap_dilemmes.txt` pour le rechargement). `ReceiveResource` n'est
+appelé que par F11. Non testé.
+Complément : popups « Resource received » de l'arrivée d'un convoi = joueur
+(`GroupeAP.expediteur`, gardé en champ 8 de `ap_groupes.txt`), et non plus le
+nom du groupe. Compilé et déployé à 11:06. Non testé.
