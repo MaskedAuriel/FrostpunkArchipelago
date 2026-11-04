@@ -1,215 +1,215 @@
 scenario	arbre	item	nombre	classification	raison	arbres enfants	arbres parents
-DEFAULT	0	A New Home - Progressive Tree SteamHub	3	useful	aucun arbre ne depend de lui		
-DEFAULT	1	A New Home - Progressive Tree Generator Upgrade - power 1	3	progression	parent d'un autre arbre	2, 4	
-DEFAULT	2	A New Home - Progressive Tree Generator Upgrade - less coal	2	useful	aucun arbre ne depend de lui		1
-DEFAULT	3	A New Home - Progressive Tree Generator Upgrade - range 1	3	useful	aucun arbre ne depend de lui		
-DEFAULT	4	A New Home - Progressive Tree Generator Overdrive 1	2	useful	aucun arbre ne depend de lui		1
-DEFAULT	5	A New Home - Progressive Tree Boilers	3	progression	parent d'un autre arbre	6	
-DEFAULT	6	A New Home - Progressive Tree Boiler Upgrade - less coal	1	useful	aucun arbre ne depend de lui		5
-DEFAULT	7	A New Home - Progressive Tree Beacon	1	progression	force : eclaireurs	8, 9	
-DEFAULT	8	A New Home - Progressive Tree ExpeditionCenter	2	useful	aucun arbre ne depend de lui		7
-DEFAULT	9	A New Home - Progressive Tree ScoutsLimit	2	progression	parent d'un autre arbre	10	7
-DEFAULT	10	A New Home - Progressive Tree ScoutsSpeed	2	useful	aucun arbre ne depend de lui		9
-DEFAULT	11	A New Home - Progressive Tree Factory	3	progression	parent d'un autre arbre	12, 13	
-DEFAULT	12	A New Home - Progressive Tree Cheaper Augmentation Parts	2	useful	aucun arbre ne depend de lui		11
-DEFAULT	13	A New Home - Progressive Tree Automaton Efficiency	3	progression	parent d'un autre arbre	14, 79	11
-DEFAULT	14	A New Home - Progressive Tree Automaton Medical	2	useful	aucun arbre ne depend de lui		13
-DEFAULT	15	A New Home - Progressive Tree Gathering Upgrade	3	progression	parent d'un autre arbre	16, 17	
-DEFAULT	16	A New Home - Progressive Tree ResourceDepotUpgrade	2	useful	aucun arbre ne depend de lui		15
-DEFAULT	17	A New Home - Progressive Tree Gathering upgrade 2	1	useful	aucun arbre ne depend de lui		15
-DEFAULT	18	A New Home - Progressive Tree CoalThumper	3	useful	aucun arbre ne depend de lui		
-DEFAULT	19	A New Home - Progressive Tree Coal Mine	3	progression	parent d'un autre arbre	20	
-DEFAULT	20	A New Home - Progressive Tree Coal mine upgrade 1	2	useful	aucun arbre ne depend de lui		19
-DEFAULT	21	A New Home - Progressive Tree CharcoalKiln	3	useful	aucun arbre ne depend de lui		
-DEFAULT	22	A New Home - Progressive Tree Sawmill	2	progression	parent d'un autre arbre	23	
-DEFAULT	23	A New Home - Progressive Tree Sawmill Upgrade	2	useful	aucun arbre ne depend de lui		22
-DEFAULT	24	A New Home - Progressive Tree WallDrill	3	useful	aucun arbre ne depend de lui		
-DEFAULT	25	A New Home - Progressive Tree Steel Mine	3	useful	aucun arbre ne depend de lui		
-DEFAULT	26	A New Home - Progressive Tree Plantation	3	progression	parent d'un autre arbre	27	
-DEFAULT	27	A New Home - Progressive Tree Plantation Insulation	2	useful	aucun arbre ne depend de lui		26
-DEFAULT	28	A New Home - Progressive Tree HuntersUpgrade	3	progression	parent d'un autre arbre	29	
-DEFAULT	29	A New Home - Progressive Tree Hunters Upgrade - less workers	1	useful	aucun arbre ne depend de lui		28
-DEFAULT	30	A New Home - Progressive Tree MedPost Upgrade	3	progression	parent d'un autre arbre	31, 32	
-DEFAULT	31	A New Home - Progressive Tree HealthCare Buildings - warmer	2	useful	aucun arbre ne depend de lui		30
-DEFAULT	32	A New Home - Progressive Tree Infirmary Upgrade - less workers	1	useful	aucun arbre ne depend de lui		30
-DEFAULT	33	A New Home - Progressive Tree Bunkhouse	3	progression	parent d'un autre arbre	34, 35	
-DEFAULT	34	A New Home - Progressive Tree Cantinee - warmer	1	useful	aucun arbre ne depend de lui		33
-DEFAULT	35	A New Home - Progressive Tree House Upgrade - cheaper	1	useful	aucun arbre ne depend de lui		33
-DEFAULT	36	A New Home - Progressive Tree Tier	5	progression	force : paliers		
-DEFAULT	79	A New Home - Progressive Tree Automaton Engineers	1	useful	aucun arbre ne depend de lui		13
-DEFAULT	80	A New Home - Progressive Tree Storm_research	1	useful	aucun arbre ne depend de lui		
-TechHaven	0	The Arks - Progressive Tree SteamHub	3	useful	aucun arbre ne depend de lui		
-TechHaven	1	The Arks - Progressive Tree Generator Upgrade - power 1	3	progression	parent d'un autre arbre	2, 4	
-TechHaven	2	The Arks - Progressive Tree Generator Upgrade - less coal	2	useful	aucun arbre ne depend de lui		1
-TechHaven	3	The Arks - Progressive Tree Generator Upgrade - range 1	3	useful	aucun arbre ne depend de lui		
-TechHaven	4	The Arks - Progressive Tree Generator Overdrive 1	2	useful	aucun arbre ne depend de lui		1
-TechHaven	5	The Arks - Progressive Tree Boilers	3	progression	parent d'un autre arbre	6	
-TechHaven	6	The Arks - Progressive Tree Boiler Upgrade - less coal	1	useful	aucun arbre ne depend de lui		5
-TechHaven	7	The Arks - Progressive Tree Beacon	2	progression	force : eclaireurs	9	
-TechHaven	9	The Arks - Progressive Tree ScoutsLimit	2	progression	parent d'un autre arbre	10	7
-TechHaven	10	The Arks - Progressive Tree ScoutsSpeed	2	useful	aucun arbre ne depend de lui		9
-TechHaven	11	The Arks - Progressive Tree Factory	3	progression	parent d'un autre arbre	12, 13	
-TechHaven	12	The Arks - Progressive Tree Cheaper Augmentation Parts	2	useful	aucun arbre ne depend de lui		11
-TechHaven	13	The Arks - Progressive Tree Automaton Efficiency	3	progression	parent d'un autre arbre	14, 79	11
-TechHaven	14	The Arks - Progressive Tree Automaton Medical	2	useful	aucun arbre ne depend de lui		13
-TechHaven	15	The Arks - Progressive Tree Gathering Upgrade	3	progression	parent d'un autre arbre	16, 17	
-TechHaven	16	The Arks - Progressive Tree ResourceDepotUpgrade	2	useful	aucun arbre ne depend de lui		15
-TechHaven	17	The Arks - Progressive Tree Gathering upgrade 2	1	useful	aucun arbre ne depend de lui		15
-TechHaven	18	The Arks - Progressive Tree CoalThumper	3	useful	aucun arbre ne depend de lui		
-TechHaven	19	The Arks - Progressive Tree Coal Mine	3	progression	parent d'un autre arbre	20	
-TechHaven	20	The Arks - Progressive Tree Coal mine upgrade 1	2	useful	aucun arbre ne depend de lui		19
-TechHaven	21	The Arks - Progressive Tree CharcoalKiln	3	useful	aucun arbre ne depend de lui		
-TechHaven	22	The Arks - Progressive Tree Sawmill	2	progression	parent d'un autre arbre	23	
-TechHaven	23	The Arks - Progressive Tree Sawmill Upgrade	2	useful	aucun arbre ne depend de lui		22
-TechHaven	24	The Arks - Progressive Tree WallDrill	3	useful	aucun arbre ne depend de lui		
-TechHaven	25	The Arks - Progressive Tree Steel Mine	3	useful	aucun arbre ne depend de lui		
-TechHaven	26	The Arks - Progressive Tree Plantation	3	progression	parent d'un autre arbre	27	
-TechHaven	27	The Arks - Progressive Tree Plantation Insulation	2	useful	aucun arbre ne depend de lui		26
-TechHaven	30	The Arks - Progressive Tree MedPost Upgrade	3	progression	parent d'un autre arbre	31, 32	
-TechHaven	31	The Arks - Progressive Tree HealthCare Buildings - warmer	2	useful	aucun arbre ne depend de lui		30
-TechHaven	32	The Arks - Progressive Tree Infirmary Upgrade - less workers	1	useful	aucun arbre ne depend de lui		30
-TechHaven	33	The Arks - Progressive Tree Bunkhouse	3	progression	parent d'un autre arbre	34, 35	
-TechHaven	34	The Arks - Progressive Tree Cantinee - warmer	1	useful	aucun arbre ne depend de lui		33
-TechHaven	35	The Arks - Progressive Tree House Upgrade - cheaper	1	useful	aucun arbre ne depend de lui		33
-TechHaven	36	The Arks - Progressive Tree Tier	5	progression	force : paliers		
-TechHaven	79	The Arks - Progressive Tree Automaton Engineers	1	useful	aucun arbre ne depend de lui		13
-REFUGEES	0	Refugees - Progressive Tree SteamHub	3	useful	aucun arbre ne depend de lui		
-REFUGEES	1	Refugees - Progressive Tree Generator Upgrade - power 1	3	progression	parent d'un autre arbre	2, 4	
-REFUGEES	2	Refugees - Progressive Tree Generator Upgrade - less coal	2	useful	aucun arbre ne depend de lui		1
-REFUGEES	3	Refugees - Progressive Tree Generator Upgrade - range 1	3	useful	aucun arbre ne depend de lui		
-REFUGEES	4	Refugees - Progressive Tree Generator Overdrive 1	2	useful	aucun arbre ne depend de lui		1
-REFUGEES	5	Refugees - Progressive Tree Boilers	3	progression	parent d'un autre arbre	6	
-REFUGEES	6	Refugees - Progressive Tree Boiler Upgrade - less coal	1	useful	aucun arbre ne depend de lui		5
-REFUGEES	7	Refugees - Progressive Tree Beacon	1	progression	force : eclaireurs	8, 9	
-REFUGEES	8	Refugees - Progressive Tree ExpeditionCenter	2	useful	aucun arbre ne depend de lui		7
-REFUGEES	9	Refugees - Progressive Tree ScoutsLimit	2	progression	parent d'un autre arbre	10	7
-REFUGEES	10	Refugees - Progressive Tree ScoutsSpeed	2	useful	aucun arbre ne depend de lui		9
-REFUGEES	11	Refugees - Progressive Tree Factory	3	progression	parent d'un autre arbre	12, 13	
-REFUGEES	12	Refugees - Progressive Tree Cheaper Augmentation Parts	2	useful	aucun arbre ne depend de lui		11
-REFUGEES	13	Refugees - Progressive Tree Automaton Efficiency	3	progression	parent d'un autre arbre	14, 79	11
-REFUGEES	14	Refugees - Progressive Tree Automaton Medical	2	useful	aucun arbre ne depend de lui		13
-REFUGEES	15	Refugees - Progressive Tree Gathering Upgrade	3	progression	parent d'un autre arbre	16, 17	
-REFUGEES	16	Refugees - Progressive Tree ResourceDepotUpgrade	2	useful	aucun arbre ne depend de lui		15
-REFUGEES	17	Refugees - Progressive Tree Gathering upgrade 2	1	useful	aucun arbre ne depend de lui		15
-REFUGEES	18	Refugees - Progressive Tree CoalThumper	3	useful	aucun arbre ne depend de lui		
-REFUGEES	19	Refugees - Progressive Tree Coal Mine	3	progression	parent d'un autre arbre	20	
-REFUGEES	20	Refugees - Progressive Tree Coal mine upgrade 1	2	useful	aucun arbre ne depend de lui		19
-REFUGEES	21	Refugees - Progressive Tree CharcoalKiln	3	useful	aucun arbre ne depend de lui		
-REFUGEES	22	Refugees - Progressive Tree Sawmill	2	progression	parent d'un autre arbre	23	
-REFUGEES	23	Refugees - Progressive Tree Sawmill Upgrade	2	useful	aucun arbre ne depend de lui		22
-REFUGEES	24	Refugees - Progressive Tree WallDrill	3	useful	aucun arbre ne depend de lui		
-REFUGEES	25	Refugees - Progressive Tree Steel Mine	3	useful	aucun arbre ne depend de lui		
-REFUGEES	26	Refugees - Progressive Tree Plantation	3	progression	parent d'un autre arbre	27	
-REFUGEES	27	Refugees - Progressive Tree Plantation Insulation	2	useful	aucun arbre ne depend de lui		26
-REFUGEES	28	Refugees - Progressive Tree HuntersUpgrade	3	progression	parent d'un autre arbre	29	
-REFUGEES	29	Refugees - Progressive Tree Hunters Upgrade - less workers	1	useful	aucun arbre ne depend de lui		28
-REFUGEES	30	Refugees - Progressive Tree MedPost Upgrade	3	progression	parent d'un autre arbre	31, 32	
-REFUGEES	31	Refugees - Progressive Tree HealthCare Buildings - warmer	2	useful	aucun arbre ne depend de lui		30
-REFUGEES	32	Refugees - Progressive Tree Infirmary Upgrade - less workers	1	useful	aucun arbre ne depend de lui		30
-REFUGEES	33	Refugees - Progressive Tree Bunkhouse	3	progression	parent d'un autre arbre	34, 35	
-REFUGEES	34	Refugees - Progressive Tree Cantinee - warmer	1	useful	aucun arbre ne depend de lui		33
-REFUGEES	35	Refugees - Progressive Tree House Upgrade - cheaper	1	useful	aucun arbre ne depend de lui		33
-REFUGEES	36	Refugees - Progressive Tree Tier	5	progression	force : paliers		
-REFUGEES	79	Refugees - Progressive Tree Automaton Engineers	1	useful	aucun arbre ne depend de lui		13
-WINTERHOME	0	Fall of Winterhome - Progressive Tree Steamhub Upgrade - range	2	useful	aucun arbre ne depend de lui		
-WINTERHOME	1	Fall of Winterhome - Progressive Tree Generator Upgrade - power 3	1	useful	aucun arbre ne depend de lui		
-WINTERHOME	2	Fall of Winterhome - Progressive Tree Generator Upgrade - less coal	2	useful	aucun arbre ne depend de lui		
-WINTERHOME	3	Fall of Winterhome - Progressive Tree Generator Upgrade - range 3	1	useful	aucun arbre ne depend de lui		
-WINTERHOME	4	Fall of Winterhome - Progressive Tree Generator Overdrive 1	2	useful	aucun arbre ne depend de lui		
-WINTERHOME	5	Fall of Winterhome - Progressive Tree Boiler Upgrade	2	progression	parent d'un autre arbre	6	
-WINTERHOME	6	Fall of Winterhome - Progressive Tree Boiler Upgrade - less coal	1	useful	aucun arbre ne depend de lui		5
-WINTERHOME	8	Fall of Winterhome - Progressive Tree ExpeditionUpgradeWinterhome	1	useful	aucun arbre ne depend de lui		
-WINTERHOME	9	Fall of Winterhome - Progressive Tree ScoutsLimit	2	progression	parent d'un autre arbre	10	
-WINTERHOME	10	Fall of Winterhome - Progressive Tree ScoutsSpeed	2	useful	aucun arbre ne depend de lui		9
-WINTERHOME	11	Fall of Winterhome - Progressive Tree Factory	3	progression	parent d'un autre arbre	12, 13	
-WINTERHOME	12	Fall of Winterhome - Progressive Tree Cheaper Augmentation Parts	2	useful	aucun arbre ne depend de lui		11
-WINTERHOME	13	Fall of Winterhome - Progressive Tree Automaton Efficiency	3	progression	parent d'un autre arbre	14, 79	11
-WINTERHOME	14	Fall of Winterhome - Progressive Tree Automaton Medical	2	useful	aucun arbre ne depend de lui		13
-WINTERHOME	15	Fall of Winterhome - Progressive Tree Gathering Upgrade	3	progression	parent d'un autre arbre	16, 17	
-WINTERHOME	16	Fall of Winterhome - Progressive Tree ResourceDepotUpgrade	2	useful	aucun arbre ne depend de lui		15
-WINTERHOME	17	Fall of Winterhome - Progressive Tree Gathering upgrade 2	1	useful	aucun arbre ne depend de lui		15
-WINTERHOME	18	Fall of Winterhome - Progressive Tree SteamCoalThumper	2	useful	aucun arbre ne depend de lui		
-WINTERHOME	19	Fall of Winterhome - Progressive Tree Steam Coal Mine	2	useful	aucun arbre ne depend de lui		
-WINTERHOME	20	Fall of Winterhome - Progressive Tree Coal mine upgrade 1	2	useful	aucun arbre ne depend de lui		
-WINTERHOME	21	Fall of Winterhome - Progressive Tree Kiln upgrade	2	useful	aucun arbre ne depend de lui		
-WINTERHOME	22	Fall of Winterhome - Progressive Tree Steam Sawmill	1	useful	aucun arbre ne depend de lui		
-WINTERHOME	23	Fall of Winterhome - Progressive Tree Sawmill Upgrade	2	useful	aucun arbre ne depend de lui		
-WINTERHOME	24	Fall of Winterhome - Progressive Tree Steam WallDrill	2	useful	aucun arbre ne depend de lui		
-WINTERHOME	25	Fall of Winterhome - Progressive Tree Steam Steel Mine	2	useful	aucun arbre ne depend de lui		
-WINTERHOME	26	Fall of Winterhome - Progressive Tree Steam Plantation	2	useful	aucun arbre ne depend de lui		
-WINTERHOME	27	Fall of Winterhome - Progressive Tree Plantation Insulation	2	useful	aucun arbre ne depend de lui		
-WINTERHOME	28	Fall of Winterhome - Progressive Tree Flying Hunters	2	useful	aucun arbre ne depend de lui		
-WINTERHOME	29	Fall of Winterhome - Progressive Tree Hunters Upgrade - less workers	1	useful	aucun arbre ne depend de lui		
-WINTERHOME	30	Fall of Winterhome - Progressive Tree MedPost Upgrade	3	progression	parent d'un autre arbre	31, 32	
-WINTERHOME	31	Fall of Winterhome - Progressive Tree HealthCare Buildings - warmer	2	useful	aucun arbre ne depend de lui		30
-WINTERHOME	32	Fall of Winterhome - Progressive Tree Infirmary Upgrade - less workers	1	useful	aucun arbre ne depend de lui		30
-WINTERHOME	33	Fall of Winterhome - Progressive Tree House Insulation	1	useful	aucun arbre ne depend de lui		
-WINTERHOME	34	Fall of Winterhome - Progressive Tree Cantinee - warmer	1	useful	aucun arbre ne depend de lui		
-WINTERHOME	35	Fall of Winterhome - Progressive Tree House Upgrade - cheaper	1	useful	aucun arbre ne depend de lui		
-WINTERHOME	36	Fall of Winterhome - Progressive Tree Tier	2	progression	force : paliers		
-WINTERHOME	37	Fall of Winterhome - Progressive Tree E RepairStation	4	progression	parent d'un autre arbre	38, 39	
-WINTERHOME	38	Fall of Winterhome - Progressive Tree E RC Ability	2	useful	aucun arbre ne depend de lui		37
-WINTERHOME	39	Fall of Winterhome - Progressive Tree E RC Less workers	1	useful	aucun arbre ne depend de lui		37
-WINTERHOME	79	Fall of Winterhome - Progressive Tree Automaton Engineers	1	useful	aucun arbre ne depend de lui		13
-BUILDERS	36	The Last Autumn - Progressive Tree Tier	5	progression	force : paliers		
-BUILDERS	40	The Last Autumn - Progressive Tree HC Brazier	2	progression	parent d'un autre arbre	41, 42	
-BUILDERS	41	The Last Autumn - Progressive Tree HC BrazierRange1	1	useful	aucun arbre ne depend de lui		40
-BUILDERS	42	The Last Autumn - Progressive Tree HC BrazierCoalOpt1	2	useful	aucun arbre ne depend de lui		40
-BUILDERS	43	The Last Autumn - Progressive Tree HH Heater	3	useful	aucun arbre ne depend de lui		
-BUILDERS	44	The Last Autumn - Progressive Tree HI HealthCare Insulation1	2	useful	aucun arbre ne depend de lui		
-BUILDERS	45	The Last Autumn - Progressive Tree GS ScaffoldingManufacture	3	progression	parent d'un autre arbre	46	
-BUILDERS	46	The Last Autumn - Progressive Tree GS ProtectiveStructure1	2	useful	aucun arbre ne depend de lui		45
-BUILDERS	47	The Last Autumn - Progressive Tree GM SteelPlateForge	2	progression	parent d'un autre arbre	48	
-BUILDERS	48	The Last Autumn - Progressive Tree GM ForgeCheaperMaterials	1	useful	aucun arbre ne depend de lui		47
-BUILDERS	49	The Last Autumn - Progressive Tree GG SteamMill	3	progression	parent d'un autre arbre	50	
-BUILDERS	50	The Last Autumn - Progressive Tree GG Supercharge1	2	useful	aucun arbre ne depend de lui		49
-BUILDERS	51	The Last Autumn - Progressive Tree GF Air Scrubbers1	3	progression	parent d'un autre arbre	52	
-BUILDERS	52	The Last Autumn - Progressive Tree GF Air ScrubbersOptimalization	2	useful	aucun arbre ne depend de lui		51
-BUILDERS	53	The Last Autumn - Progressive Tree GU GeneratorUpgrade1	3	useful	aucun arbre ne depend de lui		
-BUILDERS	54	The Last Autumn - Progressive Tree FF Foragers	1	progression	force : eclaireurs	55, 56	
-BUILDERS	55	The Last Autumn - Progressive Tree FF Foragers_+1	2	useful	aucun arbre ne depend de lui		54
-BUILDERS	56	The Last Autumn - Progressive Tree FF ForagersSpeedUpgrade	2	useful	aucun arbre ne depend de lui		54
-BUILDERS	57	The Last Autumn - Progressive Tree FH Fishing Harbor	2	progression	parent d'un autre arbre	58	
-BUILDERS	58	The Last Autumn - Progressive Tree FH Fishing Harbor_efficiencyBoost	1	useful	aucun arbre ne depend de lui		57
-BUILDERS	59	The Last Autumn - Progressive Tree FM MedPost Upgrade	3	progression	parent d'un autre arbre	60	
-BUILDERS	60	The Last Autumn - Progressive Tree FM Infirmary Upgrade	1	useful	aucun arbre ne depend de lui		59
-BUILDERS	61	The Last Autumn - Progressive Tree RD Docksv1	3	progression	parent d'un autre arbre	62, 64	
-BUILDERS	62	The Last Autumn - Progressive Tree RU URS	1	progression	parent d'un autre arbre	63	61
-BUILDERS	63	The Last Autumn - Progressive Tree RU URS_Steam	2	progression	parent d'un autre arbre	81	62
-BUILDERS	64	The Last Autumn - Progressive Tree RD Docks faster reload	1	useful	aucun arbre ne depend de lui		61
-BUILDERS	65	The Last Autumn - Progressive Tree RG Gathering Upgrade	2	progression	parent d'un autre arbre	66	
-BUILDERS	66	The Last Autumn - Progressive Tree RG ResourceDepotUpgrade	2	useful	aucun arbre ne depend de lui		65
-BUILDERS	67	The Last Autumn - Progressive Tree RW Sawmill	2	progression	parent d'un autre arbre	68	
-BUILDERS	68	The Last Autumn - Progressive Tree RW Sawmill Upgrade	2	useful	aucun arbre ne depend de lui		67
-BUILDERS	69	The Last Autumn - Progressive Tree RC CharcoalKiln	3	useful	aucun arbre ne depend de lui		
-BUILDERS	81	The Last Autumn - Progressive Tree RU URS_Advanced	1	useful	aucun arbre ne depend de lui		63
-Reconquest	5	On the Edge - Progressive Tree Boilers	3	progression	parent d'un autre arbre	6	
-Reconquest	6	On the Edge - Progressive Tree Boiler Upgrade - less coal	1	useful	aucun arbre ne depend de lui		5
-Reconquest	9	On the Edge - Progressive Tree ScoutsLimit	2	progression	parent d'un autre arbre	10	
-Reconquest	10	On the Edge - Progressive Tree ScoutsSpeed	2	useful	aucun arbre ne depend de lui		9
-Reconquest	11	On the Edge - Progressive Tree Factory	1	progression	parent d'un autre arbre	12	
-Reconquest	12	On the Edge - Progressive Tree Cheaper Augmentation Parts	2	useful	aucun arbre ne depend de lui		11
-Reconquest	15	On the Edge - Progressive Tree Gathering Upgrade	3	progression	parent d'un autre arbre	16, 17	
-Reconquest	16	On the Edge - Progressive Tree ResourceDepotUpgrade	2	useful	aucun arbre ne depend de lui		15
-Reconquest	17	On the Edge - Progressive Tree Gathering upgrade 2	1	useful	aucun arbre ne depend de lui		15
-Reconquest	18	On the Edge - Progressive Tree CoalThumper	3	useful	aucun arbre ne depend de lui		
-Reconquest	19	On the Edge - Progressive Tree Coal Mine	3	progression	parent d'un autre arbre	20	
-Reconquest	20	On the Edge - Progressive Tree Coal mine upgrade 1	2	useful	aucun arbre ne depend de lui		19
-Reconquest	21	On the Edge - Progressive Tree CharcoalKiln	3	useful	aucun arbre ne depend de lui		
-Reconquest	22	On the Edge - Progressive Tree Sawmill	2	progression	parent d'un autre arbre	23	
-Reconquest	23	On the Edge - Progressive Tree Sawmill Upgrade	2	useful	aucun arbre ne depend de lui		22
-Reconquest	30	On the Edge - Progressive Tree MedPost Upgrade	3	progression	parent d'un autre arbre	31, 32	
-Reconquest	31	On the Edge - Progressive Tree HealthCare Buildings - warmer	2	useful	aucun arbre ne depend de lui		30
-Reconquest	32	On the Edge - Progressive Tree Infirmary Upgrade - less workers	1	useful	aucun arbre ne depend de lui		30
-Reconquest	33	On the Edge - Progressive Tree Bunkhouse	3	progression	parent d'un autre arbre	34, 35	
-Reconquest	34	On the Edge - Progressive Tree Cantinee - warmer	1	useful	aucun arbre ne depend de lui		33
-Reconquest	35	On the Edge - Progressive Tree House Upgrade - cheaper	1	useful	aucun arbre ne depend de lui		33
-Reconquest	36	On the Edge - Progressive Tree Tier	5	progression	force : paliers		
-Reconquest	70	On the Edge - Progressive Tree HC Brazier	2	progression	parent d'un autre arbre	71, 72	
-Reconquest	71	On the Edge - Progressive Tree HC BrazierRange	1	useful	aucun arbre ne depend de lui		70
-Reconquest	72	On the Edge - Progressive Tree HC BrazierCoalOpt1	2	useful	aucun arbre ne depend de lui		70
-Reconquest	73	On the Edge - Progressive Tree R VaultEfficiencyBoost	1	useful	aucun arbre ne depend de lui		
-Reconquest	74	On the Edge - Progressive Tree R VaultUpgrade1	3	progression	parent d'un autre arbre	75, 76, 77	
-Reconquest	75	On the Edge - Progressive Tree R VaultMultitasking	1	useful	aucun arbre ne depend de lui		74
-Reconquest	76	On the Edge - Progressive Tree R VaultInsulation	1	useful	aucun arbre ne depend de lui		74
-Reconquest	77	On the Edge - Progressive Tree R VaultSteamCoresUpgrade	1	useful	aucun arbre ne depend de lui		74
+DEFAULT	0	A New Home - Progressive SteamHub	3	progression	arbre principal		
+DEFAULT	1	A New Home - Progressive Generator Upgrade - power 1	3	progression	arbre principal	2, 4	
+DEFAULT	2	A New Home - Progressive Generator Upgrade - less coal	2	useful	depend d'un autre arbre		1
+DEFAULT	3	A New Home - Progressive Generator Upgrade - range 1	3	progression	arbre principal		
+DEFAULT	4	A New Home - Progressive Generator Overdrive 1	2	useful	depend d'un autre arbre		1
+DEFAULT	5	A New Home - Progressive Boilers	3	progression	arbre principal	6	
+DEFAULT	6	A New Home - Progressive Boiler Upgrade - less coal	1	useful	depend d'un autre arbre		5
+DEFAULT	7	A New Home - Progressive Beacon	1	progression	force : eclaireurs	8, 9	
+DEFAULT	8	A New Home - Progressive ExpeditionCenter	2	useful	depend d'un autre arbre		7
+DEFAULT	9	A New Home - Progressive ScoutsLimit	2	useful	depend d'un autre arbre	10	7
+DEFAULT	10	A New Home - Progressive ScoutsSpeed	2	useful	depend d'un autre arbre		9
+DEFAULT	11	A New Home - Progressive Factory	3	progression	arbre principal	12, 13	
+DEFAULT	12	A New Home - Progressive Cheaper Augmentation Parts	2	useful	depend d'un autre arbre		11
+DEFAULT	13	A New Home - Progressive Automaton Efficiency	3	useful	depend d'un autre arbre	14, 79	11
+DEFAULT	14	A New Home - Progressive Automaton Medical	2	useful	depend d'un autre arbre		13
+DEFAULT	15	A New Home - Progressive Gathering Upgrade	3	progression	arbre principal	16, 17	
+DEFAULT	16	A New Home - Progressive ResourceDepotUpgrade	2	useful	depend d'un autre arbre		15
+DEFAULT	17	A New Home - Progressive Gathering upgrade 2	1	useful	depend d'un autre arbre		15
+DEFAULT	18	A New Home - Progressive CoalThumper	3	progression	arbre principal		
+DEFAULT	19	A New Home - Progressive Coal Mine	3	progression	arbre principal	20	
+DEFAULT	20	A New Home - Progressive Coal mine upgrade 1	2	useful	depend d'un autre arbre		19
+DEFAULT	21	A New Home - Progressive CharcoalKiln	3	progression	arbre principal		
+DEFAULT	22	A New Home - Progressive Sawmill	2	progression	arbre principal	23	
+DEFAULT	23	A New Home - Progressive Sawmill Upgrade	2	useful	depend d'un autre arbre		22
+DEFAULT	24	A New Home - Progressive WallDrill	3	progression	arbre principal		
+DEFAULT	25	A New Home - Progressive Steel Mine	3	progression	arbre principal		
+DEFAULT	26	A New Home - Progressive Plantation	3	progression	arbre principal	27	
+DEFAULT	27	A New Home - Progressive Plantation Insulation	2	useful	depend d'un autre arbre		26
+DEFAULT	28	A New Home - Progressive HuntersUpgrade	3	progression	arbre principal	29	
+DEFAULT	29	A New Home - Progressive Hunters Upgrade - less workers	1	useful	depend d'un autre arbre		28
+DEFAULT	30	A New Home - Progressive MedPost Upgrade	3	progression	arbre principal	31, 32	
+DEFAULT	31	A New Home - Progressive HealthCare Buildings - warmer	2	useful	depend d'un autre arbre		30
+DEFAULT	32	A New Home - Progressive Infirmary Upgrade - less workers	1	useful	depend d'un autre arbre		30
+DEFAULT	33	A New Home - Progressive Bunkhouse	3	progression	arbre principal	34, 35	
+DEFAULT	34	A New Home - Progressive Cantinee - warmer	1	useful	depend d'un autre arbre		33
+DEFAULT	35	A New Home - Progressive House Upgrade - cheaper	1	useful	depend d'un autre arbre		33
+DEFAULT	36	A New Home - Progressive Tier	5	progression	force : paliers		
+DEFAULT	79	A New Home - Progressive Automaton Engineers	1	useful	depend d'un autre arbre		13
+DEFAULT	80	A New Home - Progressive Storm_research	1	progression	arbre principal		
+TechHaven	0	The Arks - Progressive SteamHub	3	progression	arbre principal		
+TechHaven	1	The Arks - Progressive Generator Upgrade - power 1	3	progression	arbre principal	2, 4	
+TechHaven	2	The Arks - Progressive Generator Upgrade - less coal	2	useful	depend d'un autre arbre		1
+TechHaven	3	The Arks - Progressive Generator Upgrade - range 1	3	progression	arbre principal		
+TechHaven	4	The Arks - Progressive Generator Overdrive 1	2	useful	depend d'un autre arbre		1
+TechHaven	5	The Arks - Progressive Boilers	3	progression	arbre principal	6	
+TechHaven	6	The Arks - Progressive Boiler Upgrade - less coal	1	useful	depend d'un autre arbre		5
+TechHaven	7	The Arks - Progressive Beacon	2	progression	force : eclaireurs	9	
+TechHaven	9	The Arks - Progressive ScoutsLimit	2	useful	depend d'un autre arbre	10	7
+TechHaven	10	The Arks - Progressive ScoutsSpeed	2	useful	depend d'un autre arbre		9
+TechHaven	11	The Arks - Progressive Factory	3	progression	arbre principal	12, 13	
+TechHaven	12	The Arks - Progressive Cheaper Augmentation Parts	2	useful	depend d'un autre arbre		11
+TechHaven	13	The Arks - Progressive Automaton Efficiency	3	useful	depend d'un autre arbre	14, 79	11
+TechHaven	14	The Arks - Progressive Automaton Medical	2	useful	depend d'un autre arbre		13
+TechHaven	15	The Arks - Progressive Gathering Upgrade	3	progression	arbre principal	16, 17	
+TechHaven	16	The Arks - Progressive ResourceDepotUpgrade	2	useful	depend d'un autre arbre		15
+TechHaven	17	The Arks - Progressive Gathering upgrade 2	1	useful	depend d'un autre arbre		15
+TechHaven	18	The Arks - Progressive CoalThumper	3	progression	arbre principal		
+TechHaven	19	The Arks - Progressive Coal Mine	3	progression	arbre principal	20	
+TechHaven	20	The Arks - Progressive Coal mine upgrade 1	2	useful	depend d'un autre arbre		19
+TechHaven	21	The Arks - Progressive CharcoalKiln	3	progression	arbre principal		
+TechHaven	22	The Arks - Progressive Sawmill	2	progression	arbre principal	23	
+TechHaven	23	The Arks - Progressive Sawmill Upgrade	2	useful	depend d'un autre arbre		22
+TechHaven	24	The Arks - Progressive WallDrill	3	progression	arbre principal		
+TechHaven	25	The Arks - Progressive Steel Mine	3	progression	arbre principal		
+TechHaven	26	The Arks - Progressive Plantation	3	progression	arbre principal	27	
+TechHaven	27	The Arks - Progressive Plantation Insulation	2	useful	depend d'un autre arbre		26
+TechHaven	30	The Arks - Progressive MedPost Upgrade	3	progression	arbre principal	31, 32	
+TechHaven	31	The Arks - Progressive HealthCare Buildings - warmer	2	useful	depend d'un autre arbre		30
+TechHaven	32	The Arks - Progressive Infirmary Upgrade - less workers	1	useful	depend d'un autre arbre		30
+TechHaven	33	The Arks - Progressive Bunkhouse	3	progression	arbre principal	34, 35	
+TechHaven	34	The Arks - Progressive Cantinee - warmer	1	useful	depend d'un autre arbre		33
+TechHaven	35	The Arks - Progressive House Upgrade - cheaper	1	useful	depend d'un autre arbre		33
+TechHaven	36	The Arks - Progressive Tier	5	progression	force : paliers		
+TechHaven	79	The Arks - Progressive Automaton Engineers	1	useful	depend d'un autre arbre		13
+REFUGEES	0	Refugees - Progressive SteamHub	3	progression	arbre principal		
+REFUGEES	1	Refugees - Progressive Generator Upgrade - power 1	3	progression	arbre principal	2, 4	
+REFUGEES	2	Refugees - Progressive Generator Upgrade - less coal	2	useful	depend d'un autre arbre		1
+REFUGEES	3	Refugees - Progressive Generator Upgrade - range 1	3	progression	arbre principal		
+REFUGEES	4	Refugees - Progressive Generator Overdrive 1	2	useful	depend d'un autre arbre		1
+REFUGEES	5	Refugees - Progressive Boilers	3	progression	arbre principal	6	
+REFUGEES	6	Refugees - Progressive Boiler Upgrade - less coal	1	useful	depend d'un autre arbre		5
+REFUGEES	7	Refugees - Progressive Beacon	1	progression	force : eclaireurs	8, 9	
+REFUGEES	8	Refugees - Progressive ExpeditionCenter	2	useful	depend d'un autre arbre		7
+REFUGEES	9	Refugees - Progressive ScoutsLimit	2	useful	depend d'un autre arbre	10	7
+REFUGEES	10	Refugees - Progressive ScoutsSpeed	2	useful	depend d'un autre arbre		9
+REFUGEES	11	Refugees - Progressive Factory	3	progression	arbre principal	12, 13	
+REFUGEES	12	Refugees - Progressive Cheaper Augmentation Parts	2	useful	depend d'un autre arbre		11
+REFUGEES	13	Refugees - Progressive Automaton Efficiency	3	useful	depend d'un autre arbre	14, 79	11
+REFUGEES	14	Refugees - Progressive Automaton Medical	2	useful	depend d'un autre arbre		13
+REFUGEES	15	Refugees - Progressive Gathering Upgrade	3	progression	arbre principal	16, 17	
+REFUGEES	16	Refugees - Progressive ResourceDepotUpgrade	2	useful	depend d'un autre arbre		15
+REFUGEES	17	Refugees - Progressive Gathering upgrade 2	1	useful	depend d'un autre arbre		15
+REFUGEES	18	Refugees - Progressive CoalThumper	3	progression	arbre principal		
+REFUGEES	19	Refugees - Progressive Coal Mine	3	progression	arbre principal	20	
+REFUGEES	20	Refugees - Progressive Coal mine upgrade 1	2	useful	depend d'un autre arbre		19
+REFUGEES	21	Refugees - Progressive CharcoalKiln	3	progression	arbre principal		
+REFUGEES	22	Refugees - Progressive Sawmill	2	progression	arbre principal	23	
+REFUGEES	23	Refugees - Progressive Sawmill Upgrade	2	useful	depend d'un autre arbre		22
+REFUGEES	24	Refugees - Progressive WallDrill	3	progression	arbre principal		
+REFUGEES	25	Refugees - Progressive Steel Mine	3	progression	arbre principal		
+REFUGEES	26	Refugees - Progressive Plantation	3	progression	arbre principal	27	
+REFUGEES	27	Refugees - Progressive Plantation Insulation	2	useful	depend d'un autre arbre		26
+REFUGEES	28	Refugees - Progressive HuntersUpgrade	3	progression	arbre principal	29	
+REFUGEES	29	Refugees - Progressive Hunters Upgrade - less workers	1	useful	depend d'un autre arbre		28
+REFUGEES	30	Refugees - Progressive MedPost Upgrade	3	progression	arbre principal	31, 32	
+REFUGEES	31	Refugees - Progressive HealthCare Buildings - warmer	2	useful	depend d'un autre arbre		30
+REFUGEES	32	Refugees - Progressive Infirmary Upgrade - less workers	1	useful	depend d'un autre arbre		30
+REFUGEES	33	Refugees - Progressive Bunkhouse	3	progression	arbre principal	34, 35	
+REFUGEES	34	Refugees - Progressive Cantinee - warmer	1	useful	depend d'un autre arbre		33
+REFUGEES	35	Refugees - Progressive House Upgrade - cheaper	1	useful	depend d'un autre arbre		33
+REFUGEES	36	Refugees - Progressive Tier	5	progression	force : paliers		
+REFUGEES	79	Refugees - Progressive Automaton Engineers	1	useful	depend d'un autre arbre		13
+WINTERHOME	0	Fall of Winterhome - Progressive Steamhub Upgrade - range	2	progression	arbre principal		
+WINTERHOME	1	Fall of Winterhome - Progressive Generator Upgrade - power 3	1	progression	arbre principal		
+WINTERHOME	2	Fall of Winterhome - Progressive Generator Upgrade - less coal	2	progression	arbre principal		
+WINTERHOME	3	Fall of Winterhome - Progressive Generator Upgrade - range 3	1	progression	arbre principal		
+WINTERHOME	4	Fall of Winterhome - Progressive Generator Overdrive 1	2	progression	arbre principal		
+WINTERHOME	5	Fall of Winterhome - Progressive Boiler Upgrade	2	progression	arbre principal	6	
+WINTERHOME	6	Fall of Winterhome - Progressive Boiler Upgrade - less coal	1	useful	depend d'un autre arbre		5
+WINTERHOME	8	Fall of Winterhome - Progressive ExpeditionUpgradeWinterhome	1	progression	arbre principal		
+WINTERHOME	9	Fall of Winterhome - Progressive ScoutsLimit	2	progression	arbre principal	10	
+WINTERHOME	10	Fall of Winterhome - Progressive ScoutsSpeed	2	useful	depend d'un autre arbre		9
+WINTERHOME	11	Fall of Winterhome - Progressive Factory	3	progression	arbre principal	12, 13	
+WINTERHOME	12	Fall of Winterhome - Progressive Cheaper Augmentation Parts	2	useful	depend d'un autre arbre		11
+WINTERHOME	13	Fall of Winterhome - Progressive Automaton Efficiency	3	useful	depend d'un autre arbre	14, 79	11
+WINTERHOME	14	Fall of Winterhome - Progressive Automaton Medical	2	useful	depend d'un autre arbre		13
+WINTERHOME	15	Fall of Winterhome - Progressive Gathering Upgrade	3	progression	arbre principal	16, 17	
+WINTERHOME	16	Fall of Winterhome - Progressive ResourceDepotUpgrade	2	useful	depend d'un autre arbre		15
+WINTERHOME	17	Fall of Winterhome - Progressive Gathering upgrade 2	1	useful	depend d'un autre arbre		15
+WINTERHOME	18	Fall of Winterhome - Progressive SteamCoalThumper	2	progression	arbre principal		
+WINTERHOME	19	Fall of Winterhome - Progressive Steam Coal Mine	2	progression	arbre principal		
+WINTERHOME	20	Fall of Winterhome - Progressive Coal mine upgrade 1	2	progression	arbre principal		
+WINTERHOME	21	Fall of Winterhome - Progressive Kiln upgrade	2	progression	arbre principal		
+WINTERHOME	22	Fall of Winterhome - Progressive Steam Sawmill	1	progression	arbre principal		
+WINTERHOME	23	Fall of Winterhome - Progressive Sawmill Upgrade	2	progression	arbre principal		
+WINTERHOME	24	Fall of Winterhome - Progressive Steam WallDrill	2	progression	arbre principal		
+WINTERHOME	25	Fall of Winterhome - Progressive Steam Steel Mine	2	progression	arbre principal		
+WINTERHOME	26	Fall of Winterhome - Progressive Steam Plantation	2	progression	arbre principal		
+WINTERHOME	27	Fall of Winterhome - Progressive Plantation Insulation	2	progression	arbre principal		
+WINTERHOME	28	Fall of Winterhome - Progressive Flying Hunters	2	progression	arbre principal		
+WINTERHOME	29	Fall of Winterhome - Progressive Hunters Upgrade - less workers	1	progression	arbre principal		
+WINTERHOME	30	Fall of Winterhome - Progressive MedPost Upgrade	3	progression	arbre principal	31, 32	
+WINTERHOME	31	Fall of Winterhome - Progressive HealthCare Buildings - warmer	2	useful	depend d'un autre arbre		30
+WINTERHOME	32	Fall of Winterhome - Progressive Infirmary Upgrade - less workers	1	useful	depend d'un autre arbre		30
+WINTERHOME	33	Fall of Winterhome - Progressive House Insulation	1	progression	arbre principal		
+WINTERHOME	34	Fall of Winterhome - Progressive Cantinee - warmer	1	progression	arbre principal		
+WINTERHOME	35	Fall of Winterhome - Progressive House Upgrade - cheaper	1	progression	arbre principal		
+WINTERHOME	36	Fall of Winterhome - Progressive Tier	2	progression	force : paliers		
+WINTERHOME	37	Fall of Winterhome - Progressive E RepairStation	4	progression	arbre principal	38, 39	
+WINTERHOME	38	Fall of Winterhome - Progressive E RC Ability	2	useful	depend d'un autre arbre		37
+WINTERHOME	39	Fall of Winterhome - Progressive E RC Less workers	1	useful	depend d'un autre arbre		37
+WINTERHOME	79	Fall of Winterhome - Progressive Automaton Engineers	1	useful	depend d'un autre arbre		13
+BUILDERS	36	The Last Autumn - Progressive Tier	5	progression	force : paliers		
+BUILDERS	40	The Last Autumn - Progressive HC Brazier	2	progression	arbre principal	41, 42	
+BUILDERS	41	The Last Autumn - Progressive HC BrazierRange1	1	useful	depend d'un autre arbre		40
+BUILDERS	42	The Last Autumn - Progressive HC BrazierCoalOpt1	2	useful	depend d'un autre arbre		40
+BUILDERS	43	The Last Autumn - Progressive HH Heater	3	progression	arbre principal		
+BUILDERS	44	The Last Autumn - Progressive HI HealthCare Insulation1	2	progression	arbre principal		
+BUILDERS	45	The Last Autumn - Progressive GS ScaffoldingManufacture	3	progression	arbre principal	46	
+BUILDERS	46	The Last Autumn - Progressive GS ProtectiveStructure1	2	useful	depend d'un autre arbre		45
+BUILDERS	47	The Last Autumn - Progressive GM SteelPlateForge	2	progression	arbre principal	48	
+BUILDERS	48	The Last Autumn - Progressive GM ForgeCheaperMaterials	1	useful	depend d'un autre arbre		47
+BUILDERS	49	The Last Autumn - Progressive GG SteamMill	3	progression	arbre principal	50	
+BUILDERS	50	The Last Autumn - Progressive GG Supercharge1	2	useful	depend d'un autre arbre		49
+BUILDERS	51	The Last Autumn - Progressive GF Air Scrubbers1	3	progression	arbre principal	52	
+BUILDERS	52	The Last Autumn - Progressive GF Air ScrubbersOptimalization	2	useful	depend d'un autre arbre		51
+BUILDERS	53	The Last Autumn - Progressive GU GeneratorUpgrade1	3	progression	arbre principal		
+BUILDERS	54	The Last Autumn - Progressive FF Foragers	1	progression	force : eclaireurs	55, 56	
+BUILDERS	55	The Last Autumn - Progressive FF Foragers_+1	2	useful	depend d'un autre arbre		54
+BUILDERS	56	The Last Autumn - Progressive FF ForagersSpeedUpgrade	2	useful	depend d'un autre arbre		54
+BUILDERS	57	The Last Autumn - Progressive FH Fishing Harbor	2	progression	arbre principal	58	
+BUILDERS	58	The Last Autumn - Progressive FH Fishing Harbor_efficiencyBoost	1	useful	depend d'un autre arbre		57
+BUILDERS	59	The Last Autumn - Progressive FM MedPost Upgrade	3	progression	arbre principal	60	
+BUILDERS	60	The Last Autumn - Progressive FM Infirmary Upgrade	1	useful	depend d'un autre arbre		59
+BUILDERS	61	The Last Autumn - Progressive RD Docksv1	3	progression	arbre principal	62, 64	
+BUILDERS	62	The Last Autumn - Progressive RU URS	1	useful	depend d'un autre arbre	63	61
+BUILDERS	63	The Last Autumn - Progressive RU URS_Steam	2	useful	depend d'un autre arbre	81	62
+BUILDERS	64	The Last Autumn - Progressive RD Docks faster reload	1	useful	depend d'un autre arbre		61
+BUILDERS	65	The Last Autumn - Progressive RG Gathering Upgrade	2	progression	arbre principal	66	
+BUILDERS	66	The Last Autumn - Progressive RG ResourceDepotUpgrade	2	useful	depend d'un autre arbre		65
+BUILDERS	67	The Last Autumn - Progressive RW Sawmill	2	progression	arbre principal	68	
+BUILDERS	68	The Last Autumn - Progressive RW Sawmill Upgrade	2	useful	depend d'un autre arbre		67
+BUILDERS	69	The Last Autumn - Progressive RC CharcoalKiln	3	progression	arbre principal		
+BUILDERS	81	The Last Autumn - Progressive RU URS_Advanced	1	useful	depend d'un autre arbre		63
+Reconquest	5	On the Edge - Progressive Boilers	3	progression	arbre principal	6	
+Reconquest	6	On the Edge - Progressive Boiler Upgrade - less coal	1	useful	depend d'un autre arbre		5
+Reconquest	9	On the Edge - Progressive ScoutsLimit	2	progression	arbre principal	10	
+Reconquest	10	On the Edge - Progressive ScoutsSpeed	2	useful	depend d'un autre arbre		9
+Reconquest	11	On the Edge - Progressive Factory	1	progression	arbre principal	12	
+Reconquest	12	On the Edge - Progressive Cheaper Augmentation Parts	2	useful	depend d'un autre arbre		11
+Reconquest	15	On the Edge - Progressive Gathering Upgrade	3	progression	arbre principal	16, 17	
+Reconquest	16	On the Edge - Progressive ResourceDepotUpgrade	2	useful	depend d'un autre arbre		15
+Reconquest	17	On the Edge - Progressive Gathering upgrade 2	1	useful	depend d'un autre arbre		15
+Reconquest	18	On the Edge - Progressive CoalThumper	3	progression	arbre principal		
+Reconquest	19	On the Edge - Progressive Coal Mine	3	progression	arbre principal	20	
+Reconquest	20	On the Edge - Progressive Coal mine upgrade 1	2	useful	depend d'un autre arbre		19
+Reconquest	21	On the Edge - Progressive CharcoalKiln	3	progression	arbre principal		
+Reconquest	22	On the Edge - Progressive Sawmill	2	progression	arbre principal	23	
+Reconquest	23	On the Edge - Progressive Sawmill Upgrade	2	useful	depend d'un autre arbre		22
+Reconquest	30	On the Edge - Progressive MedPost Upgrade	3	progression	arbre principal	31, 32	
+Reconquest	31	On the Edge - Progressive HealthCare Buildings - warmer	2	useful	depend d'un autre arbre		30
+Reconquest	32	On the Edge - Progressive Infirmary Upgrade - less workers	1	useful	depend d'un autre arbre		30
+Reconquest	33	On the Edge - Progressive Bunkhouse	3	progression	arbre principal	34, 35	
+Reconquest	34	On the Edge - Progressive Cantinee - warmer	1	useful	depend d'un autre arbre		33
+Reconquest	35	On the Edge - Progressive House Upgrade - cheaper	1	useful	depend d'un autre arbre		33
+Reconquest	36	On the Edge - Progressive Tier	5	progression	force : paliers		
+Reconquest	70	On the Edge - Progressive HC Brazier	2	progression	arbre principal	71, 72	
+Reconquest	71	On the Edge - Progressive HC BrazierRange	1	useful	depend d'un autre arbre		70
+Reconquest	72	On the Edge - Progressive HC BrazierCoalOpt1	2	useful	depend d'un autre arbre		70
+Reconquest	73	On the Edge - Progressive R VaultEfficiencyBoost	1	progression	arbre principal		
+Reconquest	74	On the Edge - Progressive R VaultUpgrade1	3	progression	arbre principal	75, 76, 77	
+Reconquest	75	On the Edge - Progressive R VaultMultitasking	1	useful	depend d'un autre arbre		74
+Reconquest	76	On the Edge - Progressive R VaultInsulation	1	useful	depend d'un autre arbre		74
+Reconquest	77	On the Edge - Progressive R VaultSteamCoresUpgrade	1	useful	depend d'un autre arbre		74

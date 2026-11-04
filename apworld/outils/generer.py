@@ -372,9 +372,10 @@ def main():
             locations.append(dict(id=ids("loc_techno", scn + "|" + t["hash"]), nom=nom, scn=scn,
                                   region=region, genre="techno", tiers=tiers, eclaireurs=False,
                                   exclue_option=False, cle=t["hash"]))
-        # Classification des arbres (outils\technos_classification.tsv, validee
-        # le 2026-11-03) : progression = parent d'un autre arbre, Tier,
-        # eclaireurs ; sinon useful ("important" en jeu).
+        # Classification des arbres (outils\technos_classification.tsv, regle
+        # de l'auteur du 2026-11-04) : progression = arbre principal (ne depend
+        # d'aucun autre arbre), Tier, eclaireurs ; useful = depend d'un autre
+        # arbre ("important" en jeu).
         noms_items_arbres = {}
         for a, lst in sorted(arbres.items()):
             # "Progressive <arbre>" sans "Tree" (decision de l'auteur, 2026-11-04 ;

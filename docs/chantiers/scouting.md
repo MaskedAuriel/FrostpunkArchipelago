@@ -47,3 +47,24 @@
   0,25 h si plus longue. Log `[EXP] debug : trajet X h -> 0.25 h`.
   **`EXPEDITIONS_RAPIDES = true` à remettre à false hors debug.** Inconnu :
   le temps d'exploration sur le site (hors trajet) n'est pas touché.
+
+### 2026-11-04 — Tests grandeur nature : survivants trouvés dans un site AP
+
+- **Problème remonté** : au premier site d'A New Home exploré, des
+  survivants. Règle de l'auteur : un site, quel que soit le scénario, ne
+  contient **que** le check Archipelago.
+- **Cause** : `SurveillerSites` ne remplaçait que les ressources du
+  composant (`+0x48`, porteur AP). Le reste du contenu tiré à la génération
+  restait : `+0x60` BonusResources, `+0x78` Technologies, `+0x90` Artifacts,
+  `+0xA8` OutsiderSurvivors (relevé de `sites_contenu.cpp`).
+- **Correctif (compilé, déployé, non testé)** : pour chaque site AP, compte
+  de ces quatre tableaux remis à 0 dès qu'il est non nul (tableau laissé au
+  moteur) ; journal `[SITE] <site> : <quoi> retire(s) (n entree(s))`. Le
+  gabarit n'est pas touché (ses survivants servent de modèle aux groupes AP).
+- Non couverts : choix des **dilemmes d'exploration** (`+0x3D0` du gabarit)
+  et **effets instantanés** (`+0x3E8`), qui peuvent aussi donner des
+  ressources ou des survivants.
+- **Décision de l'auteur (même jour)** : dilemmes d'exploration et effets
+  instantanés **laissés vanilla**. D'après le relevé du 2026-11-03
+  (`sites.md`), ils ne donnent ni ressources ni survivants ; seul
+  « 63. Convoy in Distress » retire des ressources (gardé tel quel).

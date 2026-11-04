@@ -5,11 +5,12 @@
 #   outils\technos_classification.tsv   table pour l'apworld
 #   docs\chantiers\technos.md           tableau lisible (entre les marqueurs)
 #
-# Regle (decisions de l'auteur, 2026-11-03) :
-#   - un arbre est "progression" si une de ses technos est le PARENT d'une
-#     techno d'un AUTRE arbre du meme scenario (d'autres arbres dependent de
-#     lui) ; sinon "useful" (ex. : Coal Mine progression, Coal mine upgrade 1
-#     useful) ;
+# Regle (decision de l'auteur, 2026-11-04, remplace celle du 2026-11-03 qui
+# etait inversee) :
+#   - un arbre PRINCIPAL (aucune de ses technos n'a son parent dans un AUTRE
+#     arbre du meme scenario) est "progression" ; un arbre qui DEPEND d'un
+#     autre arbre est "useful" (ex. : Coal Mine et CoalThumper progression,
+#     Coal mine upgrade 1 useful) ;
 #   - par scenario : un parent qui est une techno de depart ne compte pas
 #     (il n'est pas dans la table) ;
 #   - la condition d'affichage (deblocage par l'histoire) ne compte pas ;
@@ -64,12 +65,12 @@ def classer(technos):
                 classe, raison = "progression", "force : paliers"
             elif ARBRE_ECLAIREURS.get(scn) == a:
                 classe, raison = "progression", "force : eclaireurs"
-            elif enfants:
-                classe, raison = "progression", "parent d'un autre arbre"
+            elif not parents:
+                classe, raison = "progression", "arbre principal"
             else:
-                classe, raison = "useful", "aucun arbre ne depend de lui"
+                classe, raison = "useful", "depend d'un autre arbre"
             resultat.append(dict(scn=scn, affiche=affiche, arbre=a, nom=nom,
-                                 item="%s - Progressive Tree %s" % (affiche, nom), nombre=len(membres),
+                                 item="%s - Progressive %s" % (affiche, nom), nombre=len(membres),
                                  classe=classe, raison=raison, enfants=enfants, parents=parents,
                                  noms={x: ("Tier" if x == ARBRE_PALIERS else min(arbres[x], key=lambda t: int(t["rang"]))["nom court"])
                                        for x in enfants + parents}))
@@ -88,8 +89,8 @@ def ecrire_tsv(res):
 def ecrire_doc(res):
     md = [DEBUT_DOC, ""]
     md.append("Table générée par `outils\\technos_classification.py` depuis `technos_table.tsv`. "
-              "**progression** = un autre arbre du scénario dépend de lui (parent d'une de ses technos), "
-              "ou forcé (Tier, éclaireurs) ; **useful** = « important » côté mod. "
+              "**progression** = arbre principal (aucune de ses technos n'a son parent dans un autre arbre), "
+              "ou forcé (Tier, éclaireurs) ; **useful** = dépend d'un autre arbre (règle du 2026-11-04). "
               "Parent de départ et condition d'affichage ne comptent pas.")
     md.append("")
     for scn, affiche in SCENARIOS:

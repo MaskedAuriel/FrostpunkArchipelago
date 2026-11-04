@@ -671,250 +671,250 @@ Technos de départ (exclues) : E 1_Beacon, [Reconquest] E 1_Transport Depot.
 
 <!-- CLASSIFICATION ARBRES (generee par outils/technos_classification.py) -->
 
-Table générée par `outils\technos_classification.py` depuis `technos_table.tsv`. **progression** = un autre arbre du scénario dépend de lui (parent d'une de ses technos), ou forcé (Tier, éclaireurs) ; **useful** = « important » côté mod. Parent de départ et condition d'affichage ne comptent pas.
+Table générée par `outils\technos_classification.py` depuis `technos_table.tsv`. **progression** = arbre principal (aucune de ses technos n'a son parent dans un autre arbre), ou forcé (Tier, éclaireurs) ; **useful** = dépend d'un autre arbre (règle du 2026-11-04). Parent de départ et condition d'affichage ne comptent pas.
 
-### A New Home (`DEFAULT`) — 39 arbres : 14 progression, 25 useful
+### A New Home (`DEFAULT`) — 39 arbres : 19 progression, 20 useful
 
 | Arbre | Item | Technos | Classification | Raison | Arbres enfants | Arbres parents |
 |---:|---|---:|---|---|---|---|
-| 0 | SteamHub | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 1 | Generator Upgrade - power 1 | 3 | **progression** | parent d'un autre arbre | 2 Generator Upgrade - less coal, 4 Generator Overdrive 1 |  |
-| 2 | Generator Upgrade - less coal | 2 | useful | aucun arbre ne depend de lui |  | 1 Generator Upgrade - power 1 |
-| 3 | Generator Upgrade - range 1 | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 4 | Generator Overdrive 1 | 2 | useful | aucun arbre ne depend de lui |  | 1 Generator Upgrade - power 1 |
-| 5 | Boilers | 3 | **progression** | parent d'un autre arbre | 6 Boiler Upgrade - less coal |  |
-| 6 | Boiler Upgrade - less coal | 1 | useful | aucun arbre ne depend de lui |  | 5 Boilers |
+| 0 | SteamHub | 3 | **progression** | arbre principal |  |  |
+| 1 | Generator Upgrade - power 1 | 3 | **progression** | arbre principal | 2 Generator Upgrade - less coal, 4 Generator Overdrive 1 |  |
+| 2 | Generator Upgrade - less coal | 2 | useful | depend d'un autre arbre |  | 1 Generator Upgrade - power 1 |
+| 3 | Generator Upgrade - range 1 | 3 | **progression** | arbre principal |  |  |
+| 4 | Generator Overdrive 1 | 2 | useful | depend d'un autre arbre |  | 1 Generator Upgrade - power 1 |
+| 5 | Boilers | 3 | **progression** | arbre principal | 6 Boiler Upgrade - less coal |  |
+| 6 | Boiler Upgrade - less coal | 1 | useful | depend d'un autre arbre |  | 5 Boilers |
 | 7 | Beacon | 1 | **progression** | force : eclaireurs | 8 ExpeditionCenter, 9 ScoutsLimit |  |
-| 8 | ExpeditionCenter | 2 | useful | aucun arbre ne depend de lui |  | 7 Beacon |
-| 9 | ScoutsLimit | 2 | **progression** | parent d'un autre arbre | 10 ScoutsSpeed | 7 Beacon |
-| 10 | ScoutsSpeed | 2 | useful | aucun arbre ne depend de lui |  | 9 ScoutsLimit |
-| 11 | Factory | 3 | **progression** | parent d'un autre arbre | 12 Cheaper Augmentation Parts, 13 Automaton Efficiency |  |
-| 12 | Cheaper Augmentation Parts | 2 | useful | aucun arbre ne depend de lui |  | 11 Factory |
-| 13 | Automaton Efficiency | 3 | **progression** | parent d'un autre arbre | 14 Automaton Medical, 79 Automaton Engineers | 11 Factory |
-| 14 | Automaton Medical | 2 | useful | aucun arbre ne depend de lui |  | 13 Automaton Efficiency |
-| 15 | Gathering Upgrade | 3 | **progression** | parent d'un autre arbre | 16 ResourceDepotUpgrade, 17 Gathering upgrade 2 |  |
-| 16 | ResourceDepotUpgrade | 2 | useful | aucun arbre ne depend de lui |  | 15 Gathering Upgrade |
-| 17 | Gathering upgrade 2 | 1 | useful | aucun arbre ne depend de lui |  | 15 Gathering Upgrade |
-| 18 | CoalThumper | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 19 | Coal Mine | 3 | **progression** | parent d'un autre arbre | 20 Coal mine upgrade 1 |  |
-| 20 | Coal mine upgrade 1 | 2 | useful | aucun arbre ne depend de lui |  | 19 Coal Mine |
-| 21 | CharcoalKiln | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 22 | Sawmill | 2 | **progression** | parent d'un autre arbre | 23 Sawmill Upgrade |  |
-| 23 | Sawmill Upgrade | 2 | useful | aucun arbre ne depend de lui |  | 22 Sawmill |
-| 24 | WallDrill | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 25 | Steel Mine | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 26 | Plantation | 3 | **progression** | parent d'un autre arbre | 27 Plantation Insulation |  |
-| 27 | Plantation Insulation | 2 | useful | aucun arbre ne depend de lui |  | 26 Plantation |
-| 28 | HuntersUpgrade | 3 | **progression** | parent d'un autre arbre | 29 Hunters Upgrade - less workers |  |
-| 29 | Hunters Upgrade - less workers | 1 | useful | aucun arbre ne depend de lui |  | 28 HuntersUpgrade |
-| 30 | MedPost Upgrade | 3 | **progression** | parent d'un autre arbre | 31 HealthCare Buildings - warmer, 32 Infirmary Upgrade - less workers |  |
-| 31 | HealthCare Buildings - warmer | 2 | useful | aucun arbre ne depend de lui |  | 30 MedPost Upgrade |
-| 32 | Infirmary Upgrade - less workers | 1 | useful | aucun arbre ne depend de lui |  | 30 MedPost Upgrade |
-| 33 | Bunkhouse | 3 | **progression** | parent d'un autre arbre | 34 Cantinee - warmer, 35 House Upgrade - cheaper |  |
-| 34 | Cantinee - warmer | 1 | useful | aucun arbre ne depend de lui |  | 33 Bunkhouse |
-| 35 | House Upgrade - cheaper | 1 | useful | aucun arbre ne depend de lui |  | 33 Bunkhouse |
+| 8 | ExpeditionCenter | 2 | useful | depend d'un autre arbre |  | 7 Beacon |
+| 9 | ScoutsLimit | 2 | useful | depend d'un autre arbre | 10 ScoutsSpeed | 7 Beacon |
+| 10 | ScoutsSpeed | 2 | useful | depend d'un autre arbre |  | 9 ScoutsLimit |
+| 11 | Factory | 3 | **progression** | arbre principal | 12 Cheaper Augmentation Parts, 13 Automaton Efficiency |  |
+| 12 | Cheaper Augmentation Parts | 2 | useful | depend d'un autre arbre |  | 11 Factory |
+| 13 | Automaton Efficiency | 3 | useful | depend d'un autre arbre | 14 Automaton Medical, 79 Automaton Engineers | 11 Factory |
+| 14 | Automaton Medical | 2 | useful | depend d'un autre arbre |  | 13 Automaton Efficiency |
+| 15 | Gathering Upgrade | 3 | **progression** | arbre principal | 16 ResourceDepotUpgrade, 17 Gathering upgrade 2 |  |
+| 16 | ResourceDepotUpgrade | 2 | useful | depend d'un autre arbre |  | 15 Gathering Upgrade |
+| 17 | Gathering upgrade 2 | 1 | useful | depend d'un autre arbre |  | 15 Gathering Upgrade |
+| 18 | CoalThumper | 3 | **progression** | arbre principal |  |  |
+| 19 | Coal Mine | 3 | **progression** | arbre principal | 20 Coal mine upgrade 1 |  |
+| 20 | Coal mine upgrade 1 | 2 | useful | depend d'un autre arbre |  | 19 Coal Mine |
+| 21 | CharcoalKiln | 3 | **progression** | arbre principal |  |  |
+| 22 | Sawmill | 2 | **progression** | arbre principal | 23 Sawmill Upgrade |  |
+| 23 | Sawmill Upgrade | 2 | useful | depend d'un autre arbre |  | 22 Sawmill |
+| 24 | WallDrill | 3 | **progression** | arbre principal |  |  |
+| 25 | Steel Mine | 3 | **progression** | arbre principal |  |  |
+| 26 | Plantation | 3 | **progression** | arbre principal | 27 Plantation Insulation |  |
+| 27 | Plantation Insulation | 2 | useful | depend d'un autre arbre |  | 26 Plantation |
+| 28 | HuntersUpgrade | 3 | **progression** | arbre principal | 29 Hunters Upgrade - less workers |  |
+| 29 | Hunters Upgrade - less workers | 1 | useful | depend d'un autre arbre |  | 28 HuntersUpgrade |
+| 30 | MedPost Upgrade | 3 | **progression** | arbre principal | 31 HealthCare Buildings - warmer, 32 Infirmary Upgrade - less workers |  |
+| 31 | HealthCare Buildings - warmer | 2 | useful | depend d'un autre arbre |  | 30 MedPost Upgrade |
+| 32 | Infirmary Upgrade - less workers | 1 | useful | depend d'un autre arbre |  | 30 MedPost Upgrade |
+| 33 | Bunkhouse | 3 | **progression** | arbre principal | 34 Cantinee - warmer, 35 House Upgrade - cheaper |  |
+| 34 | Cantinee - warmer | 1 | useful | depend d'un autre arbre |  | 33 Bunkhouse |
+| 35 | House Upgrade - cheaper | 1 | useful | depend d'un autre arbre |  | 33 Bunkhouse |
 | 36 | Tier | 5 | **progression** | force : paliers |  |  |
-| 79 | Automaton Engineers | 1 | useful | aucun arbre ne depend de lui |  | 13 Automaton Efficiency |
-| 80 | Storm_research | 1 | useful | aucun arbre ne depend de lui |  |  |
+| 79 | Automaton Engineers | 1 | useful | depend d'un autre arbre |  | 13 Automaton Efficiency |
+| 80 | Storm_research | 1 | **progression** | arbre principal |  |  |
 
-### The Arks (`TechHaven`) — 35 arbres : 13 progression, 22 useful
+### The Arks (`TechHaven`) — 35 arbres : 17 progression, 18 useful
 
 | Arbre | Item | Technos | Classification | Raison | Arbres enfants | Arbres parents |
 |---:|---|---:|---|---|---|---|
-| 0 | SteamHub | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 1 | Generator Upgrade - power 1 | 3 | **progression** | parent d'un autre arbre | 2 Generator Upgrade - less coal, 4 Generator Overdrive 1 |  |
-| 2 | Generator Upgrade - less coal | 2 | useful | aucun arbre ne depend de lui |  | 1 Generator Upgrade - power 1 |
-| 3 | Generator Upgrade - range 1 | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 4 | Generator Overdrive 1 | 2 | useful | aucun arbre ne depend de lui |  | 1 Generator Upgrade - power 1 |
-| 5 | Boilers | 3 | **progression** | parent d'un autre arbre | 6 Boiler Upgrade - less coal |  |
-| 6 | Boiler Upgrade - less coal | 1 | useful | aucun arbre ne depend de lui |  | 5 Boilers |
+| 0 | SteamHub | 3 | **progression** | arbre principal |  |  |
+| 1 | Generator Upgrade - power 1 | 3 | **progression** | arbre principal | 2 Generator Upgrade - less coal, 4 Generator Overdrive 1 |  |
+| 2 | Generator Upgrade - less coal | 2 | useful | depend d'un autre arbre |  | 1 Generator Upgrade - power 1 |
+| 3 | Generator Upgrade - range 1 | 3 | **progression** | arbre principal |  |  |
+| 4 | Generator Overdrive 1 | 2 | useful | depend d'un autre arbre |  | 1 Generator Upgrade - power 1 |
+| 5 | Boilers | 3 | **progression** | arbre principal | 6 Boiler Upgrade - less coal |  |
+| 6 | Boiler Upgrade - less coal | 1 | useful | depend d'un autre arbre |  | 5 Boilers |
 | 7 | Beacon | 2 | **progression** | force : eclaireurs | 9 ScoutsLimit |  |
-| 9 | ScoutsLimit | 2 | **progression** | parent d'un autre arbre | 10 ScoutsSpeed | 7 Beacon |
-| 10 | ScoutsSpeed | 2 | useful | aucun arbre ne depend de lui |  | 9 ScoutsLimit |
-| 11 | Factory | 3 | **progression** | parent d'un autre arbre | 12 Cheaper Augmentation Parts, 13 Automaton Efficiency |  |
-| 12 | Cheaper Augmentation Parts | 2 | useful | aucun arbre ne depend de lui |  | 11 Factory |
-| 13 | Automaton Efficiency | 3 | **progression** | parent d'un autre arbre | 14 Automaton Medical, 79 Automaton Engineers | 11 Factory |
-| 14 | Automaton Medical | 2 | useful | aucun arbre ne depend de lui |  | 13 Automaton Efficiency |
-| 15 | Gathering Upgrade | 3 | **progression** | parent d'un autre arbre | 16 ResourceDepotUpgrade, 17 Gathering upgrade 2 |  |
-| 16 | ResourceDepotUpgrade | 2 | useful | aucun arbre ne depend de lui |  | 15 Gathering Upgrade |
-| 17 | Gathering upgrade 2 | 1 | useful | aucun arbre ne depend de lui |  | 15 Gathering Upgrade |
-| 18 | CoalThumper | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 19 | Coal Mine | 3 | **progression** | parent d'un autre arbre | 20 Coal mine upgrade 1 |  |
-| 20 | Coal mine upgrade 1 | 2 | useful | aucun arbre ne depend de lui |  | 19 Coal Mine |
-| 21 | CharcoalKiln | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 22 | Sawmill | 2 | **progression** | parent d'un autre arbre | 23 Sawmill Upgrade |  |
-| 23 | Sawmill Upgrade | 2 | useful | aucun arbre ne depend de lui |  | 22 Sawmill |
-| 24 | WallDrill | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 25 | Steel Mine | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 26 | Plantation | 3 | **progression** | parent d'un autre arbre | 27 Plantation Insulation |  |
-| 27 | Plantation Insulation | 2 | useful | aucun arbre ne depend de lui |  | 26 Plantation |
-| 30 | MedPost Upgrade | 3 | **progression** | parent d'un autre arbre | 31 HealthCare Buildings - warmer, 32 Infirmary Upgrade - less workers |  |
-| 31 | HealthCare Buildings - warmer | 2 | useful | aucun arbre ne depend de lui |  | 30 MedPost Upgrade |
-| 32 | Infirmary Upgrade - less workers | 1 | useful | aucun arbre ne depend de lui |  | 30 MedPost Upgrade |
-| 33 | Bunkhouse | 3 | **progression** | parent d'un autre arbre | 34 Cantinee - warmer, 35 House Upgrade - cheaper |  |
-| 34 | Cantinee - warmer | 1 | useful | aucun arbre ne depend de lui |  | 33 Bunkhouse |
-| 35 | House Upgrade - cheaper | 1 | useful | aucun arbre ne depend de lui |  | 33 Bunkhouse |
+| 9 | ScoutsLimit | 2 | useful | depend d'un autre arbre | 10 ScoutsSpeed | 7 Beacon |
+| 10 | ScoutsSpeed | 2 | useful | depend d'un autre arbre |  | 9 ScoutsLimit |
+| 11 | Factory | 3 | **progression** | arbre principal | 12 Cheaper Augmentation Parts, 13 Automaton Efficiency |  |
+| 12 | Cheaper Augmentation Parts | 2 | useful | depend d'un autre arbre |  | 11 Factory |
+| 13 | Automaton Efficiency | 3 | useful | depend d'un autre arbre | 14 Automaton Medical, 79 Automaton Engineers | 11 Factory |
+| 14 | Automaton Medical | 2 | useful | depend d'un autre arbre |  | 13 Automaton Efficiency |
+| 15 | Gathering Upgrade | 3 | **progression** | arbre principal | 16 ResourceDepotUpgrade, 17 Gathering upgrade 2 |  |
+| 16 | ResourceDepotUpgrade | 2 | useful | depend d'un autre arbre |  | 15 Gathering Upgrade |
+| 17 | Gathering upgrade 2 | 1 | useful | depend d'un autre arbre |  | 15 Gathering Upgrade |
+| 18 | CoalThumper | 3 | **progression** | arbre principal |  |  |
+| 19 | Coal Mine | 3 | **progression** | arbre principal | 20 Coal mine upgrade 1 |  |
+| 20 | Coal mine upgrade 1 | 2 | useful | depend d'un autre arbre |  | 19 Coal Mine |
+| 21 | CharcoalKiln | 3 | **progression** | arbre principal |  |  |
+| 22 | Sawmill | 2 | **progression** | arbre principal | 23 Sawmill Upgrade |  |
+| 23 | Sawmill Upgrade | 2 | useful | depend d'un autre arbre |  | 22 Sawmill |
+| 24 | WallDrill | 3 | **progression** | arbre principal |  |  |
+| 25 | Steel Mine | 3 | **progression** | arbre principal |  |  |
+| 26 | Plantation | 3 | **progression** | arbre principal | 27 Plantation Insulation |  |
+| 27 | Plantation Insulation | 2 | useful | depend d'un autre arbre |  | 26 Plantation |
+| 30 | MedPost Upgrade | 3 | **progression** | arbre principal | 31 HealthCare Buildings - warmer, 32 Infirmary Upgrade - less workers |  |
+| 31 | HealthCare Buildings - warmer | 2 | useful | depend d'un autre arbre |  | 30 MedPost Upgrade |
+| 32 | Infirmary Upgrade - less workers | 1 | useful | depend d'un autre arbre |  | 30 MedPost Upgrade |
+| 33 | Bunkhouse | 3 | **progression** | arbre principal | 34 Cantinee - warmer, 35 House Upgrade - cheaper |  |
+| 34 | Cantinee - warmer | 1 | useful | depend d'un autre arbre |  | 33 Bunkhouse |
+| 35 | House Upgrade - cheaper | 1 | useful | depend d'un autre arbre |  | 33 Bunkhouse |
 | 36 | Tier | 5 | **progression** | force : paliers |  |  |
-| 79 | Automaton Engineers | 1 | useful | aucun arbre ne depend de lui |  | 13 Automaton Efficiency |
+| 79 | Automaton Engineers | 1 | useful | depend d'un autre arbre |  | 13 Automaton Efficiency |
 
-### Refugees (`REFUGEES`) — 38 arbres : 14 progression, 24 useful
+### Refugees (`REFUGEES`) — 38 arbres : 18 progression, 20 useful
 
 | Arbre | Item | Technos | Classification | Raison | Arbres enfants | Arbres parents |
 |---:|---|---:|---|---|---|---|
-| 0 | SteamHub | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 1 | Generator Upgrade - power 1 | 3 | **progression** | parent d'un autre arbre | 2 Generator Upgrade - less coal, 4 Generator Overdrive 1 |  |
-| 2 | Generator Upgrade - less coal | 2 | useful | aucun arbre ne depend de lui |  | 1 Generator Upgrade - power 1 |
-| 3 | Generator Upgrade - range 1 | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 4 | Generator Overdrive 1 | 2 | useful | aucun arbre ne depend de lui |  | 1 Generator Upgrade - power 1 |
-| 5 | Boilers | 3 | **progression** | parent d'un autre arbre | 6 Boiler Upgrade - less coal |  |
-| 6 | Boiler Upgrade - less coal | 1 | useful | aucun arbre ne depend de lui |  | 5 Boilers |
+| 0 | SteamHub | 3 | **progression** | arbre principal |  |  |
+| 1 | Generator Upgrade - power 1 | 3 | **progression** | arbre principal | 2 Generator Upgrade - less coal, 4 Generator Overdrive 1 |  |
+| 2 | Generator Upgrade - less coal | 2 | useful | depend d'un autre arbre |  | 1 Generator Upgrade - power 1 |
+| 3 | Generator Upgrade - range 1 | 3 | **progression** | arbre principal |  |  |
+| 4 | Generator Overdrive 1 | 2 | useful | depend d'un autre arbre |  | 1 Generator Upgrade - power 1 |
+| 5 | Boilers | 3 | **progression** | arbre principal | 6 Boiler Upgrade - less coal |  |
+| 6 | Boiler Upgrade - less coal | 1 | useful | depend d'un autre arbre |  | 5 Boilers |
 | 7 | Beacon | 1 | **progression** | force : eclaireurs | 8 ExpeditionCenter, 9 ScoutsLimit |  |
-| 8 | ExpeditionCenter | 2 | useful | aucun arbre ne depend de lui |  | 7 Beacon |
-| 9 | ScoutsLimit | 2 | **progression** | parent d'un autre arbre | 10 ScoutsSpeed | 7 Beacon |
-| 10 | ScoutsSpeed | 2 | useful | aucun arbre ne depend de lui |  | 9 ScoutsLimit |
-| 11 | Factory | 3 | **progression** | parent d'un autre arbre | 12 Cheaper Augmentation Parts, 13 Automaton Efficiency |  |
-| 12 | Cheaper Augmentation Parts | 2 | useful | aucun arbre ne depend de lui |  | 11 Factory |
-| 13 | Automaton Efficiency | 3 | **progression** | parent d'un autre arbre | 14 Automaton Medical, 79 Automaton Engineers | 11 Factory |
-| 14 | Automaton Medical | 2 | useful | aucun arbre ne depend de lui |  | 13 Automaton Efficiency |
-| 15 | Gathering Upgrade | 3 | **progression** | parent d'un autre arbre | 16 ResourceDepotUpgrade, 17 Gathering upgrade 2 |  |
-| 16 | ResourceDepotUpgrade | 2 | useful | aucun arbre ne depend de lui |  | 15 Gathering Upgrade |
-| 17 | Gathering upgrade 2 | 1 | useful | aucun arbre ne depend de lui |  | 15 Gathering Upgrade |
-| 18 | CoalThumper | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 19 | Coal Mine | 3 | **progression** | parent d'un autre arbre | 20 Coal mine upgrade 1 |  |
-| 20 | Coal mine upgrade 1 | 2 | useful | aucun arbre ne depend de lui |  | 19 Coal Mine |
-| 21 | CharcoalKiln | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 22 | Sawmill | 2 | **progression** | parent d'un autre arbre | 23 Sawmill Upgrade |  |
-| 23 | Sawmill Upgrade | 2 | useful | aucun arbre ne depend de lui |  | 22 Sawmill |
-| 24 | WallDrill | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 25 | Steel Mine | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 26 | Plantation | 3 | **progression** | parent d'un autre arbre | 27 Plantation Insulation |  |
-| 27 | Plantation Insulation | 2 | useful | aucun arbre ne depend de lui |  | 26 Plantation |
-| 28 | HuntersUpgrade | 3 | **progression** | parent d'un autre arbre | 29 Hunters Upgrade - less workers |  |
-| 29 | Hunters Upgrade - less workers | 1 | useful | aucun arbre ne depend de lui |  | 28 HuntersUpgrade |
-| 30 | MedPost Upgrade | 3 | **progression** | parent d'un autre arbre | 31 HealthCare Buildings - warmer, 32 Infirmary Upgrade - less workers |  |
-| 31 | HealthCare Buildings - warmer | 2 | useful | aucun arbre ne depend de lui |  | 30 MedPost Upgrade |
-| 32 | Infirmary Upgrade - less workers | 1 | useful | aucun arbre ne depend de lui |  | 30 MedPost Upgrade |
-| 33 | Bunkhouse | 3 | **progression** | parent d'un autre arbre | 34 Cantinee - warmer, 35 House Upgrade - cheaper |  |
-| 34 | Cantinee - warmer | 1 | useful | aucun arbre ne depend de lui |  | 33 Bunkhouse |
-| 35 | House Upgrade - cheaper | 1 | useful | aucun arbre ne depend de lui |  | 33 Bunkhouse |
+| 8 | ExpeditionCenter | 2 | useful | depend d'un autre arbre |  | 7 Beacon |
+| 9 | ScoutsLimit | 2 | useful | depend d'un autre arbre | 10 ScoutsSpeed | 7 Beacon |
+| 10 | ScoutsSpeed | 2 | useful | depend d'un autre arbre |  | 9 ScoutsLimit |
+| 11 | Factory | 3 | **progression** | arbre principal | 12 Cheaper Augmentation Parts, 13 Automaton Efficiency |  |
+| 12 | Cheaper Augmentation Parts | 2 | useful | depend d'un autre arbre |  | 11 Factory |
+| 13 | Automaton Efficiency | 3 | useful | depend d'un autre arbre | 14 Automaton Medical, 79 Automaton Engineers | 11 Factory |
+| 14 | Automaton Medical | 2 | useful | depend d'un autre arbre |  | 13 Automaton Efficiency |
+| 15 | Gathering Upgrade | 3 | **progression** | arbre principal | 16 ResourceDepotUpgrade, 17 Gathering upgrade 2 |  |
+| 16 | ResourceDepotUpgrade | 2 | useful | depend d'un autre arbre |  | 15 Gathering Upgrade |
+| 17 | Gathering upgrade 2 | 1 | useful | depend d'un autre arbre |  | 15 Gathering Upgrade |
+| 18 | CoalThumper | 3 | **progression** | arbre principal |  |  |
+| 19 | Coal Mine | 3 | **progression** | arbre principal | 20 Coal mine upgrade 1 |  |
+| 20 | Coal mine upgrade 1 | 2 | useful | depend d'un autre arbre |  | 19 Coal Mine |
+| 21 | CharcoalKiln | 3 | **progression** | arbre principal |  |  |
+| 22 | Sawmill | 2 | **progression** | arbre principal | 23 Sawmill Upgrade |  |
+| 23 | Sawmill Upgrade | 2 | useful | depend d'un autre arbre |  | 22 Sawmill |
+| 24 | WallDrill | 3 | **progression** | arbre principal |  |  |
+| 25 | Steel Mine | 3 | **progression** | arbre principal |  |  |
+| 26 | Plantation | 3 | **progression** | arbre principal | 27 Plantation Insulation |  |
+| 27 | Plantation Insulation | 2 | useful | depend d'un autre arbre |  | 26 Plantation |
+| 28 | HuntersUpgrade | 3 | **progression** | arbre principal | 29 Hunters Upgrade - less workers |  |
+| 29 | Hunters Upgrade - less workers | 1 | useful | depend d'un autre arbre |  | 28 HuntersUpgrade |
+| 30 | MedPost Upgrade | 3 | **progression** | arbre principal | 31 HealthCare Buildings - warmer, 32 Infirmary Upgrade - less workers |  |
+| 31 | HealthCare Buildings - warmer | 2 | useful | depend d'un autre arbre |  | 30 MedPost Upgrade |
+| 32 | Infirmary Upgrade - less workers | 1 | useful | depend d'un autre arbre |  | 30 MedPost Upgrade |
+| 33 | Bunkhouse | 3 | **progression** | arbre principal | 34 Cantinee - warmer, 35 House Upgrade - cheaper |  |
+| 34 | Cantinee - warmer | 1 | useful | depend d'un autre arbre |  | 33 Bunkhouse |
+| 35 | House Upgrade - cheaper | 1 | useful | depend d'un autre arbre |  | 33 Bunkhouse |
 | 36 | Tier | 5 | **progression** | force : paliers |  |  |
-| 79 | Automaton Engineers | 1 | useful | aucun arbre ne depend de lui |  | 13 Automaton Efficiency |
+| 79 | Automaton Engineers | 1 | useful | depend d'un autre arbre |  | 13 Automaton Efficiency |
 
-### Fall of Winterhome (`WINTERHOME`) — 40 arbres : 8 progression, 32 useful
+### Fall of Winterhome (`WINTERHOME`) — 40 arbres : 28 progression, 12 useful
 
 | Arbre | Item | Technos | Classification | Raison | Arbres enfants | Arbres parents |
 |---:|---|---:|---|---|---|---|
-| 0 | Steamhub Upgrade - range | 2 | useful | aucun arbre ne depend de lui |  |  |
-| 1 | Generator Upgrade - power 3 | 1 | useful | aucun arbre ne depend de lui |  |  |
-| 2 | Generator Upgrade - less coal | 2 | useful | aucun arbre ne depend de lui |  |  |
-| 3 | Generator Upgrade - range 3 | 1 | useful | aucun arbre ne depend de lui |  |  |
-| 4 | Generator Overdrive 1 | 2 | useful | aucun arbre ne depend de lui |  |  |
-| 5 | Boiler Upgrade | 2 | **progression** | parent d'un autre arbre | 6 Boiler Upgrade - less coal |  |
-| 6 | Boiler Upgrade - less coal | 1 | useful | aucun arbre ne depend de lui |  | 5 Boiler Upgrade |
-| 8 | ExpeditionUpgradeWinterhome | 1 | useful | aucun arbre ne depend de lui |  |  |
-| 9 | ScoutsLimit | 2 | **progression** | parent d'un autre arbre | 10 ScoutsSpeed |  |
-| 10 | ScoutsSpeed | 2 | useful | aucun arbre ne depend de lui |  | 9 ScoutsLimit |
-| 11 | Factory | 3 | **progression** | parent d'un autre arbre | 12 Cheaper Augmentation Parts, 13 Automaton Efficiency |  |
-| 12 | Cheaper Augmentation Parts | 2 | useful | aucun arbre ne depend de lui |  | 11 Factory |
-| 13 | Automaton Efficiency | 3 | **progression** | parent d'un autre arbre | 14 Automaton Medical, 79 Automaton Engineers | 11 Factory |
-| 14 | Automaton Medical | 2 | useful | aucun arbre ne depend de lui |  | 13 Automaton Efficiency |
-| 15 | Gathering Upgrade | 3 | **progression** | parent d'un autre arbre | 16 ResourceDepotUpgrade, 17 Gathering upgrade 2 |  |
-| 16 | ResourceDepotUpgrade | 2 | useful | aucun arbre ne depend de lui |  | 15 Gathering Upgrade |
-| 17 | Gathering upgrade 2 | 1 | useful | aucun arbre ne depend de lui |  | 15 Gathering Upgrade |
-| 18 | SteamCoalThumper | 2 | useful | aucun arbre ne depend de lui |  |  |
-| 19 | Steam Coal Mine | 2 | useful | aucun arbre ne depend de lui |  |  |
-| 20 | Coal mine upgrade 1 | 2 | useful | aucun arbre ne depend de lui |  |  |
-| 21 | Kiln upgrade | 2 | useful | aucun arbre ne depend de lui |  |  |
-| 22 | Steam Sawmill | 1 | useful | aucun arbre ne depend de lui |  |  |
-| 23 | Sawmill Upgrade | 2 | useful | aucun arbre ne depend de lui |  |  |
-| 24 | Steam WallDrill | 2 | useful | aucun arbre ne depend de lui |  |  |
-| 25 | Steam Steel Mine | 2 | useful | aucun arbre ne depend de lui |  |  |
-| 26 | Steam Plantation | 2 | useful | aucun arbre ne depend de lui |  |  |
-| 27 | Plantation Insulation | 2 | useful | aucun arbre ne depend de lui |  |  |
-| 28 | Flying Hunters | 2 | useful | aucun arbre ne depend de lui |  |  |
-| 29 | Hunters Upgrade - less workers | 1 | useful | aucun arbre ne depend de lui |  |  |
-| 30 | MedPost Upgrade | 3 | **progression** | parent d'un autre arbre | 31 HealthCare Buildings - warmer, 32 Infirmary Upgrade - less workers |  |
-| 31 | HealthCare Buildings - warmer | 2 | useful | aucun arbre ne depend de lui |  | 30 MedPost Upgrade |
-| 32 | Infirmary Upgrade - less workers | 1 | useful | aucun arbre ne depend de lui |  | 30 MedPost Upgrade |
-| 33 | House Insulation | 1 | useful | aucun arbre ne depend de lui |  |  |
-| 34 | Cantinee - warmer | 1 | useful | aucun arbre ne depend de lui |  |  |
-| 35 | House Upgrade - cheaper | 1 | useful | aucun arbre ne depend de lui |  |  |
+| 0 | Steamhub Upgrade - range | 2 | **progression** | arbre principal |  |  |
+| 1 | Generator Upgrade - power 3 | 1 | **progression** | arbre principal |  |  |
+| 2 | Generator Upgrade - less coal | 2 | **progression** | arbre principal |  |  |
+| 3 | Generator Upgrade - range 3 | 1 | **progression** | arbre principal |  |  |
+| 4 | Generator Overdrive 1 | 2 | **progression** | arbre principal |  |  |
+| 5 | Boiler Upgrade | 2 | **progression** | arbre principal | 6 Boiler Upgrade - less coal |  |
+| 6 | Boiler Upgrade - less coal | 1 | useful | depend d'un autre arbre |  | 5 Boiler Upgrade |
+| 8 | ExpeditionUpgradeWinterhome | 1 | **progression** | arbre principal |  |  |
+| 9 | ScoutsLimit | 2 | **progression** | arbre principal | 10 ScoutsSpeed |  |
+| 10 | ScoutsSpeed | 2 | useful | depend d'un autre arbre |  | 9 ScoutsLimit |
+| 11 | Factory | 3 | **progression** | arbre principal | 12 Cheaper Augmentation Parts, 13 Automaton Efficiency |  |
+| 12 | Cheaper Augmentation Parts | 2 | useful | depend d'un autre arbre |  | 11 Factory |
+| 13 | Automaton Efficiency | 3 | useful | depend d'un autre arbre | 14 Automaton Medical, 79 Automaton Engineers | 11 Factory |
+| 14 | Automaton Medical | 2 | useful | depend d'un autre arbre |  | 13 Automaton Efficiency |
+| 15 | Gathering Upgrade | 3 | **progression** | arbre principal | 16 ResourceDepotUpgrade, 17 Gathering upgrade 2 |  |
+| 16 | ResourceDepotUpgrade | 2 | useful | depend d'un autre arbre |  | 15 Gathering Upgrade |
+| 17 | Gathering upgrade 2 | 1 | useful | depend d'un autre arbre |  | 15 Gathering Upgrade |
+| 18 | SteamCoalThumper | 2 | **progression** | arbre principal |  |  |
+| 19 | Steam Coal Mine | 2 | **progression** | arbre principal |  |  |
+| 20 | Coal mine upgrade 1 | 2 | **progression** | arbre principal |  |  |
+| 21 | Kiln upgrade | 2 | **progression** | arbre principal |  |  |
+| 22 | Steam Sawmill | 1 | **progression** | arbre principal |  |  |
+| 23 | Sawmill Upgrade | 2 | **progression** | arbre principal |  |  |
+| 24 | Steam WallDrill | 2 | **progression** | arbre principal |  |  |
+| 25 | Steam Steel Mine | 2 | **progression** | arbre principal |  |  |
+| 26 | Steam Plantation | 2 | **progression** | arbre principal |  |  |
+| 27 | Plantation Insulation | 2 | **progression** | arbre principal |  |  |
+| 28 | Flying Hunters | 2 | **progression** | arbre principal |  |  |
+| 29 | Hunters Upgrade - less workers | 1 | **progression** | arbre principal |  |  |
+| 30 | MedPost Upgrade | 3 | **progression** | arbre principal | 31 HealthCare Buildings - warmer, 32 Infirmary Upgrade - less workers |  |
+| 31 | HealthCare Buildings - warmer | 2 | useful | depend d'un autre arbre |  | 30 MedPost Upgrade |
+| 32 | Infirmary Upgrade - less workers | 1 | useful | depend d'un autre arbre |  | 30 MedPost Upgrade |
+| 33 | House Insulation | 1 | **progression** | arbre principal |  |  |
+| 34 | Cantinee - warmer | 1 | **progression** | arbre principal |  |  |
+| 35 | House Upgrade - cheaper | 1 | **progression** | arbre principal |  |  |
 | 36 | Tier | 2 | **progression** | force : paliers |  |  |
-| 37 | E RepairStation | 4 | **progression** | parent d'un autre arbre | 38 E RC Ability, 39 E RC Less workers |  |
-| 38 | E RC Ability | 2 | useful | aucun arbre ne depend de lui |  | 37 E RepairStation |
-| 39 | E RC Less workers | 1 | useful | aucun arbre ne depend de lui |  | 37 E RepairStation |
-| 79 | Automaton Engineers | 1 | useful | aucun arbre ne depend de lui |  | 13 Automaton Efficiency |
+| 37 | E RepairStation | 4 | **progression** | arbre principal | 38 E RC Ability, 39 E RC Less workers |  |
+| 38 | E RC Ability | 2 | useful | depend d'un autre arbre |  | 37 E RepairStation |
+| 39 | E RC Less workers | 1 | useful | depend d'un autre arbre |  | 37 E RepairStation |
+| 79 | Automaton Engineers | 1 | useful | depend d'un autre arbre |  | 13 Automaton Efficiency |
 
-### The Last Autumn (`BUILDERS`) — 32 arbres : 14 progression, 18 useful
+### The Last Autumn (`BUILDERS`) — 32 arbres : 16 progression, 16 useful
 
 | Arbre | Item | Technos | Classification | Raison | Arbres enfants | Arbres parents |
 |---:|---|---:|---|---|---|---|
 | 36 | Tier | 5 | **progression** | force : paliers |  |  |
-| 40 | HC Brazier | 2 | **progression** | parent d'un autre arbre | 41 HC BrazierRange1, 42 HC BrazierCoalOpt1 |  |
-| 41 | HC BrazierRange1 | 1 | useful | aucun arbre ne depend de lui |  | 40 HC Brazier |
-| 42 | HC BrazierCoalOpt1 | 2 | useful | aucun arbre ne depend de lui |  | 40 HC Brazier |
-| 43 | HH Heater | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 44 | HI HealthCare Insulation1 | 2 | useful | aucun arbre ne depend de lui |  |  |
-| 45 | GS ScaffoldingManufacture | 3 | **progression** | parent d'un autre arbre | 46 GS ProtectiveStructure1 |  |
-| 46 | GS ProtectiveStructure1 | 2 | useful | aucun arbre ne depend de lui |  | 45 GS ScaffoldingManufacture |
-| 47 | GM SteelPlateForge | 2 | **progression** | parent d'un autre arbre | 48 GM ForgeCheaperMaterials |  |
-| 48 | GM ForgeCheaperMaterials | 1 | useful | aucun arbre ne depend de lui |  | 47 GM SteelPlateForge |
-| 49 | GG SteamMill | 3 | **progression** | parent d'un autre arbre | 50 GG Supercharge1 |  |
-| 50 | GG Supercharge1 | 2 | useful | aucun arbre ne depend de lui |  | 49 GG SteamMill |
-| 51 | GF Air Scrubbers1 | 3 | **progression** | parent d'un autre arbre | 52 GF Air ScrubbersOptimalization |  |
-| 52 | GF Air ScrubbersOptimalization | 2 | useful | aucun arbre ne depend de lui |  | 51 GF Air Scrubbers1 |
-| 53 | GU GeneratorUpgrade1 | 3 | useful | aucun arbre ne depend de lui |  |  |
+| 40 | HC Brazier | 2 | **progression** | arbre principal | 41 HC BrazierRange1, 42 HC BrazierCoalOpt1 |  |
+| 41 | HC BrazierRange1 | 1 | useful | depend d'un autre arbre |  | 40 HC Brazier |
+| 42 | HC BrazierCoalOpt1 | 2 | useful | depend d'un autre arbre |  | 40 HC Brazier |
+| 43 | HH Heater | 3 | **progression** | arbre principal |  |  |
+| 44 | HI HealthCare Insulation1 | 2 | **progression** | arbre principal |  |  |
+| 45 | GS ScaffoldingManufacture | 3 | **progression** | arbre principal | 46 GS ProtectiveStructure1 |  |
+| 46 | GS ProtectiveStructure1 | 2 | useful | depend d'un autre arbre |  | 45 GS ScaffoldingManufacture |
+| 47 | GM SteelPlateForge | 2 | **progression** | arbre principal | 48 GM ForgeCheaperMaterials |  |
+| 48 | GM ForgeCheaperMaterials | 1 | useful | depend d'un autre arbre |  | 47 GM SteelPlateForge |
+| 49 | GG SteamMill | 3 | **progression** | arbre principal | 50 GG Supercharge1 |  |
+| 50 | GG Supercharge1 | 2 | useful | depend d'un autre arbre |  | 49 GG SteamMill |
+| 51 | GF Air Scrubbers1 | 3 | **progression** | arbre principal | 52 GF Air ScrubbersOptimalization |  |
+| 52 | GF Air ScrubbersOptimalization | 2 | useful | depend d'un autre arbre |  | 51 GF Air Scrubbers1 |
+| 53 | GU GeneratorUpgrade1 | 3 | **progression** | arbre principal |  |  |
 | 54 | FF Foragers | 1 | **progression** | force : eclaireurs | 55 FF Foragers_+1, 56 FF ForagersSpeedUpgrade |  |
-| 55 | FF Foragers_+1 | 2 | useful | aucun arbre ne depend de lui |  | 54 FF Foragers |
-| 56 | FF ForagersSpeedUpgrade | 2 | useful | aucun arbre ne depend de lui |  | 54 FF Foragers |
-| 57 | FH Fishing Harbor | 2 | **progression** | parent d'un autre arbre | 58 FH Fishing Harbor_efficiencyBoost |  |
-| 58 | FH Fishing Harbor_efficiencyBoost | 1 | useful | aucun arbre ne depend de lui |  | 57 FH Fishing Harbor |
-| 59 | FM MedPost Upgrade | 3 | **progression** | parent d'un autre arbre | 60 FM Infirmary Upgrade |  |
-| 60 | FM Infirmary Upgrade | 1 | useful | aucun arbre ne depend de lui |  | 59 FM MedPost Upgrade |
-| 61 | RD Docksv1 | 3 | **progression** | parent d'un autre arbre | 62 RU URS, 64 RD Docks faster reload |  |
-| 62 | RU URS | 1 | **progression** | parent d'un autre arbre | 63 RU URS_Steam | 61 RD Docksv1 |
-| 63 | RU URS_Steam | 2 | **progression** | parent d'un autre arbre | 81 RU URS_Advanced | 62 RU URS |
-| 64 | RD Docks faster reload | 1 | useful | aucun arbre ne depend de lui |  | 61 RD Docksv1 |
-| 65 | RG Gathering Upgrade | 2 | **progression** | parent d'un autre arbre | 66 RG ResourceDepotUpgrade |  |
-| 66 | RG ResourceDepotUpgrade | 2 | useful | aucun arbre ne depend de lui |  | 65 RG Gathering Upgrade |
-| 67 | RW Sawmill | 2 | **progression** | parent d'un autre arbre | 68 RW Sawmill Upgrade |  |
-| 68 | RW Sawmill Upgrade | 2 | useful | aucun arbre ne depend de lui |  | 67 RW Sawmill |
-| 69 | RC CharcoalKiln | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 81 | RU URS_Advanced | 1 | useful | aucun arbre ne depend de lui |  | 63 RU URS_Steam |
+| 55 | FF Foragers_+1 | 2 | useful | depend d'un autre arbre |  | 54 FF Foragers |
+| 56 | FF ForagersSpeedUpgrade | 2 | useful | depend d'un autre arbre |  | 54 FF Foragers |
+| 57 | FH Fishing Harbor | 2 | **progression** | arbre principal | 58 FH Fishing Harbor_efficiencyBoost |  |
+| 58 | FH Fishing Harbor_efficiencyBoost | 1 | useful | depend d'un autre arbre |  | 57 FH Fishing Harbor |
+| 59 | FM MedPost Upgrade | 3 | **progression** | arbre principal | 60 FM Infirmary Upgrade |  |
+| 60 | FM Infirmary Upgrade | 1 | useful | depend d'un autre arbre |  | 59 FM MedPost Upgrade |
+| 61 | RD Docksv1 | 3 | **progression** | arbre principal | 62 RU URS, 64 RD Docks faster reload |  |
+| 62 | RU URS | 1 | useful | depend d'un autre arbre | 63 RU URS_Steam | 61 RD Docksv1 |
+| 63 | RU URS_Steam | 2 | useful | depend d'un autre arbre | 81 RU URS_Advanced | 62 RU URS |
+| 64 | RD Docks faster reload | 1 | useful | depend d'un autre arbre |  | 61 RD Docksv1 |
+| 65 | RG Gathering Upgrade | 2 | **progression** | arbre principal | 66 RG ResourceDepotUpgrade |  |
+| 66 | RG ResourceDepotUpgrade | 2 | useful | depend d'un autre arbre |  | 65 RG Gathering Upgrade |
+| 67 | RW Sawmill | 2 | **progression** | arbre principal | 68 RW Sawmill Upgrade |  |
+| 68 | RW Sawmill Upgrade | 2 | useful | depend d'un autre arbre |  | 67 RW Sawmill |
+| 69 | RC CharcoalKiln | 3 | **progression** | arbre principal |  |  |
+| 81 | RU URS_Advanced | 1 | useful | depend d'un autre arbre |  | 63 RU URS_Steam |
 
-### On the Edge (`Reconquest`) — 30 arbres : 11 progression, 19 useful
+### On the Edge (`Reconquest`) — 30 arbres : 14 progression, 16 useful
 
 | Arbre | Item | Technos | Classification | Raison | Arbres enfants | Arbres parents |
 |---:|---|---:|---|---|---|---|
-| 5 | Boilers | 3 | **progression** | parent d'un autre arbre | 6 Boiler Upgrade - less coal |  |
-| 6 | Boiler Upgrade - less coal | 1 | useful | aucun arbre ne depend de lui |  | 5 Boilers |
-| 9 | ScoutsLimit | 2 | **progression** | parent d'un autre arbre | 10 ScoutsSpeed |  |
-| 10 | ScoutsSpeed | 2 | useful | aucun arbre ne depend de lui |  | 9 ScoutsLimit |
-| 11 | Factory | 1 | **progression** | parent d'un autre arbre | 12 Cheaper Augmentation Parts |  |
-| 12 | Cheaper Augmentation Parts | 2 | useful | aucun arbre ne depend de lui |  | 11 Factory |
-| 15 | Gathering Upgrade | 3 | **progression** | parent d'un autre arbre | 16 ResourceDepotUpgrade, 17 Gathering upgrade 2 |  |
-| 16 | ResourceDepotUpgrade | 2 | useful | aucun arbre ne depend de lui |  | 15 Gathering Upgrade |
-| 17 | Gathering upgrade 2 | 1 | useful | aucun arbre ne depend de lui |  | 15 Gathering Upgrade |
-| 18 | CoalThumper | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 19 | Coal Mine | 3 | **progression** | parent d'un autre arbre | 20 Coal mine upgrade 1 |  |
-| 20 | Coal mine upgrade 1 | 2 | useful | aucun arbre ne depend de lui |  | 19 Coal Mine |
-| 21 | CharcoalKiln | 3 | useful | aucun arbre ne depend de lui |  |  |
-| 22 | Sawmill | 2 | **progression** | parent d'un autre arbre | 23 Sawmill Upgrade |  |
-| 23 | Sawmill Upgrade | 2 | useful | aucun arbre ne depend de lui |  | 22 Sawmill |
-| 30 | MedPost Upgrade | 3 | **progression** | parent d'un autre arbre | 31 HealthCare Buildings - warmer, 32 Infirmary Upgrade - less workers |  |
-| 31 | HealthCare Buildings - warmer | 2 | useful | aucun arbre ne depend de lui |  | 30 MedPost Upgrade |
-| 32 | Infirmary Upgrade - less workers | 1 | useful | aucun arbre ne depend de lui |  | 30 MedPost Upgrade |
-| 33 | Bunkhouse | 3 | **progression** | parent d'un autre arbre | 34 Cantinee - warmer, 35 House Upgrade - cheaper |  |
-| 34 | Cantinee - warmer | 1 | useful | aucun arbre ne depend de lui |  | 33 Bunkhouse |
-| 35 | House Upgrade - cheaper | 1 | useful | aucun arbre ne depend de lui |  | 33 Bunkhouse |
+| 5 | Boilers | 3 | **progression** | arbre principal | 6 Boiler Upgrade - less coal |  |
+| 6 | Boiler Upgrade - less coal | 1 | useful | depend d'un autre arbre |  | 5 Boilers |
+| 9 | ScoutsLimit | 2 | **progression** | arbre principal | 10 ScoutsSpeed |  |
+| 10 | ScoutsSpeed | 2 | useful | depend d'un autre arbre |  | 9 ScoutsLimit |
+| 11 | Factory | 1 | **progression** | arbre principal | 12 Cheaper Augmentation Parts |  |
+| 12 | Cheaper Augmentation Parts | 2 | useful | depend d'un autre arbre |  | 11 Factory |
+| 15 | Gathering Upgrade | 3 | **progression** | arbre principal | 16 ResourceDepotUpgrade, 17 Gathering upgrade 2 |  |
+| 16 | ResourceDepotUpgrade | 2 | useful | depend d'un autre arbre |  | 15 Gathering Upgrade |
+| 17 | Gathering upgrade 2 | 1 | useful | depend d'un autre arbre |  | 15 Gathering Upgrade |
+| 18 | CoalThumper | 3 | **progression** | arbre principal |  |  |
+| 19 | Coal Mine | 3 | **progression** | arbre principal | 20 Coal mine upgrade 1 |  |
+| 20 | Coal mine upgrade 1 | 2 | useful | depend d'un autre arbre |  | 19 Coal Mine |
+| 21 | CharcoalKiln | 3 | **progression** | arbre principal |  |  |
+| 22 | Sawmill | 2 | **progression** | arbre principal | 23 Sawmill Upgrade |  |
+| 23 | Sawmill Upgrade | 2 | useful | depend d'un autre arbre |  | 22 Sawmill |
+| 30 | MedPost Upgrade | 3 | **progression** | arbre principal | 31 HealthCare Buildings - warmer, 32 Infirmary Upgrade - less workers |  |
+| 31 | HealthCare Buildings - warmer | 2 | useful | depend d'un autre arbre |  | 30 MedPost Upgrade |
+| 32 | Infirmary Upgrade - less workers | 1 | useful | depend d'un autre arbre |  | 30 MedPost Upgrade |
+| 33 | Bunkhouse | 3 | **progression** | arbre principal | 34 Cantinee - warmer, 35 House Upgrade - cheaper |  |
+| 34 | Cantinee - warmer | 1 | useful | depend d'un autre arbre |  | 33 Bunkhouse |
+| 35 | House Upgrade - cheaper | 1 | useful | depend d'un autre arbre |  | 33 Bunkhouse |
 | 36 | Tier | 5 | **progression** | force : paliers |  |  |
-| 70 | HC Brazier | 2 | **progression** | parent d'un autre arbre | 71 HC BrazierRange, 72 HC BrazierCoalOpt1 |  |
-| 71 | HC BrazierRange | 1 | useful | aucun arbre ne depend de lui |  | 70 HC Brazier |
-| 72 | HC BrazierCoalOpt1 | 2 | useful | aucun arbre ne depend de lui |  | 70 HC Brazier |
-| 73 | R VaultEfficiencyBoost | 1 | useful | aucun arbre ne depend de lui |  |  |
-| 74 | R VaultUpgrade1 | 3 | **progression** | parent d'un autre arbre | 75 R VaultMultitasking, 76 R VaultInsulation, 77 R VaultSteamCoresUpgrade |  |
-| 75 | R VaultMultitasking | 1 | useful | aucun arbre ne depend de lui |  | 74 R VaultUpgrade1 |
-| 76 | R VaultInsulation | 1 | useful | aucun arbre ne depend de lui |  | 74 R VaultUpgrade1 |
-| 77 | R VaultSteamCoresUpgrade | 1 | useful | aucun arbre ne depend de lui |  | 74 R VaultUpgrade1 |
+| 70 | HC Brazier | 2 | **progression** | arbre principal | 71 HC BrazierRange, 72 HC BrazierCoalOpt1 |  |
+| 71 | HC BrazierRange | 1 | useful | depend d'un autre arbre |  | 70 HC Brazier |
+| 72 | HC BrazierCoalOpt1 | 2 | useful | depend d'un autre arbre |  | 70 HC Brazier |
+| 73 | R VaultEfficiencyBoost | 1 | **progression** | arbre principal |  |  |
+| 74 | R VaultUpgrade1 | 3 | **progression** | arbre principal | 75 R VaultMultitasking, 76 R VaultInsulation, 77 R VaultSteamCoresUpgrade |  |
+| 75 | R VaultMultitasking | 1 | useful | depend d'un autre arbre |  | 74 R VaultUpgrade1 |
+| 76 | R VaultInsulation | 1 | useful | depend d'un autre arbre |  | 74 R VaultUpgrade1 |
+| 77 | R VaultSteamCoresUpgrade | 1 | useful | depend d'un autre arbre |  | 74 R VaultUpgrade1 |
 
 <!-- FIN CLASSIFICATION ARBRES -->

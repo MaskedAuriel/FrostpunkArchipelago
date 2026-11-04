@@ -1079,3 +1079,25 @@ d'ouverture de l'arbre**, condition des lois. Lignes finales `# exclues`.
   « Progressive » dans toutes les popups (`AfficherNotificationAP`) et dans
   le nom du check d'après les scouts (`ApNomDuScout` : descriptions des
   technos, panneau d'info des lois, sites). Compilé, déployé, non testé.
+
+### 2026-11-04 — Classification des arbres inversée
+
+- **Constat de l'auteur** : Coal Thumper était `useful`. La règle du
+  2026-11-03 (progression = un autre arbre dépend de lui) était **à
+  l'envers** de son intention.
+- **Règle de l'auteur** : les arbres **principaux** sont `progression` ; un
+  arbre qui **dépend** d'un autre arbre (une de ses technos a son parent
+  dans un autre arbre du scénario) est `useful`. Tier et l'arbre des
+  éclaireurs restent forcés en progression. Parent de départ et condition
+  d'affichage ne comptent toujours pas.
+- `outils\technos_classification.py` réécrit (et noms d'items sans
+  « Tree ») ; `technos_classification.tsv` et le tableau de `technos.md`
+  régénérés. Progression / useful : A New Home 19 / 20, The Arks 17 / 18,
+  Refugees 18 / 20, Winterhome 28 / 12, Last Autumn 16 / 16, On the Edge 14
+  / 16.
+- Items exigés par goulot (100 % des arbres progression de la région,
+  goulots 1, 2, 3[, 4]) : A New Home 18, 11, 9 ; The Arks 17, 11, 9 ;
+  Refugees 18, 11, 9 ; Winterhome 26, —, 2, 15 ; Last Autumn 11, 7, 6 ; On
+  the Edge 12, 11, 5.
+- Tests (0.6.8) : banc 5 × 5 et 70 générations solo OK ; ids inchangés ;
+  `frostpunk.apworld` reconstruit.

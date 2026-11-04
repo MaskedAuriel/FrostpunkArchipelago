@@ -352,6 +352,27 @@ static void SurveillerSites()
             }
         }
 
+        // --- reste du contenu vanilla : un site AP ne contient QUE le check
+        //     (demande de l'auteur, 2026-11-04 : survivants recus au premier
+        //     site d'A New Home). Composant (sites_contenu.cpp) : +0x60
+        //     BonusResources, +0x78 Technologies, +0x90 Artifacts, +0xA8
+        //     OutsiderSurvivors ({tableau, compte}). Compte remis a 0, tableau
+        //     laisse au moteur (il le liberera). Le gabarit n'est pas touche :
+        //     ses survivants servent de modele aux groupes AP.
+        if (p) {
+            static const struct { int off; const char* quoi; } RESTES[] = {
+                { 0x60, "ressources bonus" }, { 0x78, "technologies" },
+                { 0x90, "artefacts" },        { 0xA8, "survivants" },
+            };
+            for (const auto& r : RESTES) {
+                uintptr_t tab = 0; uint32_t n = 0, zero = 0;
+                if (!SafeRead((void*)(g_sites[i].comp + r.off), &tab, 8) ||
+                    !SafeRead((void*)(g_sites[i].comp + r.off + 8), &n, 4) || n == 0) continue;
+                SafeWrite((void*)(g_sites[i].comp + r.off + 8), &zero, 4);
+                printf("[SITE] %s : %s retire(s) (%u entree(s))\n", g_sites[i].nom, r.quoi, n);
+            }
+        }
+
         // --- exploration : passage de l'etat 0 a un etat visite ---
         int32_t etat = -1;
         if (!SafeRead((void*)(g_sites[i].comp + 0x34), &etat, 4)) continue;
