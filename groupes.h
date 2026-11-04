@@ -23,6 +23,14 @@ struct CargaisonAP {
 };
 constexpr int MAX_CARGAISON_AP = 8;
 
+// Survivants d'une classe sociale ("workers", "engineers", "children",
+// "automaton"...), classe et statistiques prises dans les sites de la carte.
+struct SurvivantsAP {
+    const char* classe;      // nullptr = fin
+    int         nombre;
+};
+constexpr int MAX_CLASSES_AP = 4;
+
 // Groupe de survivants personnalise, cree sur un site et marchant vers la ville.
 struct GroupeAP {
     const char* cheminTemplate;  // relatif a la racine de l'arbre des templates,
@@ -46,10 +54,18 @@ struct GroupeAP {
     const char* icone;
     // Ressources portees (inventaire + livraison a l'arrivee, avant surArrivee).
     CargaisonAP cargaison[MAX_CARGAISON_AP];
+    // Survivants par classe : si classes[0].classe est renseigne, une entree
+    // par classe ; 'survivants' et 'cheminSurvivants' sont alors ignores.
+    SurvivantsAP classes[MAX_CLASSES_AP];
 };
 
 // Thread du jeu uniquement (pompe). Renvoie le slot du groupe (0..15) ou -1.
 int GroupeCreer(const GroupeAP& g);
+
+// Thread du jeu : heures de jeu avant l'arrivee du DERNIER groupe AP encore
+// en route (0 si aucun). Sert a echelonner les livraisons : un nouveau
+// groupe arrive 'duree' heures apres celui-la, jamais en meme temps.
+float GroupesHeuresAvantDerniereArrivee();
 
 // Textes des cles @AP/Groupe/<slot>/<champ>, pour hkTranslate : 'N' nom,
 // 'D' description, 'T' titre du dilemme d'arrivee, 'X' son texte, 'C' son

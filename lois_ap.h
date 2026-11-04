@@ -24,6 +24,11 @@ void LoisAPApresChargement();
 // ou la partie pas encore relue.
 bool LoisAPRecevoir(const char* arbre, int* rang);
 
+// Items deja recus par l'arbre 'arbre' dans la partie 'gid' (GameId). -1 si
+// la sauvegarde locale de cette partie n'est pas relue ou l'arbre inconnu.
+// Thread du jeu (apres LoisAPPompe).
+int LoisAPItemsRecus(const char* arbre, const uint64_t gid[2]);
+
 // Arbre AP (nom, comme ReceiveLawProgressive) et poids (nombre de checks)
 // de la loi 'loi' (FrostpunkSociotechEntry). Thread du jeu (construit les
 // arbres au besoin). false pour une loi desactivee ou inconnue.

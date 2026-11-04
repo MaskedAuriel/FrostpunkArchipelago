@@ -15,6 +15,38 @@
 
 // --- Serveur -> jeu ----------------------------------------------------------
 
+// Item recu par son id Archipelago (AP_ITEMS de known_ap_ids.h).
+// - Arbre, loi, montee de temperature (items d'UN scenario) : notes dans
+//   mods\ap_items_recus.txt, appliques par ApItemsPompe dans toute partie de
+//   leur scenario (tout de suite si c'est le scenario en cours).
+// - Deblocage de scenario : ReceiveScenarioUnlock.
+// - Contenu de site / filler (ressources + survivants) et piege : notes de
+//   meme, livres UNE fois par ApItemsPompe dans la partie en cours, quel que
+//   soit son scenario (un groupe AP par contenu, une bulle par piege).
+// Tout thread. false si l'id est inconnu ou l'item refuse.
+bool ReceiveItem(int64_t itemId, const char* fromPlayer);
+
+// Thread du jeu (hook du setter de ressources, apres LoisAPPompe et
+// TemperaturePompe) : applique a la partie en cours les items de son
+// scenario recus et pas encore appliques (au changement de partie, le
+// rattrapage est silencieux : une seule popup de synthese), et livre les
+// items communs en attente, un par passage.
+void ApItemsPompe();
+
+// Duree du trajet des groupes de livraison des items communs, en heures de
+// jeu (option delivery_hours du slot_data ; 24 h par defaut).
+void ApReglerHeuresLivraison(int heures);
+
+// TEST (touches F5, F7, F8) : id de l'item du scenario en cours, genre
+// "tree" (cle = numero d'arbre), "law" (cle = nom de l'arbre de lois) ou
+// "temperature" (cle nullptr). 0 si absent.
+int64_t ApItemIdCourant(const char* genre, const char* cle);
+// TEST (Maj+F7) : un item d'arbre d'un AUTRE scenario, au hasard. 0 si aucun.
+int64_t ApItemIdAutreScenarioDeTest();
+// TEST (F3) : un item commun, a tour de role (contenu a 3 classes de
+// survivants, enfants seuls, ressources + automate, filler, piege).
+int64_t ApItemCommunDeTest();
+
 // "Progressive Tree <tree>" : debloque la techno suivante de l'arbre. Toute
 // techno recue passe par la : un arbre a un seul niveau reste un arbre.
 // false si la partie n'est pas prete, l'arbre hors bornes ou epuise.
@@ -47,8 +79,19 @@ bool ReceiveScenarioUnlock(const char* scenario, const char* fromPlayer);
 // Recherche terminee : location check de cette techno.
 void SendResearchCheck(uint64_t techHash);
 
-// Check porte par un scout et ramene en ville (id de SITE_PAYLOADS / ApCheck).
-void SendLocationCheck(int locationId);
+// Check porte par un scout et ramene en ville : 'site' = nom interne du site
+// (cle de la location AP), 'locationId' = id de test de SITE_PAYLOADS / ApCheck.
+// Chaque Send* retrouve l'id de sa location AP dans le scenario en cours
+// (known_ap_ids.h) ; sans location, rien n'est envoye (journal seulement).
+void SendLocationCheck(int locationId, const char* site);
+// Cle de location d'un site : son nom interne, sans le suffixe "-dead" des
+// paires exclusives de Refugees ([ref]X / [ref]X-dead = un seul check).
+void ApCleDeSite(const char* site, char* out, int taille);
+// Locations AP des sites, tous scenarios (AP_LOCATIONS de known_ap_ids.h) :
+// scenario, cle (nom interne du site), nom de la location, id. Chaines
+// statiques. Renvoie le nombre ecrit.
+struct ApSiteLoc { const char* scenario; const char* cle; const char* nom; int64_t id; };
+int ApSitesLocations(ApSiteLoc* out, int max);
 
 // Loi signee : check de rang 'rank' de l'arbre de lois 'tree'.
 // 'effectPending' : l'effet de la loi attend l'item de l'arbre.
@@ -56,10 +99,48 @@ void SendLawCheck(const char* tree, int rank, const char* lawName, bool effectPe
 // Quete de l'histoire du scenario accomplie (quetes.cpp, hook de la fin de
 // quete FUN_1416d22a0 ; known_quests.h). Popup "Check sent".
 void SendQuestCheck(const char* questName, const char* displayName);
-// Victoire d'un scenario (victoire.cpp, hook de EndGame FUN_141301490) : un
-// check par appel, nomme selon le mode de victoire ("<Scenario> - Victory",
-// "... (Hard)", "... (<ligne>: Hard)"). Popup "Check sent".
-void SendVictoryCheck(const char* checkName);
+// Id de la location AP de la quete 'questName' (nom interne) dans le
+// scenario en cours ; les quetes paralleles partagent le meme id. 0 si la
+// quete n'est pas un check.
+int64_t ApQueteLocation(const char* questName);
+// Montee de temperature scriptee retiree (temperature.cpp, thread du jeu) :
+// check "Temperature Rise k" du scenario, un par NIVEAU retire, k = rang
+// chronologique du niveau parmi les niveaux retires de la partie.
+void SendTemperatureCheck(int rank);
+// Victoire d'un scenario au niveau cible (victoire.cpp, hook de EndGame
+// FUN_141301490) : EVENEMENT du goal, pas une location (aucun item). Notee
+// dans mods\ap_victoires.txt ; goal atteint quand tous les scenarios du
+// slot sont gagnes. Popup "Scenario completed", puis "Goal reached".
+void SendScenarioVictory(const char* scenario, const char* displayName);
+// Scenarios a gagner pour le goal (option "scenarios" du slot_data, noms
+// internes). Defaut TEMPORAIRE : A New Home seul.
+void ApReglerScenariosGoal(const char* const* scenarios, int n);
+
+// --- slot_data (connexion) -----------------------------------------------------
+
+// Options du slot envoyees par le serveur a la connexion (fill_slot_data de
+// l'apworld). Noms internes des scenarios ; goal_difficulty = "easy",
+// "medium", "hard" ou "very_hard".
+struct ApSlotData {
+    const char* scenarios[6];
+    int         nScenarios;
+    const char* startingScenario;
+    const char* goalDifficulty;
+    bool        excludePurposePolitics;
+    int         deliveryHours;
+};
+// Applique le slot_data : scenarios du goal, difficulte imposee, duree de
+// livraison des groupes. Le scenario de depart arrive comme item (Scenario
+// Unlock) ; exclude_purpose_politics ne change que la generation (locations
+// EXCLUDED) : notes seulement. Tout thread, hors partie compris.
+void ApAppliquerSlotData(const ApSlotData& d);
+bool ApExclurePurposePolitics();
+
+// TEST, en attendant le reseau : si mods\ap_slot_data.txt existe, l'applique
+// au demarrage (lignes "cle=valeur" : scenarios=DEFAULT,REFUGEES ;
+// starting_scenario=DEFAULT ; goal_difficulty=hard ;
+// exclude_purpose_politics=0 ; delivery_hours=24).
+void ApChargerSlotDataDeTest();
 
 // Bouton "Connect" du menu principal (menu_ap.cpp) : chaines UTF-8 saisies.
 // Appele sur le thread du jeu, hors partie. TODO reseau : ouvrir la connexion.

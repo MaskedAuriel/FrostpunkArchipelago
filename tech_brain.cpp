@@ -9,6 +9,9 @@
 bool g_showApInfo = true;
 static const int BONUS_TREE = 36;   // arbre debloque par palier
 static const int BONUS_EVERY = 5;    // une progressive de BONUS_TREE toutes les 5
+// Desactive (2026-11-03) : l'apworld met les items "Progressive Tree Tier"
+// dans le pool ; un bonus en plus fausserait le compte des items recus.
+static const bool BONUS_ACTIF = false;
 static int g_sinceBonus = 0;
 
 
@@ -28,6 +31,17 @@ void SyncGameState(TechRuntime* r)
     WriteTechStateByHash(r->hash, st);
 }
 
+bool TechEstUnCheck(uint64_t hash)
+{
+    for (int g = 0; g < KNOWN_TECH_GROUP_COUNT; ++g) {
+        const TechGroup& grp = KNOWN_TECH_GROUPS[g];
+        if (!ScenarioUsesGroup(grp.label)) continue;
+        for (int i = 0; i < grp.count; ++i)
+            if (grp.items[i].hash == hash) return true;
+    }
+    return false;
+}
+
 void AP_SendCheck(uint64_t hash)
 {
     // Point de sortie unique vers Archipelago : archipelago.cpp.
@@ -40,6 +54,11 @@ void AP_SendCheck(uint64_t hash)
 // cumulative, la techno est deja "researched" a ce moment : plus d'envoi.
 void OnResearchComplete(uint64_t hash)
 {
+    // Techno sans check dans ce scenario (depart, hors table) : vanilla.
+    if (!TechEstUnCheck(hash)) {
+        printf("[AP] recherche terminee : %s, pas un check dans ce scenario\n", NameOfHash(hash));
+        return;
+    }
     TechRuntime* r = RT_Get(hash);
     if (!r) return;
     bool dejaEnvoye = r->researched;
@@ -88,7 +107,7 @@ void AP_LocationText(uint64_t hash, char* out, int maxlen)
     _snprintf_s(out, maxlen, _TRUNCATE,
         "[AP] Sending: %s%s", nom, (r && r->researched) ? " (already sent)" : "");
 }
-static const int MAX_TREES = 79;
+static const int MAX_TREES = 96;          // arbres 0..81 (outils\technos_arbres.tsv)
 static int g_progressive[MAX_TREES];      // nb de progressives recues par arbre
 
 // Techno occupant une position donnee dans un arbre. nullptr si absente.
@@ -108,12 +127,16 @@ static const TechInfo* TechAtTreePosition(int tree, int pos)
 // Le serveur envoie "Progressive Tree <tree>". Renvoie false si l'arbre est
 // epuise ou hors bornes.
 
+// Taille de l'arbre dans le scenario courant (un groupe par scenario depuis
+// le 2026-11-03 : sans ce filtre, les technos communes compteraient 6 fois).
 static int TreeSize(int tree)
 {
     int n = 0;
-    for (int g = 0; g < KNOWN_TECH_GROUP_COUNT; ++g)
+    for (int g = 0; g < KNOWN_TECH_GROUP_COUNT; ++g) {
+        if (!ScenarioUsesGroup(KNOWN_TECH_GROUPS[g].label)) continue;
         for (int i = 0; i < KNOWN_TECH_GROUPS[g].count; ++i)
             if (KNOWN_TECH_GROUPS[g].items[i].progressiveTree == tree) n++;
+    }
     return n;
 }
 
@@ -134,7 +157,7 @@ bool OnProgressiveReceived(int tree, const char** nomTech)
 
     printf("[AP] arbre %2d position %d (%d/%d) -> %s\n",
         tree, pos, pos + 1, TreeSize(tree), t->name);
-    if (tree != BONUS_TREE && ++g_sinceBonus >= BONUS_EVERY) {
+    if (BONUS_ACTIF && tree != BONUS_TREE && ++g_sinceBonus >= BONUS_EVERY) {
         g_sinceBonus = 0;
         OnProgressiveReceived(BONUS_TREE);   // silencieux si l'arbre est epuise
     }
@@ -156,6 +179,7 @@ bool OnProgressiveReceived(int tree, const char** nomTech)
 // remise a zero, relecture, puis etat du jeu reapplique a chaque techno.
 static SRWLOCK g_verrouTechnos = SRWLOCK_INIT;
 static bool    g_technosPretes = false;   // fichier de la partie courante relu
+static uint64_t g_partieTechnos[2] = {};  // GameId de la partie relue
 
 static bool CheminTechnos(char* out, size_t taille)
 {
@@ -246,11 +270,20 @@ void TechPersistanceTick()
         TechRuntime* r = RT_At(i);
         if (r && (r->researched || r->received)) { SyncGameState(r); ++appliquees; }
     }
+    g_partieTechnos[0] = g_run.gameId[0];
+    g_partieTechnos[1] = g_run.gameId[1];
     g_technosPretes = true;
     printf("[TECH] partie %016llX%016llX (generation %u) : %s, %d techno(s) reappliquee(s)\n",
         (unsigned long long)g_run.gameId[1], (unsigned long long)g_run.gameId[0], gen,
         n < 0 ? "identifiant de partie absent" : n == 0 ? "aucune sauvegarde locale (nouvelle partie)" : "sauvegarde locale relue",
         appliquees);
+}
+
+int TechProgressivesRecues(int tree, const uint64_t gid[2])
+{
+    if (tree < 0 || tree >= MAX_TREES || !g_technosPretes) return -1;
+    if (gid[0] != g_partieTechnos[0] || gid[1] != g_partieTechnos[1]) return -1;
+    return g_progressive[tree];
 }
 
 // Un arbre progressif non epuise du scenario courant, au hasard (-1 si aucun).

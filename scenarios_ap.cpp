@@ -330,9 +330,10 @@ constexpr int PAN_LIGNES            = 0x1C8;  // paires {curseur, widget}, compt
 constexpr int PAN_IRONMAN           = 0x1E0;
 constexpr int CUR_NIVEAU            = 0x314;
 
-// TEMPORAIRE : difficulte generale du YAML (0 Easy, 1 Medium, 2 Hard,
-// 3 Very Hard), viendra du serveur (slot_data). -1 = pas de verrou.
-constexpr int DIFFICULTE_TEST = 2;
+// Difficulte generale du YAML (0 Easy, 1 Medium, 2 Hard, 3 Very Hard),
+// option goal_difficulty du slot_data (DifficulteReglerCible). -1 = pas de
+// verrou. Avant le slot_data : Hard (TEMPORAIRE, ancienne DIFFICULTE_TEST).
+int g_difficulteCible = 2;
 const char* const NOMS_NIVEAUX[] = { "Easy", "Medium", "Hard", "Very Hard" };
 
 Ironman_t oIronman = nullptr;
@@ -355,11 +356,11 @@ bool ScenarioDuPanneau(uintptr_t panneau, char* nom, int taille)
 // Niveau impose pour le scenario affiche, ou -1 (hors AP, ironman, pas de cible).
 int NiveauImpose(uintptr_t panneau, char* nom, int taille)
 {
-    if (DIFFICULTE_TEST < 0 || DIFFICULTE_TEST > 3) return -1;
+    if (g_difficulteCible < 0 || g_difficulteCible > 3) return -1;
     if (!ScenarioDuPanneau(panneau, nom, taille) || !EstScenarioAP(nom)) return -1;
     uint8_t ironman = 0;
     if (!SafeRead((void*)(panneau + PAN_IRONMAN), &ironman, 1) || ironman) return -1;
-    return DIFFICULTE_TEST;
+    return g_difficulteCible;
 }
 
 // Widgets des curseurs : principal puis lignes. Renvoie le nombre.
@@ -450,9 +451,15 @@ void DifficulteImposerAuLancement(uintptr_t panneau)
     }
 }
 
+void DifficulteReglerCible(int niveau)
+{
+    g_difficulteCible = (niveau >= 0 && niveau <= 3) ? niveau : -1;
+    printf("[DIFF] difficulte cible : %s\n", g_difficulteCible >= 0 ? NOMS_NIVEAUX[g_difficulteCible] : "aucune");
+}
+
 int DifficulteCible()
 {
-    return (DIFFICULTE_TEST >= 0 && DIFFICULTE_TEST <= 3) ? DIFFICULTE_TEST : -1;
+    return (g_difficulteCible >= 0 && g_difficulteCible <= 3) ? g_difficulteCible : -1;
 }
 
 bool ScenarioDebloque(const char* nomInterne)

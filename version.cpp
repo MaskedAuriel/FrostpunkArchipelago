@@ -204,8 +204,10 @@ DWORD WINAPI PayloadThread(LPVOID)
 
 
 	ApChargerChecksDeTest();
+	ScootingPayloadsInit();   // tous les sites AP (known_ap_ids.h) deviennent des checks
 	ApChargerTechnosDeTest();
 	ScenariosRecevoirItemsDeTest();   // TEMPORAIRE : items de scenario de depart (les 6)
+	ApChargerSlotDataDeTest();        // TEST : mods\ap_slot_data.txt s'il existe (en attendant le reseau)
 	InstallResourceHooks(modBase);
 	InstallResearchHooks(modBase);
 	InstallLocHooks(modBase);	
@@ -235,19 +237,35 @@ DWORD WINAPI PayloadThread(LPVOID)
 		}
 		if (ToucheAppuyee(VK_F6) & 1) {
 			printf("[F6] appui detecte\n");
-			// Test : piege Archipelago par dilemme (perdre 50 charbon ou 50
-			// acier). Remplace l'ancienne fenetre de releve des cles
-			// (OpenKeyLogWindow), F10 etant le menu des options du jeu.
-			DilemmeAPDemander("trap_coal_or_steel");
+			// Test : pieges Archipelago par dilemme (perdre 50 bois, charbon
+			// ou acier), a tour de role. Remplace l'ancienne fenetre de releve
+			// des cles (OpenKeyLogWindow), F10 etant le menu des options du jeu.
+			static const char* PIEGES_TEST[] = { "trap_wood", "trap_coal", "trap_steel" };
+			static int piegeTest = 0;
+			DilemmeAPDemander(PIEGES_TEST[piegeTest]);
+			piegeTest = (piegeTest + 1) % 3;
 			printf("[F6] End\n");
 		}
 		
 		if (ToucheAppuyee(VK_F7) & 1) {
 			printf("[F7] appui detecte\n");
-			// Test de la couche Archipelago : une progressive au hasard.
-			int arbre = ArbreProgressifAuHasard();
-			if (arbre < 0) printf("[F7] tous les arbres sont epuises\n");
-			else ReceiveProgressive(arbre, "Test F7");
+			// Test de la couche Archipelago : une progressive au hasard,
+			// recue par son id Archipelago (known_ap_ids.h), comme du serveur.
+			// Maj+F7 : un item d'arbre d'un AUTRE scenario (items par scenario).
+			if (GetAsyncKeyState(VK_SHIFT) & 0x8000) {
+				int64_t id = ApItemIdAutreScenarioDeTest();
+				if (!id) printf("[F7] aucun item d'un autre scenario\n");
+				else ReceiveItem(id, "Test Maj+F7");
+			}
+			else {
+				int arbre = ArbreProgressifAuHasard();
+				char cle[16];
+				sprintf_s(cle, "%d", arbre);
+				int64_t id = arbre < 0 ? 0 : ApItemIdCourant("tree", cle);
+				if (arbre < 0) printf("[F7] tous les arbres sont epuises\n");
+				else if (!id) printf("[F7] arbre %d : aucun item AP dans ce scenario\n", arbre);
+				else ReceiveItem(id, "Test F7");
+			}
 			printf("[F7] End\n");
 		}
 
@@ -256,7 +274,10 @@ DWORD WINAPI PayloadThread(LPVOID)
 			// Test : un item "Temperature rise" de 1 niveau (+10 degres).
 			// Remplace le rapprochement du premier groupe (valide), sur
 			// decision de l'auteur (2026-11-01).
-			ReceiveTemperatureRise(1, "Test F8");
+			// Recu par son id Archipelago (known_ap_ids.h), comme du serveur.
+			int64_t id = ApItemIdCourant("temperature", nullptr);
+			if (!id) printf("[F8] aucun item Temperature Rise dans ce scenario\n");
+			else ReceiveItem(id, "Test F8");
 			printf("[F8] End\n");
 		}
 
@@ -282,9 +303,11 @@ DWORD WINAPI PayloadThread(LPVOID)
 		// Pas de F10 : c'est la touche du menu des options du jeu.
 		if (ToucheAppuyee(VK_F3) & 1) {
 			printf("[F3] appui detecte\n");
-			// Test : creation d'un groupe de survivants (copie du premier
-			// groupe existant), executee sur le thread du jeu.
-			GroupesDemanderCreation();
+			// Test : un item commun recu par son id (contenu de site livre
+			// par un groupe AP, filler, piege), a tour de role ; livre sur le
+			// thread du jeu par ApItemsPompe. Remplace le groupe de test
+			// (GroupesDemanderCreation, valide).
+			ReceiveItem(ApItemCommunDeTest(), "Test F3");
 			printf("[F3] End\n");
 		}
 

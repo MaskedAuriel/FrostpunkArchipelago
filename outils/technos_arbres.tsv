@@ -1,0 +1,173 @@
+# hash	arbre	nom court (affiche par le mod)	nom interne -- source de verite des arbres
+A0E0D2727D0B336A	0	SteamHub	H 1_SteamHub
+8ACF1A3F6CD1A7FB	0	Steamhub Upgrade - range	H 3_Steamhub Upgrade - range
+8169FDE4BB9BB141	0	Steamhub Upgrade - less coal	H 5_Steamhub Upgrade - less coal
+A55C1E23258CB056	1	Generator Upgrade - power 1	H 2_Generator Upgrade - power 1
+BDF0CF1D41987C65	1	Generator Upgrade - power 2	H 4_Generator Upgrade - power 2
+B8DD400DADCDEF8E	1	Generator Upgrade - power 3	H 6_Generator Upgrade - power 3
+AAE37A9B8A8B25F1	2	Generator Upgrade - less coal	H 3_Generator Upgrade - less coal
+B6C37AB9E60FF207	2	Generator Upgrade - less coal 2	H 5 Generator Upgrade - less coal 2
+A156A81B7E067BF5	3	Generator Upgrade - range 1	H 2_Generator Upgrade - range 1
+94BF1A6EF2603AE0	3	Generator Upgrade - range 2	H 4_Generator Upgrade - range 2
+B800B652FE01D119	3	Generator Upgrade - range 3	H 6_Generator Upgrade - range 2
+8F0A051638529900	4	Generator Overdrive 1	H 3_Generator Overdrive 1
+91D2CE4C68CE4109	4	Generator Upgrade - less stress	H 6_Generator Upgrade - less stress
+85BCE42D5F9E4F3B	5	Boilers	H 1_Boilers
+B2366AD179BD4D26	5	Boiler Upgrade	H 3_Boiler Upgrade
+BA712FF32CF9CAAE	5	Boiler Upgrade 2	H 5_Boiler Upgrade 2
+8095FB143BBF82CC	6	Boiler Upgrade - less coal	H 4_Boiler Upgrade - less coal
+BD91C0E32EE8A6B2	7	Beacon	E 1_Beacon
+9843404FB6931C76	7	AutomatonScouts_TechHeaven	E 2_AutomatonScouts_TechHeaven
+A16CF8DC50B2727A	8	ExpeditionCenter	E 3_ExpeditionCenter
+B7D0B9057487D146	8	ExpeditionUpgrade	E 5_ExpeditionUpgrade
+AF702239C79A412B	8	ExpeditionUpgradeWinterhome	E 5_ExpeditionUpgradeWinterhome
+BFB9EC0F1190EBC8	9	ScoutsLimit	E 2_ScoutsLimit
+903BF385083D378F	9	ScoutsLimit2	E 5_ScoutsLimit2
+980DA1A7BA055FAD	10	ScoutsSpeed	E 3_ScoutsSpeed
+AFDDF739B5C4D799	10	ScoutsSpeed 2	E 6_ScoutsSpeed 2
+A3E95C4CEB6C2B7F	11	Factory	E 3_Factory
+AD20BB9845A5DDC5	11	Cheaper Automatons	E 4_Cheaper Automatons
+973B35A4E76361EE	11	Automatons no Steamcores	E 6_Automatons no Steamcores
+8AFE2FDE0DF97D69	12	Cheaper Augmentation Parts	E 4_Cheaper Augmentation Parts
+981F59F3146CF4C6	12	Faster Augmentation Parts production	E 5_Faster Augmentation Parts production
+9E16C1962C1325C6	13	Automaton Efficiency	E 4_Automaton Efficiency
+A181975459F6C673	13	Automaton Efficiency 2	E 5_Automaton Efficiency 2
+B0131D084E15541A	13	Automatons Efficiency 3	E 6_Automatons Efficiency 3
+B12F86943A6036E4	14	Automaton Medical	E 5_Automaton Medical
+85C386E583A32865	14	Automatons Medical 2	E 6_Automatons Medical 2
+8BC47F368138DA92	15	Gathering Upgrade	R 1_Gathering Upgrade
+B69B51DB31F4B001	15	Gathering Insulation	R 3_Gathering Insulation
+851032DABCC703AE	15	Gathering Insulation 2	R 5_Gathering Insulation 2
+B300360E7D7A3295	16	ResourceDepotUpgrade	R 2_ResourceDepotUpgrade
+96031EA6A430BF85	16	Resource Depot Big	R 3_Resource Depot Big
+BF4935A464F03A66	17	Gathering upgrade 2	R 4_Gathering upgrade 2
+86A71762D9705649	18	CoalThumper	R 1_CoalThumper
+B5B909AE4C1E54F6	18	SteamCoalThumper	R 3_SteamCoalThumper
+86CCBA956FEBC7DE	18	Coal Thumper Upgrade	R 6_Coal Thumper Upgrade
+A3796F28B9AC2A23	19	Coal Mine	R 2_Coal Mine
+AB63782F194E8021	19	Steam Coal Mine	R 4_Steam Coal Mine
+B82524B0D19D88D5	19	Adv Coal Mine	R 6_Adv Coal Mine
+A5A0DE87E8514928	20	Coal mine upgrade 1	R 3_Coal mine upgrade 1
+960C27264EA17CF9	20	Coal Mine upgrade 2	R 5_Coal Mine upgrade 2
+BEC33A80C6853BA3	21	CharcoalKiln	R 2_CharcoalKiln
+BBD8663CFA3F3D7D	21	Kiln upgrade	R 3_Kiln upgrade
+87221793ACD9ED8A	21	Kiln upgrade 2	R 4_Kiln upgrade 2
+A9F39DF2AEEB21B1	22	Sawmill	R 1_Sawmill
+AC019A23402AB883	22	Steam Sawmill	R 3_Steam Sawmill
+9D7F762601622CA6	23	Sawmill Upgrade	R 2_Sawmill Upgrade
+BC770E739218DAB4	23	Sawmill Upgrade - range	R 5_Sawmill Upgrade - range
+B3C7DF784DC97A83	24	WallDrill	R 2_WallDrill
+88698E693179DD2D	24	Steam WallDrill	R 4_Steam WallDrill
+9DA3ABAE1FA72621	24	Adv Wall Drill	R 6_Adv Wall Drill
+87856A059CE65971	25	Steel Mine	R 1_Steel Mine
+A9AC3601AE5EA23C	25	Steam Steel Mine	R 3_Steam Steel Mine
+884E0D684DAAB02D	25	Adv Steel Mine	R 5_Adv Steel Mine
+BF7153CF70731641	26	Plantation	F 2_Plantation
+B49A95770CB83298	26	Steam Plantation	F 4_Steam Plantation
+A92780AFF69180BF	26	Plantation upgrade	F 6_Plantation upgrade
+95DCED5FD8466387	27	Plantation Insulation	F 3_Plantation Insulation
+94FCD02E48F30228	27	Plantation Insulation 2	F 5_Plantation Insulation
+BD90D178518E872C	28	HuntersUpgrade	F 1_HuntersUpgrade
+90F460E6380DFD7A	28	Flying Hunters	F 3_Flying Hunters
+93B19C3058E896DC	28	FlyingHuntersUpgrade	F 5_FlyingHuntersUpgrade
+9781BAE37ABD9B94	29	Hunters Upgrade - less workers	F 3_Hunters Upgrade - less workers
+AEBE6A8DC9857616	30	MedPost Upgrade	F 2_MedPost Upgrade
+AE0D5029C4FAFA6A	30	Steam healthcare	F 3_Steam healthcare
+A8E5A152E5F619C4	30	Infirmary Upgrade	F 5_Infirmary Upgrade
+9EB2A329D39949C0	31	HealthCare Buildings - warmer	F 3_HealthCare Buildings - warmer
+881F9801EF69831F	31	Healthcare Buildings 2 - warmer	F 6_Healthcare Buildings - warmer
+B5C1BFCACE2F518A	32	Infirmary Upgrade - less workers	F 4_Infirmary Upgrade - less workers
+9479CC7A027A3F61	33	Bunkhouse	F 2_Bunkhouse
+8226B4149A4C642A	33	House	F 4_House
+A751C3903745ABD5	33	House Insulation	F 6_House Insulation
+9E93A93F1C0C2C51	34	Cantinee - warmer	F 3_Cantinee - warmer
+BFB89F7354D04AE2	35	House Upgrade - cheaper	F 5_House Upgrade - cheaper
+BE5B5F3661B74AAE	36	TierUnlock1	01_TierUnlock 1
+99F67FD0200252EF	36	TierUnlock2	02_TierUnlock2
+9D18A6629DC54E67	36	TierUnlock3	03_TierUnlock3
+9F5C9E5513755596	36	TierUnlock4	04_TierUnlock4
+8D5D8F90ED24296E	36	TierUnlock5	05_TierUnlock5
+A24E361D87891912	37	E RepairStation	[Winterhome] E 1_RepairStation
+9004FB1D2E95369F	37	E RC Efficiency 1	[Winterhome] E 3_RC Efficiency 1
+9BAE7B748D5B7820	37	E RC Efficiency 2	[Winterhome] E 5_RC Efficiency 2
+9A306E92F391690A	37	E RC Efficiency 3	[Winterhome] E 6_RC Efficiency 3
+A54820F7892B9652	38	E RC Ability	[Winterhome] E 3_RC Ability
+8A15192C335D2FEC	38	E RC Ability 2	[Winterhome] E 6_RC Ability
+BC7C654BF3D6E484	39	E RC Less workers	[Winterhome] E 5_RC Less workers
+9A3EB5C5736C5CF8	40	HC Brazier	[Builders] HC 2_Brazier
+8BA6E8ADEAA56A13	40	HC BrazierPower1	[Builders] HC 4_BrazierPower1
+BE2A8E7B932D9C2D	41	HC BrazierRange1	[Builders] HC 4_BrazierRange1
+84FFDAF28948F16B	42	HC BrazierCoalOpt1	[Builders] HC 3_BrazierCoalOpt1
+A21A49B6CC78F2C0	42	HC BrazierCoalOpt2	[Builders] HC 5_BrazierCoalOpt2
+8F3095A50ABE5B8C	43	HH Heater	[Builders] HH 2_Heater
+98973939A041BFB3	43	HH Heater Upgrade	[Builders] HH 4_Heater Upgrade
+95884318394691F1	43	HH Heater Upgrade - less coal	[Builders] HH 5_Heater Upgrade - less coal
+AD9A3CCFA5A5E216	44	HI HealthCare Insulation1	[Builders] HI 2_HealthCare Insulation1
+89E11B6D8D3EBB34	44	HI Healthcare Insulation2	[Builders] HI 4_Healthcare Insulation2
+B64F631E2C554692	45	GS ScaffoldingManufacture	[Builders] GS 0_ScaffoldingManufacture
+A73DE9D28A567C7D	45	GS ManufactureCheaperMaterials	[Builders] GS 2_ManufactureCheaperMaterials
+A585F6C76A51C68D	45	GS Manufacture safety improve	[Builders] GS 3_Manufacture safety improve
+A3744892FFB106B8	46	GS ProtectiveStructure1	[Builders] GS 1_ProtectiveStructure1
+9B1DFC4166BDF1F2	46	GS ProtectiveStructure2	[Builders] GS 3_ProtectiveStructure2
+869CB004219D9B9F	47	GM SteelPlateForge	[Builders] GM 2_SteelPlateForge
+B340712E1AA67558	47	GM Forge safety improve	[Builders] GM 4_Forge safety improve
+BB76809681658ED6	48	GM ForgeCheaperMaterials	[Builders] GM 3_ForgeCheaperMaterials
+A6AB1E204FB27849	49	GG SteamMill	[Builders] GG 1_SteamMill
+8626EF58D76A77AA	49	GG Steam Mill safety improve	[Builders] GG 3_Steam Mill safety improve
+B52481405FA109E4	49	GG SteamMillCheaperMaterials	[Builders] GG 4_SteamMillCheaperMaterials
+907F270A35547E8E	50	GG Supercharge1	[Builders] GG 2_Supercharge1
+A3DF3639D1906909	50	GG Supercharge2	[Builders] GG 4_Supercharge2
+B7DB8BC2F8AA8D18	51	GF Air Scrubbers1	[Builders] GF 1_Air Scrubbers1
+AB7A0E6FE556795C	51	GF Air Scrubbers2	[Builders] GF 3_Air Scrubbers2
+91D3615B9CA9BD25	51	GF Air Scrubbers3	[Builders] GF 5_Air Scrubbers3
+9E446E15CA7F3829	52	GF Air ScrubbersOptimalization	[Builders] GF 3_Air ScrubbersOptimalization
+BF2E2AB5620FFB4C	52	GF Air ScrubbersOptimalization2	[Builders] GF 5_Air ScrubbersOptimalization2
+B1E32EC5BA936484	53	GU GeneratorUpgrade1	[Builders] GU 3_GeneratorUpgrade1
+8F91A5E56C1F7808	53	GU GeneratorUpgrade2	[Builders] GU 4_GeneratorUpgrade2
+8E6360937ECF4770	53	GU GeneratorUpgrade3	[Builders] GU 5_GeneratorUpgrade3
+84CE92C6D1B6B9A6	54	FF Foragers	[Builders] FF 0_Foragers
+B2EBD63D29F02BAA	55	FF Foragers_+1	[Builders] FF 1_Foragers_+1
+A5C87129AA78EB4C	55	FF Foragers_+2	[Builders] FF 3_Foragers_+2
+BB86A865575F0898	56	FF ForagersSpeedUpgrade	[Builders] FF 1_ForagersSpeedUpgrade
+BC30C632069AB76B	56	FF ForagersSpeedUpgrade2	[Builders] FF 4_ForagersSpeedUpgrade2
+9926B4EED59BBBBD	57	FH Fishing Harbor	[Builders] FH 1_Fishing Harbor
+B3BCC2FDE230AD82	57	FH Fishing Harbor2	[Builders] FH 4_Fishing Harbor2
+8F721C114E1F5EA1	58	FH Fishing Harbor_efficiencyBoost	[Builders] FH 2_Fishing Harbor_efficiencyBoost
+B25899C67C3E13C7	59	FM MedPost Upgrade	[Builders] FM 1_MedPost Upgrade
+9BEFF8545E4A0C48	59	FM Steam healthcare	[Builders] FM 3_Steam healthcare
+A6C2C6A453C1036F	59	FM Infirmary Upgrade - less workers	[Builders] FM 5_Infirmary Upgrade - less workers
+92BD99FA0B8CF5FD	60	FM Infirmary Upgrade	[Builders] FM 4_Infirmary Upgrade
+8BA655C00C38E5DB	61	RD Docksv1	[Builders] RD 0_Docksv1
+BC42749C23D732DE	61	RD Docksv2	[Builders] RD 2_Docksv2
+A45EC7F7C4042BA7	61	RD Docksv3	[Builders] RD 4_Docksv3
+AB3378C1C0F63FDF	62	RU URS	[Builders] RU 1_URS
+9DA9438616748A1B	63	RU URS_Steam	[Builders] RU 3_URS_Steam
+A189AA1BA1E45B98	63	RU URS_Faster gathering	[Builders] RU 2_URS_Faster gathering
+A4A3B3D1583AE97D	64	RD Docks faster reload	[Builders] RD 1_Docks faster reload
+8EDC34ADC0A71BD9	65	RG Gathering Upgrade	[Builders] RG 0_Gathering Upgrade
+A383E8E076BDAC46	65	RG Gathering upgrade 2	[Builders] RG 2_Gathering upgrade 2
+9CA531E645AA9138	66	RG ResourceDepotUpgrade	[Builders] RG 1_ResourceDepotUpgrade
+9767F8931DCF733E	66	RG Resource Depot Big	[Builders] RG 2_Resource Depot Big
+9B8662D8557103EF	67	RW Sawmill	[Builders] RW 0_Sawmill
+853470E14031EC9D	67	RW Steam Sawmill	[Builders] RW 3_Steam Sawmill
+B3E26DFFB50E015E	68	RW Sawmill Upgrade	[Builders] RW 1_Sawmill Upgrade
+9222D9DF836D090A	68	RW Sawmill Upgrade - range	[Builders] RW 3_Sawmill Upgrade - range
+9D93FA7554513F8D	69	RC CharcoalKiln	[Builders] RC 2_CharcoalKiln
+9A9531B0F90E6D29	69	RC Kiln upgrade	[Builders] RC 3_Kiln upgrade
+9A8EA035E1F6BD7D	69	RC Kiln upgrade 2	[Builders] RC 4_Kiln upgrade 2
+AC4103808CBCB5B8	70	HC Brazier	[Reconquest] HC 1_Brazier
+87BA3B1685C7F1D1	70	HC BrazierPower	[Reconquest] HC 4_BrazierPower
+B6F142D34017C5E2	71	HC BrazierRange	[Reconquest] HC 4_BrazierRange
+B81384D36C8EEABF	72	HC BrazierCoalOpt1	[Reconquest] HC 3_BrazierCoalOpt1
+B4E312D3864D6BE2	72	HC BrazierCoalOpt2	[Reconquest] HC 5_BrazierCoalOpt2
+BAD9632D2482EB30	73	R VaultEfficiencyBoost	[Reconquest] R 1_VaultEfficiencyBoost
+A0F1BE0F4175B30F	74	R VaultUpgrade1	[Reconquest] R 1_VaultUpgrade1
+BF5C4DDAD1CAFE3B	74	R VaultUpgrade2	[Reconquest] R 3_VaultUpgrade2
+876F9433DD7C12DA	74	R VaultUpgrade3	[Reconquest] R 5_VaultUpgrade3
+A6B7DCE3504E6494	75	R VaultMultitasking	[Reconquest] R 2_VaultMultitasking
+98356E3CE54E08AD	76	R VaultInsulation	[Reconquest] R 4_VaultInsulation
+A0606FEF83CB14C8	77	R VaultSteamCoresUpgrade	[Reconquest] R 6_VaultSteamCoresUpgrade
+95E69640FB2830D4	78	E Transport Depot	[Reconquest] E 1_Transport Depot
+A01F9F7DBAB21917	79	Automaton Engineers	E 5_Automaton Engineers
+A1C4DF5688B79B2A	80	Storm_research	E X_Storm_research
+82F3957C59928F95	81	RU URS_Advanced	[Builders] RU 5_URS_Advanced

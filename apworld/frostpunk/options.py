@@ -1,0 +1,74 @@
+# options.py -- Options du YAML (Q8 du journal de docs/chantiers/apworld.md).
+
+from dataclasses import dataclass
+
+from Options import Choice, OptionSet, PerGameCommonOptions, Range, Toggle
+
+from .data import SCENARIOS
+
+NOMS_SCENARIOS = [s["nom"] for s in SCENARIOS]
+
+
+class Scenarios(OptionSet):
+    """Scenarios included in the multiworld. Winning all of them is the goal."""
+    display_name = "Scenarios"
+    valid_keys = NOMS_SCENARIOS
+    default = frozenset({"A New Home"})
+
+
+class StartingScenario(Choice):
+    """Scenario unlocked from the start. If it is not in Scenarios, it is added.
+    random_included: a random scenario among Scenarios."""
+    display_name = "Starting Scenario"
+    option_a_new_home = 0
+    option_the_arks = 1
+    option_the_refugees = 2
+    option_fall_of_winterhome = 3
+    option_the_last_autumn = 4
+    option_on_the_edge = 5
+    option_random_included = 6   # "random" est reserve par Archipelago
+    default = 0
+
+
+class GoalDifficulty(Choice):
+    """Difficulty forced by the mod for every scenario. Also sets the number of
+    Temperature Rise checks."""
+    display_name = "Goal Difficulty"
+    option_easy = 0
+    option_medium = 1
+    option_hard = 2
+    option_very_hard = 3
+    default = 1
+
+
+class TrapPercentage(Range):
+    """Percentage of filler items replaced by traps."""
+    display_name = "Trap Percentage"
+    range_start = 0
+    range_end = 100
+    default = 0
+
+
+class ExcludePurposePolitics(Toggle):
+    """Laws of the Purpose (Faith / Order) and Politics trees only hold filler
+    or traps."""
+    display_name = "Exclude Purpose and Politics"
+
+
+class DeliveryHours(Range):
+    """Travel time, in game hours, of the survivor group that delivers a site
+    content or filler item to the city."""
+    display_name = "Delivery Hours"
+    range_start = 1
+    range_end = 24
+    default = 24
+
+
+@dataclass
+class FrostpunkOptions(PerGameCommonOptions):
+    scenarios: Scenarios
+    starting_scenario: StartingScenario
+    goal_difficulty: GoalDifficulty
+    trap_percentage: TrapPercentage
+    exclude_purpose_politics: ExcludePurposePolitics
+    delivery_hours: DeliveryHours

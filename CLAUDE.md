@@ -91,14 +91,14 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
 
 | Fichier | Rôle |
 |---|---|
-| `version.cpp` | Point d'entrée : proxy des 17 exports de `version.dll`, `DllMain`, `PayloadThread` (console + journal `logs\console.log`, `MH_Initialize`, hooks des constructeurs de templates **en premier**, puis les autres hooks), boucle principale : touches de debug (F3–F9 ; F11 réservée aux tests demandés par l'auteur ; jamais F10 = menu des options ; F3 = création de groupe, F4 = relevé des lois, F5 = item de loi de test, F6 = dilemme piège de test (remplace l'ancienne fenêtre `OpenKeyLogWindow`), F7 = progressive de test, F8 = item « Temperature rise » de test (+1 niveau ; l'ancien rapprochement du premier groupe n'est plus lié), F9 = relevé des quêtes (`quetes.cpp` ; le relevé de température et l'ancien `DiagGroupes` ne sont plus liés), Maj+F9 / Ctrl+F9 = fin de partie de test victoire / défaite (`victoire.cpp`), F11 = ressources de test) + tick d'une seconde (`EnsureTechSelf`, `EnsureResSelf`, **`PartieTick`**, `CaptureRunState`, `ScootingTick`, `SurveillerArbreTechno`) |
+| `version.cpp` | Point d'entrée : proxy des 17 exports de `version.dll`, `DllMain`, `PayloadThread` (console + journal `logs\console.log`, `MH_Initialize`, hooks des constructeurs de templates **en premier**, puis les autres hooks), boucle principale : touches de debug (F3–F9 ; F11 réservée aux tests demandés par l'auteur ; jamais F10 = menu des options ; F3 = item commun de test par son id (contenu de site livré par un groupe AP, filler, piège, à tour de rôle ; l'ancienne création de groupe n'est plus liée), F4 = relevé des lois, F5 = item de loi de test, F6 = dilemme piège de test (remplace l'ancienne fenêtre `OpenKeyLogWindow`), F7 = progressive de test (Maj+F7 = item d'un autre scénario), F8 = item « Temperature rise » de test (+1 niveau ; l'ancien rapprochement du premier groupe n'est plus lié), F9 = relevé des quêtes (`quetes.cpp` ; le relevé de température et l'ancien `DiagGroupes` ne sont plus liés), Maj+F9 / Ctrl+F9 = fin de partie de test victoire / défaite (`victoire.cpp`), F11 = ressources de test) + tick d'une seconde (`EnsureTechSelf`, `EnsureResSelf`, **`PartieTick`**, `CaptureRunState`, `ScootingTick`, `SurveillerArbreTechno`) |
 | `mod_common.h/.cpp` | Socle : `SafeRead`/`SafeWrite`, `GetClassNameFP` (RTTI), ancrages (`SystemeParId`, `ComposantsDuSysteme`, `IdSysteme::*`), captures (`ListeCaptures`), **cycle de vie de la partie** (`PartieTick`, `PartiePrete`, `PartieGeneration`, `PartieSelection`, `PartieRechargee`, garde-fou sur la liste des sites), **diagnostics d'ancrage** (`DiagAncrages`, `DiagGabaritsPrecoces`, `ChercherValeurDansTas`, `ChercherReferencesVtable`…), balayage mémoire historique (`CollectObjectsByClasses`), résolution des self par globaux, dumps (PropertyManager, vtables), hooks d'E/S (`NtReadFile`/`NtWriteFile`), allocateur du moteur, `ToucheAppuyee`, offsets (`GameOffsets`, `SetupOffsets`, `TECH_*`, `RES_*`), macro `CHRONO` |
 | `hooks_loc.h/.cpp` | `hkTranslate` : cœur du détournement de **tous** les textes affichés |
 | `hooks_research.h/.cpp` | Les 4 hooks de recherche : `CanResearch`, `ResearchStart`, `ResearchComplete` (location check), `CancelResearch` |
 | `tech_state.h/.cpp` | Accès au tableau des technos du jeu (`g_selfTech + 0x2248`) : état par hash ou par pointeur, clés de localisation, parcours |
 | `tech_brain.h/.cpp` | État runtime par techno `{researched, received}` ↔ état mémoire du jeu |
 | `tech_runtime.h/.cpp` | `TechRuntime`, `RT_Get`, `RT_CanResearch` |
-| `known_techs.h` | Table des technos (hash → nom) |
+| `known_techs.h` | Table des technos par scénario AP (hash, nom, arbre, rang, palier, parent) — **générée** par `outils\technos_table.py` depuis le relevé F4 `[TECHNO]` et `outils\technos_arbres.tsv` (hash → arbre, à éditer à la main) |
 | `known_quests.h` | Table des quêtes par scénario (GUID → nom interne / affiché, catégorie) — **générée** par `outils\quetes_excel.py` depuis le relevé F9 |
 | `known_sites.h` | Table des sites d'exploration par scénario (nom interne = clé de `SITE_PAYLOADS`, nom affiché, contenu) — **générée** par `outils\quetes_excel.py` depuis le relevé F9 |
 | `archipelago.h/.cpp` | **Surface de communication Archipelago ↔ jeu** (noms en anglais, demande de l'auteur). Serveur → jeu : `ReceiveProgressive(tree, player)` (toute techno reçue est une progressive, même un arbre à un niveau), `ReceiveResource(name, amount, player)`. Jeu → serveur : `SendResearchCheck(hash)`, `SendLocationCheck(id)` — **seuls** points de sortie (appelés par `AP_SendCheck` et par `ScootingTick`). Chaque fonction : partie prête → effet → popup. La future classe réseau n'appellera que ça |
@@ -116,7 +116,7 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
 | `dilemmes_ap.h/.cpp` | **Catalogue des dilemmes Archipelago** (bulles en ville, pièges) : table `DILEMMES_AP` (id, titre, sous-titre, texte, icône, titre de popup, choix si ignoré, ≤ 4 choix `{texte, ressource, quantité signée, effetSpecial}`) ; `DilemmeAPDemander("id")` (tout thread, file) → `DilemmesPompe` (thread du jeu). **Pour ajouter un piège : une entrée dans la table** |
 | `menu_ap.h/.cpp` | **Écran de connexion Archipelago du menu principal** : hook de l'init du panneau principal (`+0x1B28950`), clones d'`EXIT_BUTTON` (libellés Server / Slot name / Password, bouton Connect) et d'un `UITextInput` de panneau en jeu, masque du mot de passe, `mods\ap_connexion.txt` ; Connect → `RequestConnection` (archipelago) |
 | `scenarios_ap.h/.cpp` | **Verrou des scénarios au menu** : hook de `FUN_141283ea0` (prérequis de profil) ; pour la liste de déblocage (`scénario +0x20`) d'un des 6 scénarios AP, la réponse = `ScenarioDebloque(nom)`, alimenté **uniquement** par `ReceiveScenarioUnlock` (archipelago) ; preset `LOCKED_<nom>` sauté (texte de la condition du jeu) ; log `[SCN]` |
-| `victoire.h/.cpp` | **Fin de partie** : hook de `EndGame` (`+0x1301490`, journal `[FIN]` victoire / défaite) ; victoire dans un scénario AP → checks selon le mode (`Complete`, `General` ; `Detail` abandonné et commenté le 2026-11-03 ; constante de test `MODE_TEST`) par `SendVictoryCheck` (archipelago) |
+| `victoire.h/.cpp` | **Fin de partie** : hook de `EndGame` (`+0x1301490`, journal `[FIN]` victoire / défaite) ; toute victoire dans un scénario AP = **événement du goal**, sans item (difficulté imposée, ironman sans effet) (`SendScenarioVictory`, archipelago : `mods\ap_victoires.txt`, goal = tous les scénarios du slot gagnés) ; modes de victoire supprimés le 2026-11-04 |
 | `temperature.h/.cpp` | **Température / météo** : relevé F9 (`[TEMP]`, thread du jeu via `TemperaturePompe`) des niveaux, météos, chronologies météo, actes, modifications de difficulté et de la chronologie calculée de la partie ; **montées AP** : hook du recalcul `+0x1812C10`, montées retirées, `TemperatureRecevoirMontee` (← `ReceiveTemperatureRise`, archipelago), `mods\ap_temperature_<GameId>.txt` |
 | `quetes.h/.cpp` | **Quêtes** : relevé F9 (`[QUETE]`, thread du jeu via `QuetesPompe`) des répertoires, quêtes, objectifs, effets, et des événements portant un effet de quête ou d'acte |
 
@@ -557,6 +557,13 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   d'un nœud après une recherche, nom du nœud = nom du check
   (+ ` [Researched]`), pas de renvoi d'un check déjà envoyé. Sauvegarde
   locale **cumulative** (décision de l'auteur).
+  **Paliers / arbres (2026-11-03)** : relevé F4 `[TECHNO]` (config
+  `base + 0x4074430`) validé ; palier = prérequis `TierUnlockN`, un seul
+  parent par techno ; table par scénario générée (`known_techs.h`,
+  `outils\technos_table.tsv`, tableau dans le fichier du chantier). Technos
+  de départ (Winterhome, On the Edge) exclues : `TechEstUnCheck`. Mod
+  adapté, **VALIDÉ le 2026-11-03** (Winterhome, F7) ; table transmise à
+  l'apworld.
 
 - **Scénarios verrouillés** — `docs/chantiers/scenarios_verrouilles.md`.
   Verrou **VALIDÉ** (hook de `FUN_141283ea0`, 6 scénarios AP), déblocage par
@@ -570,13 +577,15 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
 
 - **Difficulté et victoire** — `docs/chantiers/victoire.md`. Détection de
   la difficulté conforme ; `ScenarioUsesGroup` / `ScenarioVictoryId` lisent
-  `g_run.scenario` (non testé). Hook de `EndGame` (`FUN_141301490`) : checks
-  de victoire en mode Complete / General, **cumulatifs**, niveau
-  général = le plus faible des lignes ; `MODE_TEST = General` (TEMPORAIRE).
-  Mode Detail (par sous-difficulté) **abandonné le 2026-11-03** : seule la
-  difficulté principale importe (code commenté, pas supprimé).
+  `g_run.scenario` (non testé). Hook de `EndGame` (`FUN_141301490`).
+  **2026-11-04 (apworld)** : plus de checks de victoire ni de modes
+  (Complete / General / Detail supprimés) ; toute victoire dans un scénario
+  AP est un **événement du goal** (difficulté imposée, ironman sans effet ;
+  plus de lecture des curseurs) : `SendScenarioVictory`,
+  `mods\ap_victoires.txt`, goal = tous les scénarios du slot gagnés
+  (**validé le 2026-11-04**, A New Home).
   Maj+F9 / Ctrl+F9 = victoire / défaite de test (la partie se termine
-  vraiment). Mode General **validé le 2026-11-03** (Refugees, Hard).
+  vraiment).
 
 - **Difficulté imposée** — `docs/chantiers/difficulte.md`. Décisions de
   l'auteur (2026-11-03) : difficulté du YAML **imposée**, curseurs
@@ -586,10 +595,10 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   désactivés — immobiles, pas grisés, **validé**) et filet
   `DifficulteImposerAuLancement`, appelé par le hook d'ApplyConfig de
   `scenario.cpp` (un seul hook par fonction ; niveaux `+0x314` réécrits).
-  Victoire en **ironman** = comptée au moins au niveau cible
-  (`victoire.cpp`, `PartieIronman`) : **validé** (préréglage ironman =
-  Very Hard partout). Log `[DIFF]`. Cible `DIFFICULTE_TEST = 2` (Hard,
-  TEMPORAIRE). **VALIDÉ le 2026-11-03** (Refugees : partie lancée en Hard,
+  L'ironman ne change rien à la victoire (auteur, 2026-11-04 :
+  `PartieIronman` retiré de `victoire.cpp`). Log `[DIFF]`. Cible
+  `g_difficulteCible` (Hard par défaut), réglée par le `slot_data`
+  (`goal_difficulty`, `DifficulteReglerCible`). **VALIDÉ le 2026-11-03** (Refugees : partie lancée en Hard,
   victoire → checks General Easy / Medium / Hard).
 
 - **Icône et couleur des messages** — `docs/chantiers/notifications.md`.
@@ -598,6 +607,18 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   de `static_left_notification_circle` après l'ajout (validé) ; la couleur
   orange est reposée par le preset juste après l'ajout →
   `CouleursMessagesTick` (bleu-vert) : non testé.
+
+- **apworld (Python, côté Archipelago)** — `docs/chantiers/apworld.md`.
+  **Démarré le 2026-11-02.** C'est là que vit la logique (items, locations,
+  règles, goal, options du YAML) ; le mod doit faire respecter en jeu les
+  verrous qu'elle suppose. Fichier = référence AP + format de dictée +
+  questions à trancher + journal des décisions dictées par l'auteur.
+  **Logique dictée et apworld écrit le 2026-11-03** (`apworld/frostpunk/`,
+  non testé dans Archipelago) : une région par quête goulot, goal =
+  victoire dans tous les scénarios choisis à la difficulté du YAML (forcée
+  par le mod), items par scénario. Données générées par
+  `apworld/outils/generer.py` → `data.py`, `apworld/ids.tsv` (ids
+  **stables à vie**) et **`known_ap_ids.h`** (table des ids pour le mod).
 
 - **Réseau Archipelago** : à n'aborder que sur demande explicite. L'auteur
   prévoit « une classe spécifique pour toutes les interactions avec le serveur
@@ -608,8 +629,11 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
 `EXPEDITIONS_RAPIDES` (scooting.cpp), `LOIS_SANS_DELAI` (lois.cpp).
 (`SITES_TIRAGE_FIXE = true` est voulu, ce n'est pas du debug.) Valeurs TEMPORAIRES à
 remplacer par le serveur : `IconeCheckDeTest`, `IconeDuCheckDeTest`,
-`AP_NomDuCheck`, `MODE_TEST`, `ScenariosRecevoirItemsDeTest`,
-`DIFFICULTE_TEST` (scenarios_ap.cpp).
+`AP_NomDuCheck`, `ScenariosRecevoirItemsDeTest`. Valeurs par défaut
+remplacées par le `slot_data` (`ApAppliquerSlotData`, archipelago.cpp ;
+test sans réseau : `mods\ap_slot_data.txt`, `ApChargerSlotDataDeTest`) :
+`g_difficulteCible` (scenarios_ap.cpp, Hard), `g_scenariosGoal` (A New
+Home seul), `g_heuresLivraison` (24 h).
 
 ### Approche abandonnée
 

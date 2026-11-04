@@ -23,9 +23,10 @@ int ScenarioDebloquer(const char* nomInterne);
 void ScenariosRecevoirItemsDeTest();
 
 // Difficulte imposee (docs/chantiers/difficulte.md) : niveau general cible
-// des parties AP (0 Easy .. 3 Very Hard), -1 si aucun. TEMPORAIRE : constante
-// DIFFICULTE_TEST, viendra de slot_data.
+// des parties AP (0 Easy .. 3 Very Hard), -1 si aucun. Reglee par le
+// slot_data (goal_difficulty) ; Hard avant (TEMPORAIRE).
 int DifficulteCible();
+void DifficulteReglerCible(int niveau);
 
 // Filet au lancement d'une partie neuve : appele par le hook d'ApplyConfig
 // (scenario.cpp) avant l'original, 'panneau' = panneau des scenarios.

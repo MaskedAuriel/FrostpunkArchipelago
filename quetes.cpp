@@ -1210,6 +1210,71 @@ const QueteInfo* QueteHistoire(const Guid& g, const char* scenario)
     return nullptr;
 }
 
+// Quete de l'histoire du scenario par son nom interne, ou nullptr.
+const QueteInfo* QueteHistoireParNom(const char* nom, const char* scenario)
+{
+    for (int i = 0; i < KNOWN_QUESTS_COUNT; ++i) {
+        const QueteInfo& q = KNOWN_QUESTS[i];
+        if (strcmp(q.nom, nom) == 0 && strcmp(q.scenario, scenario) == 0) return &q;
+    }
+    return nullptr;
+}
+
+// Envoie le check de la quete 'info' (GUID 'g'), une seule fois par partie
+// ET par location AP : les quetes paralleles (Refugees 004a / 004b, On the
+// Edge [0] et [1] avec leur [timeout], [8] Helping NL / Taking NL
+// population) partagent une location (known_ap_ids.h), la seconde
+// n'envoie rien. Une quete sans location (communes, [LondonerArc],
+// [ENDGAME] 004, [Builders] 007, 002 DOCK INFRASTRUCTURE EXTENDED) n'envoie
+// rien non plus. Partie deja relue (AssurerPartieQuetes).
+void EnvoyerCheckQuete(const QueteInfo* info, const Guid& g, const char* scenario)
+{
+    int64_t loc = ApQueteLocation(info->nom);
+    if (!loc) {
+        printf("[QUETEAP]   \"%s\" : pas une location AP, rien envoye\n", info->nom);
+        return;
+    }
+    for (int i = 0; i < g_nQuetesEnvoyees; ++i) {
+        if (GuidEgal(g_quetesEnvoyees[i], g)) {
+            printf("[QUETEAP]   \"%s\" : check deja envoye dans cette partie\n", info->nom);
+            return;
+        }
+        const QueteInfo* autre = QueteHistoire(g_quetesEnvoyees[i], scenario);
+        if (autre && ApQueteLocation(autre->nom) == loc) {
+            printf("[QUETEAP]   \"%s\" : check deja envoye par la quete parallele \"%s\"\n", info->nom, autre->nom);
+            return;
+        }
+    }
+    if (g_nQuetesEnvoyees < 256) g_quetesEnvoyees[g_nQuetesEnvoyees++] = g;
+    char chemin[MAX_PATH];
+    FILE* f = nullptr;
+    if (FichierQuetes(chemin, sizeof(chemin)) && fopen_s(&f, chemin, "a") == 0 && f) {
+        fprintf(f, "Q %016llX%016llX\n", (unsigned long long)g.a, (unsigned long long)g.b);
+        fclose(f);
+    }
+    SendQuestCheck(info->nom, info->nomAffiche);
+}
+
+// A New Home : 001 ACTIVATE GENERATOR, 002 MEANS FOR SURVIVAL et 003 RESCUE
+// SURVIVORS peuvent etre sautees pour aller a 004 FIND OTHER CITIES
+// (decision de l'auteur, Q4.4 b) : au succes de 004, leurs checks partent
+// s'ils ne l'ont pas deja fait.
+void ChecksQuetesSautees(const char* nom, const char* scenario)
+{
+    if (strcmp(scenario, "DEFAULT") != 0 || strcmp(nom, "[Main Narrative Line] 004 FIND OTHER CITIES") != 0) return;
+    static const char* SAUTEES[] = {
+        "[Main Narrative Line] 001 ACTIVATE GENERATOR",
+        "[Main Narrative Line] 002 MEANS FOR SURVIVAL",
+        "[Main Narrative Line] 003 RESCUE SURVIVORS",
+    };
+    for (const char* s : SAUTEES) {
+        const QueteInfo* q = QueteHistoireParNom(s, scenario);
+        if (!q) { printf("[QUETEAP]   quete sautee \"%s\" absente de known_quests.h\n", s); continue; }
+        printf("[QUETEAP]   004 reussie : check de \"%s\" (quete sautee ou deja faite)\n", s);
+        EnvoyerCheckQuete(q, Guid{ q->guidA, q->guidB }, scenario);
+    }
+}
+
 void QueteTerminee(uintptr_t quete, bool succes)
 {
     char nom[128] = "?", scenario[64] = "?";
@@ -1228,19 +1293,9 @@ void QueteTerminee(uintptr_t quete, bool succes)
         printf("[QUETEAP]   partie illisible : check non envoye\n");
         return;
     }
-    for (int i = 0; i < g_nQuetesEnvoyees; ++i)
-        if (GuidEgal(g_quetesEnvoyees[i], g)) {
-            printf("[QUETEAP]   check deja envoye dans cette partie\n");
-            return;
-        }
-    if (g_nQuetesEnvoyees < 256) g_quetesEnvoyees[g_nQuetesEnvoyees++] = g;
-    char chemin[MAX_PATH];
-    FILE* f = nullptr;
-    if (FichierQuetes(chemin, sizeof(chemin)) && fopen_s(&f, chemin, "a") == 0 && f) {
-        fprintf(f, "Q %016llX%016llX\n", (unsigned long long)g.a, (unsigned long long)g.b);
-        fclose(f);
-    }
-    SendQuestCheck(info->nom, info->nomAffiche);
+    // Les quetes sautees d'abord : leurs checks precedent celui de 004.
+    ChecksQuetesSautees(info->nom, scenario);
+    EnvoyerCheckQuete(info, g, scenario);
 }
 
 uintptr_t hkTerminerQuete(uintptr_t sys, uintptr_t id, uintptr_t succes, uintptr_t p4)

@@ -11,6 +11,7 @@
 #include "temperature.h"  // TemperaturePompe (montees de temperature AP)
 #include "quetes.h"       // QuetesPompe (releve F9)
 #include "victoire.h"     // VictoirePompe (fin de partie de test, Maj / Ctrl + F9)
+#include "archipelago.h"  // ApItemsPompe (items recus, par scenario)
 
 volatile bool g_traceRes = false;
 
@@ -371,6 +372,7 @@ static int32_t hkModifyResource(uintptr_t self, uintptr_t guidPtr,
             LoisPompe();
             LoisAPPompe();
             TemperaturePompe();
+            ApItemsPompe();          // apres LoisAPPompe / TemperaturePompe (parties relues)
             QuetesPompe();
             VictoirePompe();
         }

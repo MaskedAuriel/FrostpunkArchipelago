@@ -20,13 +20,15 @@ uintptr_t g_diffObj = 0;      // instance capturee
 
 struct ScenarioTechs { const char* scenario; const char* groups[6]; };
 
+// known_techs.h est genere (outils\technos_table.py, 2026-11-03) : un groupe
+// par scenario AP, de label = nom interne du scenario.
 static const ScenarioTechs SCENARIO_TECHS[] = {
-    { "DEFAULT",    { "Main/Tier","Main/Heater","Main/Exploration","Main/Ressources","Main/Food", nullptr } },
-    { "TechHaven",  { "Main/Tier","Main/Heater","Arks/Exploration","Main/Ressources","Main/Food", nullptr } },
-    { "REFUGEES",   { "Main/Tier","Main/Heater","Main/Exploration","Main/Ressources","Main/Food", nullptr } },
-    { "WINTERHOME", { "Main/Tier","Winterhome/Heater", "Winterhome/Exploration", "Main/Ressources","Main/Food", nullptr} },
-    { "BUILDERS",   { "Main/Tier","Builders", nullptr } },
-    { "Reconquest", { "Main/Tier","Edge/Heater","Edge/Exploration","Edge/Ressources","Edge/Food", nullptr } },
+    { "DEFAULT",    { "DEFAULT", nullptr } },
+    { "TechHaven",  { "TechHaven", nullptr } },
+    { "REFUGEES",   { "REFUGEES", nullptr } },
+    { "WINTERHOME", { "WINTERHOME", nullptr } },
+    { "BUILDERS",   { "BUILDERS", nullptr } },
+    { "Reconquest", { "Reconquest", nullptr } },
 };
 
 

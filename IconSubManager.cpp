@@ -535,6 +535,7 @@ static const TechIcons* IconeDeLaTechno(uintptr_t tech)
 {
     uint64_t h = 0;
     if (tech <= 0x10000 || !SafeRead((void*)(tech + 0x20), &h, 8) || !h) return nullptr;
+    if (!TechEstUnCheck(h)) return nullptr;      // techno de depart : icone du jeu
     for (int i = 0; i < g_nTechnosAP; ++i)
         if (g_technosAP[i].hash == h) return IconeEffective(g_technosAP[i]);
     return nullptr;
@@ -609,7 +610,7 @@ static bool PoserNomDuCheck(uintptr_t texte, uintptr_t tech)
     uint64_t h = 0;
     if (texte <= 0x10000 || !SafeRead((void*)(tech + 0x20), &h, 8) || !h) return false;
     bool notre = false;
-    for (int i = 0; i < g_nTechnosAP && !notre; ++i) notre = g_technosAP[i].hash == h;
+    for (int i = 0; i < g_nTechnosAP && !notre && TechEstUnCheck(h); ++i) notre = g_technosAP[i].hash == h;
     if (!notre) return false;
     char nom[128];
     AP_NomDuCheck(h, nom, sizeof(nom));

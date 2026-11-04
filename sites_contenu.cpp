@@ -61,6 +61,7 @@ constexpr uintptr_t OFF_ECONOMIE        = 0x40916D0;
 constexpr int       ECO_RESSOURCES      = 0x2240;   // entrees de 0x70, compte +8
 constexpr int       ECO_PAS             = 0x70;
 constexpr uintptr_t OFF_CLASSES_SOCIALES= 0x4072078;
+constexpr uintptr_t OFF_STATS_INITIALES = 0x4072140;   // config de population + 0x120 (FUN_141440690)
 constexpr uintptr_t OFF_EFFETS_CARTE    = 0x40806F8;
 constexpr int       VT_PAR_LIEN         = 0x88;
 
@@ -567,4 +568,127 @@ void SitesContenuReleve()
         ++ns;
     }
     printf("[SCONT] %d site(s) releve(s) (scenario %s)\n", ns, g_scn);
+}
+
+// Entree d'une EntryCollection par nom (FrostpunkPopulationConfig, ctor
+// FUN_141440690 : collection = vtable + 3 champs, puis tableau +0x20, compte
+// +0x28 -- SUPPOSE). Entree : +0x00 nom, lien (GUID) suppose a +0x08 ou
+// +0x10, retenu seulement si la recherche par lien du jeu rend la meme
+// entree. 'nom' : egal, ou prefixe de 5 lettres si 'prefixe'.
+static bool EntreeCollectionParNom(uintptr_t coll, const char* quoi, const char* nom, bool prefixe,
+                                   uint8_t guid[16])
+{
+    uintptr_t tab = 0;
+    uint32_t n = 0;
+    if (!LireTab(coll + 0x20, tab, n, 256) || !n) {
+        uint8_t brut[0x40] = {};
+        SafeRead((void*)coll, brut, sizeof(brut));
+        printf("[SCONT] collection %s : tableau illisible, octets", quoi);
+        for (int i = 0; i < 0x40; ++i) printf("%s%02X", i % 8 ? "" : " ", brut[i]);
+        printf("\n");
+        return false;
+    }
+    char liste[512] = "";
+    for (uint32_t i = 0; i < n; ++i) {
+        uintptr_t e = 0;
+        char nomE[64];
+        if (!SafeRead((void*)(tab + (uintptr_t)i * 8), &e, 8) || e <= 0x10000 || !LireNom(e, nomE, sizeof(nomE))) continue;
+        if (strlen(liste) + strlen(nomE) + 3 < sizeof(liste)) { strcat_s(liste, liste[0] ? ", " : ""); strcat_s(liste, nomE); }
+        bool ok = prefixe ? _strnicmp(nomE, nom, 5) == 0 : _stricmp(nomE, nom) == 0;
+        if (!ok) continue;
+        static const int DECALAGES[] = { 0x08, 0x10 };
+        for (int off : DECALAGES) {
+            uint8_t g[16] = {};
+            if (SafeRead((void*)(e + off), g, 16) && EntreeParLien(coll, g) == e) {
+                memcpy(guid, g, 16);
+                printf("[SCONT] collection %s : \"%s\" -> \"%s\" (lien a +0x%X)\n", quoi, nom, nomE, off);
+                return true;
+            }
+        }
+        printf("[SCONT] collection %s : \"%s\" trouve mais lien non verifie\n", quoi, nomE);
+    }
+    printf("[SCONT] collection %s : \"%s\" absent (%u entree(s) : %s)\n", quoi, nom, n, liste);
+    return false;
+}
+
+// Entree de survivants d'une classe sociale, prise dans les sites de la carte
+// (composant +0xA8, tresor du gabarit +0x70, survivants aleatoires +0xD8) ;
+// classe et statistiques retenues par nom de classe pour toute la session
+// (liens globaux de la configuration).
+bool SitesEntreeSurvivants(const char* classeAP, uint8_t entree[0x24])
+{
+    // Noms de l'apworld -> noms internes des classes sociales (inverse de
+    // SURVIVANTS d'outils\sites_contenu.py ; collection relevee le
+    // 2026-11-04 : Workers, [Builders] Convicts, Automaton, Specialists,
+    // [Reconquest] Administrators, Children).
+    static const struct { const char* ap; const char* jeu; } NOMS[] = {
+        { "workers", "Workers" }, { "engineers", "Specialists" },
+        { "children", "Children" }, { "automaton", "Automaton" },
+    };
+    const char* classe = classeAP;
+    for (const auto& n : NOMS) if (_stricmp(n.ap, classeAP) == 0) classe = n.jeu;
+
+    struct Connue { char nom[32]; uint8_t e[0x24]; };
+    static Connue connues[8];
+    static int nConnues = 0;
+    for (int c = 0; c < nConnues; ++c)
+        if (_stricmp(connues[c].nom, classe) == 0) { memcpy(entree, connues[c].e, 0x24); return true; }
+
+    // Une entree candidate (classe +0x00, statistiques +0x10) : retenue si
+    // sa classe s'appelle 'classe'.
+    auto essayer = [&](const uint8_t* cls, const uint8_t* stats) -> bool {
+        char nom[64];
+        NomClasseSociale(cls, nom, sizeof(nom));
+        if (_stricmp(nom, classe) != 0) return false;
+        memset(entree, 0, 0x24);
+        memcpy(entree + 0x04, cls, 16);
+        memcpy(entree + 0x14, stats, 16);
+        if (nConnues < 8) {
+            strcpy_s(connues[nConnues].nom, classe);
+            memcpy(connues[nConnues].e, entree, 0x24);
+            ++nConnues;
+        }
+        printf("[SCONT] classe sociale \"%s\" trouvee dans les sites de la carte\n", classe);
+        return true;
+    };
+
+    static uintptr_t objs[512];
+    int n = ComposantsDuSysteme(IdSysteme::ExpeditionSite, "FrostpunkExpeditionSiteComponent", objs, 512);
+    for (int i = 0; i < n; ++i) {
+        if (!ClasseExacte(objs[i], "FrostpunkExpeditionSiteComponent")) continue;
+        uintptr_t gab = 0, tab = 0;
+        uint32_t k = 0;
+        uint8_t e[0x30];
+        // Survivants du composant, puis du tresor (0x24 : classe +0x04, stats +0x14).
+        uintptr_t listes[2] = { objs[i] + SITE_SURVIVANTS, 0 };
+        if (SafeRead((void*)(objs[i] + 0x20), &gab, 8) && gab > 0x10000)
+            listes[1] = gab + GAB_TRESOR + TR_SURVIVANTS;
+        for (uintptr_t adr : listes) {
+            if (!adr || !LireTab(adr, tab, k, 64)) continue;
+            for (uint32_t j = 0; j < k; ++j)
+                if (SafeRead((void*)(tab + (uintptr_t)j * 0x24), e, 0x24) && essayer(e + 0x04, e + 0x14)) return true;
+        }
+        // Survivants aleatoires du tresor (0x30 : classe +0x00, stats +0x10).
+        if (gab > 0x10000 && LireTab(gab + GAB_TRESOR + TR_ALEA_SURV, tab, k, 64))
+            for (uint32_t j = 0; j < k; ++j)
+                if (SafeRead((void*)(tab + (uintptr_t)j * 0x30), e, 0x30) && essayer(e, e + 0x10)) return true;
+    }
+    printf("[SCONT] classe sociale \"%s\" absente des sites de la carte (%d site(s))\n", classe, n);
+
+    // Repli : collections globales de la configuration de population
+    // (classes base + 0x4072078, statistiques initiales base + 0x4072140).
+    // Statistiques : entree dont le nom commence comme la classe, sinon
+    // celles d'une classe deja trouvee (jamais de lien nul).
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
+    uint8_t cls[16] = {}, stats[16] = {};
+    if (!EntreeCollectionParNom(base + OFF_CLASSES_SOCIALES, "classes", classe, false, cls)) return false;
+    if (!EntreeCollectionParNom(base + OFF_STATS_INITIALES, "statistiques", classe, true, stats)) {
+        if (!nConnues) {
+            printf("[SCONT] classe \"%s\" : aucune statistique initiale utilisable\n", classe);
+            return false;
+        }
+        memcpy(stats, connues[0].e + 0x14, 16);
+        printf("[SCONT] classe \"%s\" : statistiques de \"%s\" reprises\n", classe, connues[0].nom);
+    }
+    return essayer(cls, stats);
 }

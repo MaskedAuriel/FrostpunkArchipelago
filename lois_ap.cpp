@@ -1506,6 +1506,18 @@ bool LoisAPRecevoir(const char* arbre, int* rang)
     return true;
 }
 
+int LoisAPItemsRecus(const char* arbre, const uint64_t gid[2])
+{
+    if (!g_bati || !g_partieChargee || !arbre) return -1;
+    if (gid[0] != g_partie[0] || gid[1] != g_partie[1]) return -1;
+    int a = ArbreParNom(arbre);
+    if (a < 0) return -1;
+    AcquireSRWLockShared(&g_verrou);
+    int n = g_arbres[a].recus;
+    ReleaseSRWLockShared(&g_verrou);
+    return n;
+}
+
 bool LoisAPArbreDeLoi(uintptr_t loi, char* arbre, int taille, int* poids)
 {
     if (arbre && taille > 0) arbre[0] = 0;
@@ -1542,7 +1554,13 @@ void LoisAPPompe()
         }
         int choix = enAttente >= 0 ? enAttente : derniere;
         if (choix < 0) printf("[LOIAP] test : aucune loi signee, rien a recevoir\n");
-        else ReceiveLawProgressive(g_arbres[g_lois[choix].arbre].nom, "Test");
+        else {
+            // Recu par son id Archipelago (known_ap_ids.h), comme du serveur.
+            const char* arbre = g_arbres[g_lois[choix].arbre].nom;
+            int64_t id = ApItemIdCourant("law", arbre);
+            if (!id) printf("[LOIAP] test : arbre %s sans item AP dans ce scenario\n", arbre);
+            else ReceiveItem(id, "Test");
+        }
     }
 
     if (g_aTraiter) {

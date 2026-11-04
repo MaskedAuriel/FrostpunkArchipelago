@@ -1,0 +1,464 @@
+scenario	hash	nom interne	nom court	onglet	arbre	rang	palier	parent (hash)	parent (nom)	parent de depart	condition d'affichage
+DEFAULT	A0E0D2727D0B336A	H 1_SteamHub	SteamHub	Heating	0	0	0			0	
+DEFAULT	8ACF1A3F6CD1A7FB	H 3_Steamhub Upgrade - range	Steamhub Upgrade - range	Heating	0	1	2	A0E0D2727D0B336A	H 1_SteamHub	0	
+DEFAULT	8169FDE4BB9BB141	H 5_Steamhub Upgrade - less coal	Steamhub Upgrade - less coal	Heating	0	2	4	8ACF1A3F6CD1A7FB	H 3_Steamhub Upgrade - range	0	
+DEFAULT	A55C1E23258CB056	H 2_Generator Upgrade - power 1	Generator Upgrade - power 1	Heating	1	0	1			0	
+DEFAULT	BDF0CF1D41987C65	H 4_Generator Upgrade - power 2	Generator Upgrade - power 2	Heating	1	1	3	A55C1E23258CB056	H 2_Generator Upgrade - power 1	0	
+DEFAULT	B8DD400DADCDEF8E	H 6_Generator Upgrade - power 3	Generator Upgrade - power 3	Heating	1	2	5	BDF0CF1D41987C65	H 4_Generator Upgrade - power 2	0	
+DEFAULT	AAE37A9B8A8B25F1	H 3_Generator Upgrade - less coal	Generator Upgrade - less coal	Heating	2	0	2	A55C1E23258CB056	H 2_Generator Upgrade - power 1	0	
+DEFAULT	B6C37AB9E60FF207	H 5 Generator Upgrade - less coal 2	Generator Upgrade - less coal 2	Heating	2	1	4	AAE37A9B8A8B25F1	H 3_Generator Upgrade - less coal	0	
+DEFAULT	A156A81B7E067BF5	H 2_Generator Upgrade - range 1	Generator Upgrade - range 1	Heating	3	0	1			0	
+DEFAULT	94BF1A6EF2603AE0	H 4_Generator Upgrade - range 2	Generator Upgrade - range 2	Heating	3	1	3	A156A81B7E067BF5	H 2_Generator Upgrade - range 1	0	
+DEFAULT	B800B652FE01D119	H 6_Generator Upgrade - range 2	Generator Upgrade - range 3	Heating	3	2	5	94BF1A6EF2603AE0	H 4_Generator Upgrade - range 2	0	
+DEFAULT	8F0A051638529900	H 3_Generator Overdrive 1	Generator Overdrive 1	Heating	4	0	2	A55C1E23258CB056	H 2_Generator Upgrade - power 1	0	
+DEFAULT	91D2CE4C68CE4109	H 6_Generator Upgrade - less stress	Generator Upgrade - less stress	Heating	4	1	5	8F0A051638529900	H 3_Generator Overdrive 1	0	
+DEFAULT	85BCE42D5F9E4F3B	H 1_Boilers	Boilers	Heating	5	0	0			0	
+DEFAULT	B2366AD179BD4D26	H 3_Boiler Upgrade	Boiler Upgrade	Heating	5	1	2	85BCE42D5F9E4F3B	H 1_Boilers	0	
+DEFAULT	BA712FF32CF9CAAE	H 5_Boiler Upgrade 2	Boiler Upgrade 2	Heating	5	2	4	B2366AD179BD4D26	H 3_Boiler Upgrade	0	
+DEFAULT	8095FB143BBF82CC	H 4_Boiler Upgrade - less coal	Boiler Upgrade - less coal	Heating	6	0	3	B2366AD179BD4D26	H 3_Boiler Upgrade	0	
+DEFAULT	BD91C0E32EE8A6B2	E 1_Beacon	Beacon	Exploration_Industry	7	0	0			0	
+DEFAULT	A16CF8DC50B2727A	E 3_ExpeditionCenter	ExpeditionCenter	Exploration_Industry	8	0	2	BD91C0E32EE8A6B2	E 1_Beacon	0	
+DEFAULT	B7D0B9057487D146	E 5_ExpeditionUpgrade	ExpeditionUpgrade	Exploration_Industry	8	1	4	A16CF8DC50B2727A	E 3_ExpeditionCenter	0	
+DEFAULT	BFB9EC0F1190EBC8	E 2_ScoutsLimit	ScoutsLimit	Exploration_Industry	9	0	1	BD91C0E32EE8A6B2	E 1_Beacon	0	
+DEFAULT	903BF385083D378F	E 5_ScoutsLimit2	ScoutsLimit2	Exploration_Industry	9	1	4	BFB9EC0F1190EBC8	E 2_ScoutsLimit	0	
+DEFAULT	980DA1A7BA055FAD	E 3_ScoutsSpeed	ScoutsSpeed	Exploration_Industry	10	0	2	BFB9EC0F1190EBC8	E 2_ScoutsLimit	0	
+DEFAULT	AFDDF739B5C4D799	E 6_ScoutsSpeed 2	ScoutsSpeed 2	Exploration_Industry	10	1	5	980DA1A7BA055FAD	E 3_ScoutsSpeed	0	
+DEFAULT	A3E95C4CEB6C2B7F	E 3_Factory	Factory	Exploration_Industry	11	0	2			0	
+DEFAULT	AD20BB9845A5DDC5	E 4_Cheaper Automatons	Cheaper Automatons	Exploration_Industry	11	1	3	A3E95C4CEB6C2B7F	E 3_Factory	0	
+DEFAULT	973B35A4E76361EE	E 6_Automatons no Steamcores	Automatons no Steamcores	Exploration_Industry	11	2	5	AD20BB9845A5DDC5	E 4_Cheaper Automatons	0	
+DEFAULT	8AFE2FDE0DF97D69	E 4_Cheaper Augmentation Parts	Cheaper Augmentation Parts	Exploration_Industry	12	0	3	A3E95C4CEB6C2B7F	E 3_Factory	0	
+DEFAULT	981F59F3146CF4C6	E 5_Faster Augmentation Parts production	Faster Augmentation Parts production	Exploration_Industry	12	1	4	8AFE2FDE0DF97D69	E 4_Cheaper Augmentation Parts	0	
+DEFAULT	9E16C1962C1325C6	E 4_Automaton Efficiency	Automaton Efficiency	Exploration_Industry	13	0	3	A3E95C4CEB6C2B7F	E 3_Factory	0	
+DEFAULT	A181975459F6C673	E 5_Automaton Efficiency 2	Automaton Efficiency 2	Exploration_Industry	13	1	4	9E16C1962C1325C6	E 4_Automaton Efficiency	0	
+DEFAULT	B0131D084E15541A	E 6_Automatons Efficiency 3	Automatons Efficiency 3	Exploration_Industry	13	2	5	A181975459F6C673	E 5_Automaton Efficiency 2	0	
+DEFAULT	B12F86943A6036E4	E 5_Automaton Medical	Automaton Medical	Exploration_Industry	14	0	4	9E16C1962C1325C6	E 4_Automaton Efficiency	0	
+DEFAULT	85C386E583A32865	E 6_Automatons Medical 2	Automatons Medical 2	Exploration_Industry	14	1	5	B12F86943A6036E4	E 5_Automaton Medical	0	
+DEFAULT	8BC47F368138DA92	R 1_Gathering Upgrade	Gathering Upgrade	Resources	15	0	0			0	
+DEFAULT	B69B51DB31F4B001	R 3_Gathering Insulation	Gathering Insulation	Resources	15	1	2	8BC47F368138DA92	R 1_Gathering Upgrade	0	
+DEFAULT	851032DABCC703AE	R 5_Gathering Insulation 2	Gathering Insulation 2	Resources	15	2	4	B69B51DB31F4B001	R 3_Gathering Insulation	0	
+DEFAULT	B300360E7D7A3295	R 2_ResourceDepotUpgrade	ResourceDepotUpgrade	Resources	16	0	1	8BC47F368138DA92	R 1_Gathering Upgrade	0	
+DEFAULT	96031EA6A430BF85	R 3_Resource Depot Big	Resource Depot Big	Resources	16	1	2	B300360E7D7A3295	R 2_ResourceDepotUpgrade	0	
+DEFAULT	BF4935A464F03A66	R 4_Gathering upgrade 2	Gathering upgrade 2	Resources	17	0	3	B69B51DB31F4B001	R 3_Gathering Insulation	0	
+DEFAULT	86A71762D9705649	R 1_CoalThumper	CoalThumper	Resources	18	0	0			0	
+DEFAULT	B5B909AE4C1E54F6	R 3_SteamCoalThumper	SteamCoalThumper	Resources	18	1	2	86A71762D9705649	R 1_CoalThumper	0	
+DEFAULT	86CCBA956FEBC7DE	R 6_Coal Thumper Upgrade	Coal Thumper Upgrade	Resources	18	2	5	B5B909AE4C1E54F6	R 3_SteamCoalThumper	0	
+DEFAULT	A3796F28B9AC2A23	R 2_Coal Mine	Coal Mine	Resources	19	0	1			0	
+DEFAULT	AB63782F194E8021	R 4_Steam Coal Mine	Steam Coal Mine	Resources	19	1	3	A3796F28B9AC2A23	R 2_Coal Mine	0	
+DEFAULT	B82524B0D19D88D5	R 6_Adv Coal Mine	Adv Coal Mine	Resources	19	2	5	AB63782F194E8021	R 4_Steam Coal Mine	0	
+DEFAULT	A5A0DE87E8514928	R 3_Coal mine upgrade 1	Coal mine upgrade 1	Resources	20	0	2	A3796F28B9AC2A23	R 2_Coal Mine	0	
+DEFAULT	960C27264EA17CF9	R 5_Coal Mine upgrade 2	Coal Mine upgrade 2	Resources	20	1	4	A5A0DE87E8514928	R 3_Coal mine upgrade 1	0	
+DEFAULT	BEC33A80C6853BA3	R 2_CharcoalKiln	CharcoalKiln	Resources	21	0	1			0	
+DEFAULT	BBD8663CFA3F3D7D	R 3_Kiln upgrade	Kiln upgrade	Resources	21	1	2	BEC33A80C6853BA3	R 2_CharcoalKiln	0	
+DEFAULT	87221793ACD9ED8A	R 4_Kiln upgrade 2	Kiln upgrade 2	Resources	21	2	3	BBD8663CFA3F3D7D	R 3_Kiln upgrade	0	
+DEFAULT	A9F39DF2AEEB21B1	R 1_Sawmill	Sawmill	Resources	22	0	0			0	
+DEFAULT	AC019A23402AB883	R 3_Steam Sawmill	Steam Sawmill	Resources	22	1	2	A9F39DF2AEEB21B1	R 1_Sawmill	0	
+DEFAULT	9D7F762601622CA6	R 2_Sawmill Upgrade	Sawmill Upgrade	Resources	23	0	1	A9F39DF2AEEB21B1	R 1_Sawmill	0	
+DEFAULT	BC770E739218DAB4	R 5_Sawmill Upgrade - range	Sawmill Upgrade - range	Resources	23	1	4	9D7F762601622CA6	R 2_Sawmill Upgrade	0	
+DEFAULT	B3C7DF784DC97A83	R 2_WallDrill	WallDrill	Resources	24	0	1			0	
+DEFAULT	88698E693179DD2D	R 4_Steam WallDrill	Steam WallDrill	Resources	24	1	3	B3C7DF784DC97A83	R 2_WallDrill	0	
+DEFAULT	9DA3ABAE1FA72621	R 6_Adv Wall Drill	Adv Wall Drill	Resources	24	2	5	88698E693179DD2D	R 4_Steam WallDrill	0	
+DEFAULT	87856A059CE65971	R 1_Steel Mine	Steel Mine	Resources	25	0	0			0	
+DEFAULT	A9AC3601AE5EA23C	R 3_Steam Steel Mine	Steam Steel Mine	Resources	25	1	2	87856A059CE65971	R 1_Steel Mine	0	
+DEFAULT	884E0D684DAAB02D	R 5_Adv Steel Mine	Adv Steel Mine	Resources	25	2	4	A9AC3601AE5EA23C	R 3_Steam Steel Mine	0	
+DEFAULT	BF7153CF70731641	F 2_Plantation	Plantation	Food_Health_Shelter	26	0	1			0	
+DEFAULT	B49A95770CB83298	F 4_Steam Plantation	Steam Plantation	Food_Health_Shelter	26	1	3	BF7153CF70731641	F 2_Plantation	0	
+DEFAULT	A92780AFF69180BF	F 6_Plantation upgrade	Plantation upgrade	Food_Health_Shelter	26	2	5	B49A95770CB83298	F 4_Steam Plantation	0	
+DEFAULT	95DCED5FD8466387	F 3_Plantation Insulation	Plantation Insulation	Food_Health_Shelter	27	0	2	BF7153CF70731641	F 2_Plantation	0	
+DEFAULT	94FCD02E48F30228	F 5_Plantation Insulation	Plantation Insulation 2	Food_Health_Shelter	27	1	4	95DCED5FD8466387	F 3_Plantation Insulation	0	
+DEFAULT	BD90D178518E872C	F 1_HuntersUpgrade	HuntersUpgrade	Food_Health_Shelter	28	0	0			0	
+DEFAULT	90F460E6380DFD7A	F 3_Flying Hunters	Flying Hunters	Food_Health_Shelter	28	1	2	BD90D178518E872C	F 1_HuntersUpgrade	0	
+DEFAULT	93B19C3058E896DC	F 5_FlyingHuntersUpgrade	FlyingHuntersUpgrade	Food_Health_Shelter	28	2	4	90F460E6380DFD7A	F 3_Flying Hunters	0	
+DEFAULT	9781BAE37ABD9B94	F 3_Hunters Upgrade - less workers	Hunters Upgrade - less workers	Food_Health_Shelter	29	0	2	BD90D178518E872C	F 1_HuntersUpgrade	0	
+DEFAULT	AEBE6A8DC9857616	F 2_MedPost Upgrade	MedPost Upgrade	Food_Health_Shelter	30	0	1			0	
+DEFAULT	AE0D5029C4FAFA6A	F 3_Steam healthcare	Steam healthcare	Food_Health_Shelter	30	1	2	AEBE6A8DC9857616	F 2_MedPost Upgrade	0	
+DEFAULT	A8E5A152E5F619C4	F 5_Infirmary Upgrade	Infirmary Upgrade	Food_Health_Shelter	30	2	4	AE0D5029C4FAFA6A	F 3_Steam healthcare	0	
+DEFAULT	9EB2A329D39949C0	F 3_HealthCare Buildings - warmer	HealthCare Buildings - warmer	Food_Health_Shelter	31	0	2	AEBE6A8DC9857616	F 2_MedPost Upgrade	0	
+DEFAULT	881F9801EF69831F	F 6_Healthcare Buildings - warmer	Healthcare Buildings 2 - warmer	Food_Health_Shelter	31	1	5	9EB2A329D39949C0	F 3_HealthCare Buildings - warmer	0	
+DEFAULT	B5C1BFCACE2F518A	F 4_Infirmary Upgrade - less workers	Infirmary Upgrade - less workers	Food_Health_Shelter	32	0	3	AE0D5029C4FAFA6A	F 3_Steam healthcare	0	
+DEFAULT	9479CC7A027A3F61	F 2_Bunkhouse	Bunkhouse	Food_Health_Shelter	33	0	1			0	
+DEFAULT	8226B4149A4C642A	F 4_House	House	Food_Health_Shelter	33	1	3	9479CC7A027A3F61	F 2_Bunkhouse	0	
+DEFAULT	A751C3903745ABD5	F 6_House Insulation	House Insulation	Food_Health_Shelter	33	2	5	8226B4149A4C642A	F 4_House	0	
+DEFAULT	9E93A93F1C0C2C51	F 3_Cantinee - warmer	Cantinee - warmer	Food_Health_Shelter	34	0	2	9479CC7A027A3F61	F 2_Bunkhouse	0	
+DEFAULT	BFB89F7354D04AE2	F 5_House Upgrade - cheaper	House Upgrade - cheaper	Food_Health_Shelter	35	0	4	8226B4149A4C642A	F 4_House	0	
+DEFAULT	BE5B5F3661B74AAE	01_TierUnlock 1	TierUnlock1	-	36	0	0			0	
+DEFAULT	99F67FD0200252EF	02_TierUnlock2	TierUnlock2	-	36	1	0	BE5B5F3661B74AAE	01_TierUnlock 1	0	
+DEFAULT	9D18A6629DC54E67	03_TierUnlock3	TierUnlock3	-	36	2	0	99F67FD0200252EF	02_TierUnlock2	0	
+DEFAULT	9F5C9E5513755596	04_TierUnlock4	TierUnlock4	-	36	3	0	9D18A6629DC54E67	03_TierUnlock3	0	
+DEFAULT	8D5D8F90ED24296E	05_TierUnlock5	TierUnlock5	-	36	4	0	9F5C9E5513755596	04_TierUnlock4	0	
+DEFAULT	A01F9F7DBAB21917	E 5_Automaton Engineers	Automaton Engineers	Exploration_Industry	79	0	4	9E16C1962C1325C6	E 4_Automaton Efficiency	0	
+DEFAULT	A1C4DF5688B79B2A	E X_Storm_research	Storm_research	Exploration_Industry	80	0	0			0	unlock StormResearch
+TechHaven	A0E0D2727D0B336A	H 1_SteamHub	SteamHub	Heating	0	0	0			0	
+TechHaven	8ACF1A3F6CD1A7FB	H 3_Steamhub Upgrade - range	Steamhub Upgrade - range	Heating	0	1	2	A0E0D2727D0B336A	H 1_SteamHub	0	
+TechHaven	8169FDE4BB9BB141	H 5_Steamhub Upgrade - less coal	Steamhub Upgrade - less coal	Heating	0	2	4	8ACF1A3F6CD1A7FB	H 3_Steamhub Upgrade - range	0	
+TechHaven	A55C1E23258CB056	H 2_Generator Upgrade - power 1	Generator Upgrade - power 1	Heating	1	0	1			0	
+TechHaven	BDF0CF1D41987C65	H 4_Generator Upgrade - power 2	Generator Upgrade - power 2	Heating	1	1	3	A55C1E23258CB056	H 2_Generator Upgrade - power 1	0	
+TechHaven	B8DD400DADCDEF8E	H 6_Generator Upgrade - power 3	Generator Upgrade - power 3	Heating	1	2	5	BDF0CF1D41987C65	H 4_Generator Upgrade - power 2	0	
+TechHaven	AAE37A9B8A8B25F1	H 3_Generator Upgrade - less coal	Generator Upgrade - less coal	Heating	2	0	2	A55C1E23258CB056	H 2_Generator Upgrade - power 1	0	
+TechHaven	B6C37AB9E60FF207	H 5 Generator Upgrade - less coal 2	Generator Upgrade - less coal 2	Heating	2	1	4	AAE37A9B8A8B25F1	H 3_Generator Upgrade - less coal	0	
+TechHaven	A156A81B7E067BF5	H 2_Generator Upgrade - range 1	Generator Upgrade - range 1	Heating	3	0	1			0	
+TechHaven	94BF1A6EF2603AE0	H 4_Generator Upgrade - range 2	Generator Upgrade - range 2	Heating	3	1	3	A156A81B7E067BF5	H 2_Generator Upgrade - range 1	0	
+TechHaven	B800B652FE01D119	H 6_Generator Upgrade - range 2	Generator Upgrade - range 3	Heating	3	2	5	94BF1A6EF2603AE0	H 4_Generator Upgrade - range 2	0	
+TechHaven	8F0A051638529900	H 3_Generator Overdrive 1	Generator Overdrive 1	Heating	4	0	2	A55C1E23258CB056	H 2_Generator Upgrade - power 1	0	
+TechHaven	91D2CE4C68CE4109	H 6_Generator Upgrade - less stress	Generator Upgrade - less stress	Heating	4	1	5	8F0A051638529900	H 3_Generator Overdrive 1	0	
+TechHaven	85BCE42D5F9E4F3B	H 1_Boilers	Boilers	Heating	5	0	0			0	
+TechHaven	B2366AD179BD4D26	H 3_Boiler Upgrade	Boiler Upgrade	Heating	5	1	2	85BCE42D5F9E4F3B	H 1_Boilers	0	
+TechHaven	BA712FF32CF9CAAE	H 5_Boiler Upgrade 2	Boiler Upgrade 2	Heating	5	2	4	B2366AD179BD4D26	H 3_Boiler Upgrade	0	
+TechHaven	8095FB143BBF82CC	H 4_Boiler Upgrade - less coal	Boiler Upgrade - less coal	Heating	6	0	3	B2366AD179BD4D26	H 3_Boiler Upgrade	0	
+TechHaven	BD91C0E32EE8A6B2	E 1_Beacon	Beacon	Exploration_Industry	7	0	0			0	
+TechHaven	9843404FB6931C76	E 2_AutomatonScouts_TechHeaven	AutomatonScouts_TechHeaven	Exploration_Industry	7	1	1	BD91C0E32EE8A6B2	E 1_Beacon	0	unlock [TechHeaven] Quest3
+TechHaven	BFB9EC0F1190EBC8	E 2_ScoutsLimit	ScoutsLimit	Exploration_Industry	9	0	1	BD91C0E32EE8A6B2	E 1_Beacon	0	
+TechHaven	903BF385083D378F	E 5_ScoutsLimit2	ScoutsLimit2	Exploration_Industry	9	1	4	BFB9EC0F1190EBC8	E 2_ScoutsLimit	0	
+TechHaven	980DA1A7BA055FAD	E 3_ScoutsSpeed	ScoutsSpeed	Exploration_Industry	10	0	2	BFB9EC0F1190EBC8	E 2_ScoutsLimit	0	
+TechHaven	AFDDF739B5C4D799	E 6_ScoutsSpeed 2	ScoutsSpeed 2	Exploration_Industry	10	1	5	980DA1A7BA055FAD	E 3_ScoutsSpeed	0	
+TechHaven	A3E95C4CEB6C2B7F	E 3_Factory	Factory	Exploration_Industry	11	0	2			0	
+TechHaven	AD20BB9845A5DDC5	E 4_Cheaper Automatons	Cheaper Automatons	Exploration_Industry	11	1	3	A3E95C4CEB6C2B7F	E 3_Factory	0	
+TechHaven	973B35A4E76361EE	E 6_Automatons no Steamcores	Automatons no Steamcores	Exploration_Industry	11	2	5	AD20BB9845A5DDC5	E 4_Cheaper Automatons	0	
+TechHaven	8AFE2FDE0DF97D69	E 4_Cheaper Augmentation Parts	Cheaper Augmentation Parts	Exploration_Industry	12	0	3	A3E95C4CEB6C2B7F	E 3_Factory	0	
+TechHaven	981F59F3146CF4C6	E 5_Faster Augmentation Parts production	Faster Augmentation Parts production	Exploration_Industry	12	1	4	8AFE2FDE0DF97D69	E 4_Cheaper Augmentation Parts	0	
+TechHaven	9E16C1962C1325C6	E 4_Automaton Efficiency	Automaton Efficiency	Exploration_Industry	13	0	3	A3E95C4CEB6C2B7F	E 3_Factory	0	
+TechHaven	A181975459F6C673	E 5_Automaton Efficiency 2	Automaton Efficiency 2	Exploration_Industry	13	1	4	9E16C1962C1325C6	E 4_Automaton Efficiency	0	
+TechHaven	B0131D084E15541A	E 6_Automatons Efficiency 3	Automatons Efficiency 3	Exploration_Industry	13	2	5	A181975459F6C673	E 5_Automaton Efficiency 2	0	
+TechHaven	B12F86943A6036E4	E 5_Automaton Medical	Automaton Medical	Exploration_Industry	14	0	4	9E16C1962C1325C6	E 4_Automaton Efficiency	0	
+TechHaven	85C386E583A32865	E 6_Automatons Medical 2	Automatons Medical 2	Exploration_Industry	14	1	5	B12F86943A6036E4	E 5_Automaton Medical	0	
+TechHaven	8BC47F368138DA92	R 1_Gathering Upgrade	Gathering Upgrade	Resources	15	0	0			0	
+TechHaven	B69B51DB31F4B001	R 3_Gathering Insulation	Gathering Insulation	Resources	15	1	2	8BC47F368138DA92	R 1_Gathering Upgrade	0	
+TechHaven	851032DABCC703AE	R 5_Gathering Insulation 2	Gathering Insulation 2	Resources	15	2	4	B69B51DB31F4B001	R 3_Gathering Insulation	0	
+TechHaven	B300360E7D7A3295	R 2_ResourceDepotUpgrade	ResourceDepotUpgrade	Resources	16	0	1	8BC47F368138DA92	R 1_Gathering Upgrade	0	
+TechHaven	96031EA6A430BF85	R 3_Resource Depot Big	Resource Depot Big	Resources	16	1	2	B300360E7D7A3295	R 2_ResourceDepotUpgrade	0	
+TechHaven	BF4935A464F03A66	R 4_Gathering upgrade 2	Gathering upgrade 2	Resources	17	0	3	B69B51DB31F4B001	R 3_Gathering Insulation	0	
+TechHaven	86A71762D9705649	R 1_CoalThumper	CoalThumper	Resources	18	0	0			0	
+TechHaven	B5B909AE4C1E54F6	R 3_SteamCoalThumper	SteamCoalThumper	Resources	18	1	2	86A71762D9705649	R 1_CoalThumper	0	
+TechHaven	86CCBA956FEBC7DE	R 6_Coal Thumper Upgrade	Coal Thumper Upgrade	Resources	18	2	5	B5B909AE4C1E54F6	R 3_SteamCoalThumper	0	
+TechHaven	A3796F28B9AC2A23	R 2_Coal Mine	Coal Mine	Resources	19	0	1			0	
+TechHaven	AB63782F194E8021	R 4_Steam Coal Mine	Steam Coal Mine	Resources	19	1	3	A3796F28B9AC2A23	R 2_Coal Mine	0	
+TechHaven	B82524B0D19D88D5	R 6_Adv Coal Mine	Adv Coal Mine	Resources	19	2	5	AB63782F194E8021	R 4_Steam Coal Mine	0	
+TechHaven	A5A0DE87E8514928	R 3_Coal mine upgrade 1	Coal mine upgrade 1	Resources	20	0	2	A3796F28B9AC2A23	R 2_Coal Mine	0	
+TechHaven	960C27264EA17CF9	R 5_Coal Mine upgrade 2	Coal Mine upgrade 2	Resources	20	1	4	A5A0DE87E8514928	R 3_Coal mine upgrade 1	0	
+TechHaven	BEC33A80C6853BA3	R 2_CharcoalKiln	CharcoalKiln	Resources	21	0	1			0	
+TechHaven	BBD8663CFA3F3D7D	R 3_Kiln upgrade	Kiln upgrade	Resources	21	1	2	BEC33A80C6853BA3	R 2_CharcoalKiln	0	
+TechHaven	87221793ACD9ED8A	R 4_Kiln upgrade 2	Kiln upgrade 2	Resources	21	2	3	BBD8663CFA3F3D7D	R 3_Kiln upgrade	0	
+TechHaven	A9F39DF2AEEB21B1	R 1_Sawmill	Sawmill	Resources	22	0	0			0	
+TechHaven	AC019A23402AB883	R 3_Steam Sawmill	Steam Sawmill	Resources	22	1	2	A9F39DF2AEEB21B1	R 1_Sawmill	0	
+TechHaven	9D7F762601622CA6	R 2_Sawmill Upgrade	Sawmill Upgrade	Resources	23	0	1	A9F39DF2AEEB21B1	R 1_Sawmill	0	
+TechHaven	BC770E739218DAB4	R 5_Sawmill Upgrade - range	Sawmill Upgrade - range	Resources	23	1	4	9D7F762601622CA6	R 2_Sawmill Upgrade	0	
+TechHaven	B3C7DF784DC97A83	R 2_WallDrill	WallDrill	Resources	24	0	1			0	
+TechHaven	88698E693179DD2D	R 4_Steam WallDrill	Steam WallDrill	Resources	24	1	3	B3C7DF784DC97A83	R 2_WallDrill	0	
+TechHaven	9DA3ABAE1FA72621	R 6_Adv Wall Drill	Adv Wall Drill	Resources	24	2	5	88698E693179DD2D	R 4_Steam WallDrill	0	
+TechHaven	87856A059CE65971	R 1_Steel Mine	Steel Mine	Resources	25	0	0			0	
+TechHaven	A9AC3601AE5EA23C	R 3_Steam Steel Mine	Steam Steel Mine	Resources	25	1	2	87856A059CE65971	R 1_Steel Mine	0	
+TechHaven	884E0D684DAAB02D	R 5_Adv Steel Mine	Adv Steel Mine	Resources	25	2	4	A9AC3601AE5EA23C	R 3_Steam Steel Mine	0	
+TechHaven	BF7153CF70731641	F 2_Plantation	Plantation	Food_Health_Shelter	26	0	1			0	
+TechHaven	B49A95770CB83298	F 4_Steam Plantation	Steam Plantation	Food_Health_Shelter	26	1	3	BF7153CF70731641	F 2_Plantation	0	
+TechHaven	A92780AFF69180BF	F 6_Plantation upgrade	Plantation upgrade	Food_Health_Shelter	26	2	5	B49A95770CB83298	F 4_Steam Plantation	0	
+TechHaven	95DCED5FD8466387	F 3_Plantation Insulation	Plantation Insulation	Food_Health_Shelter	27	0	2	BF7153CF70731641	F 2_Plantation	0	
+TechHaven	94FCD02E48F30228	F 5_Plantation Insulation	Plantation Insulation 2	Food_Health_Shelter	27	1	4	95DCED5FD8466387	F 3_Plantation Insulation	0	
+TechHaven	AEBE6A8DC9857616	F 2_MedPost Upgrade	MedPost Upgrade	Food_Health_Shelter	30	0	1			0	
+TechHaven	AE0D5029C4FAFA6A	F 3_Steam healthcare	Steam healthcare	Food_Health_Shelter	30	1	2	AEBE6A8DC9857616	F 2_MedPost Upgrade	0	
+TechHaven	A8E5A152E5F619C4	F 5_Infirmary Upgrade	Infirmary Upgrade	Food_Health_Shelter	30	2	4	AE0D5029C4FAFA6A	F 3_Steam healthcare	0	
+TechHaven	9EB2A329D39949C0	F 3_HealthCare Buildings - warmer	HealthCare Buildings - warmer	Food_Health_Shelter	31	0	2	AEBE6A8DC9857616	F 2_MedPost Upgrade	0	
+TechHaven	881F9801EF69831F	F 6_Healthcare Buildings - warmer	Healthcare Buildings 2 - warmer	Food_Health_Shelter	31	1	5	9EB2A329D39949C0	F 3_HealthCare Buildings - warmer	0	
+TechHaven	B5C1BFCACE2F518A	F 4_Infirmary Upgrade - less workers	Infirmary Upgrade - less workers	Food_Health_Shelter	32	0	3	AE0D5029C4FAFA6A	F 3_Steam healthcare	0	
+TechHaven	9479CC7A027A3F61	F 2_Bunkhouse	Bunkhouse	Food_Health_Shelter	33	0	1			0	
+TechHaven	8226B4149A4C642A	F 4_House	House	Food_Health_Shelter	33	1	3	9479CC7A027A3F61	F 2_Bunkhouse	0	
+TechHaven	A751C3903745ABD5	F 6_House Insulation	House Insulation	Food_Health_Shelter	33	2	5	8226B4149A4C642A	F 4_House	0	
+TechHaven	9E93A93F1C0C2C51	F 3_Cantinee - warmer	Cantinee - warmer	Food_Health_Shelter	34	0	2	9479CC7A027A3F61	F 2_Bunkhouse	0	
+TechHaven	BFB89F7354D04AE2	F 5_House Upgrade - cheaper	House Upgrade - cheaper	Food_Health_Shelter	35	0	4	8226B4149A4C642A	F 4_House	0	
+TechHaven	BE5B5F3661B74AAE	01_TierUnlock 1	TierUnlock1	-	36	0	0			0	
+TechHaven	99F67FD0200252EF	02_TierUnlock2	TierUnlock2	-	36	1	0	BE5B5F3661B74AAE	01_TierUnlock 1	0	
+TechHaven	9D18A6629DC54E67	03_TierUnlock3	TierUnlock3	-	36	2	0	99F67FD0200252EF	02_TierUnlock2	0	
+TechHaven	9F5C9E5513755596	04_TierUnlock4	TierUnlock4	-	36	3	0	9D18A6629DC54E67	03_TierUnlock3	0	
+TechHaven	8D5D8F90ED24296E	05_TierUnlock5	TierUnlock5	-	36	4	0	9F5C9E5513755596	04_TierUnlock4	0	
+TechHaven	A01F9F7DBAB21917	E 5_Automaton Engineers	Automaton Engineers	Exploration_Industry	79	0	4	9E16C1962C1325C6	E 4_Automaton Efficiency	0	
+REFUGEES	A0E0D2727D0B336A	H 1_SteamHub	SteamHub	Heating	0	0	0			0	
+REFUGEES	8ACF1A3F6CD1A7FB	H 3_Steamhub Upgrade - range	Steamhub Upgrade - range	Heating	0	1	2	A0E0D2727D0B336A	H 1_SteamHub	0	
+REFUGEES	8169FDE4BB9BB141	H 5_Steamhub Upgrade - less coal	Steamhub Upgrade - less coal	Heating	0	2	4	8ACF1A3F6CD1A7FB	H 3_Steamhub Upgrade - range	0	
+REFUGEES	A55C1E23258CB056	H 2_Generator Upgrade - power 1	Generator Upgrade - power 1	Heating	1	0	1			0	
+REFUGEES	BDF0CF1D41987C65	H 4_Generator Upgrade - power 2	Generator Upgrade - power 2	Heating	1	1	3	A55C1E23258CB056	H 2_Generator Upgrade - power 1	0	
+REFUGEES	B8DD400DADCDEF8E	H 6_Generator Upgrade - power 3	Generator Upgrade - power 3	Heating	1	2	5	BDF0CF1D41987C65	H 4_Generator Upgrade - power 2	0	
+REFUGEES	AAE37A9B8A8B25F1	H 3_Generator Upgrade - less coal	Generator Upgrade - less coal	Heating	2	0	2	A55C1E23258CB056	H 2_Generator Upgrade - power 1	0	
+REFUGEES	B6C37AB9E60FF207	H 5 Generator Upgrade - less coal 2	Generator Upgrade - less coal 2	Heating	2	1	4	AAE37A9B8A8B25F1	H 3_Generator Upgrade - less coal	0	
+REFUGEES	A156A81B7E067BF5	H 2_Generator Upgrade - range 1	Generator Upgrade - range 1	Heating	3	0	1			0	
+REFUGEES	94BF1A6EF2603AE0	H 4_Generator Upgrade - range 2	Generator Upgrade - range 2	Heating	3	1	3	A156A81B7E067BF5	H 2_Generator Upgrade - range 1	0	
+REFUGEES	B800B652FE01D119	H 6_Generator Upgrade - range 2	Generator Upgrade - range 3	Heating	3	2	5	94BF1A6EF2603AE0	H 4_Generator Upgrade - range 2	0	
+REFUGEES	8F0A051638529900	H 3_Generator Overdrive 1	Generator Overdrive 1	Heating	4	0	2	A55C1E23258CB056	H 2_Generator Upgrade - power 1	0	
+REFUGEES	91D2CE4C68CE4109	H 6_Generator Upgrade - less stress	Generator Upgrade - less stress	Heating	4	1	5	8F0A051638529900	H 3_Generator Overdrive 1	0	
+REFUGEES	85BCE42D5F9E4F3B	H 1_Boilers	Boilers	Heating	5	0	0			0	
+REFUGEES	B2366AD179BD4D26	H 3_Boiler Upgrade	Boiler Upgrade	Heating	5	1	2	85BCE42D5F9E4F3B	H 1_Boilers	0	
+REFUGEES	BA712FF32CF9CAAE	H 5_Boiler Upgrade 2	Boiler Upgrade 2	Heating	5	2	4	B2366AD179BD4D26	H 3_Boiler Upgrade	0	
+REFUGEES	8095FB143BBF82CC	H 4_Boiler Upgrade - less coal	Boiler Upgrade - less coal	Heating	6	0	3	B2366AD179BD4D26	H 3_Boiler Upgrade	0	
+REFUGEES	BD91C0E32EE8A6B2	E 1_Beacon	Beacon	Exploration_Industry	7	0	0			0	
+REFUGEES	A16CF8DC50B2727A	E 3_ExpeditionCenter	ExpeditionCenter	Exploration_Industry	8	0	2	BD91C0E32EE8A6B2	E 1_Beacon	0	
+REFUGEES	B7D0B9057487D146	E 5_ExpeditionUpgrade	ExpeditionUpgrade	Exploration_Industry	8	1	4	A16CF8DC50B2727A	E 3_ExpeditionCenter	0	
+REFUGEES	BFB9EC0F1190EBC8	E 2_ScoutsLimit	ScoutsLimit	Exploration_Industry	9	0	1	BD91C0E32EE8A6B2	E 1_Beacon	0	
+REFUGEES	903BF385083D378F	E 5_ScoutsLimit2	ScoutsLimit2	Exploration_Industry	9	1	4	BFB9EC0F1190EBC8	E 2_ScoutsLimit	0	
+REFUGEES	980DA1A7BA055FAD	E 3_ScoutsSpeed	ScoutsSpeed	Exploration_Industry	10	0	2	BFB9EC0F1190EBC8	E 2_ScoutsLimit	0	
+REFUGEES	AFDDF739B5C4D799	E 6_ScoutsSpeed 2	ScoutsSpeed 2	Exploration_Industry	10	1	5	980DA1A7BA055FAD	E 3_ScoutsSpeed	0	
+REFUGEES	A3E95C4CEB6C2B7F	E 3_Factory	Factory	Exploration_Industry	11	0	2			0	
+REFUGEES	AD20BB9845A5DDC5	E 4_Cheaper Automatons	Cheaper Automatons	Exploration_Industry	11	1	3	A3E95C4CEB6C2B7F	E 3_Factory	0	
+REFUGEES	973B35A4E76361EE	E 6_Automatons no Steamcores	Automatons no Steamcores	Exploration_Industry	11	2	5	AD20BB9845A5DDC5	E 4_Cheaper Automatons	0	
+REFUGEES	8AFE2FDE0DF97D69	E 4_Cheaper Augmentation Parts	Cheaper Augmentation Parts	Exploration_Industry	12	0	3	A3E95C4CEB6C2B7F	E 3_Factory	0	
+REFUGEES	981F59F3146CF4C6	E 5_Faster Augmentation Parts production	Faster Augmentation Parts production	Exploration_Industry	12	1	4	8AFE2FDE0DF97D69	E 4_Cheaper Augmentation Parts	0	
+REFUGEES	9E16C1962C1325C6	E 4_Automaton Efficiency	Automaton Efficiency	Exploration_Industry	13	0	3	A3E95C4CEB6C2B7F	E 3_Factory	0	
+REFUGEES	A181975459F6C673	E 5_Automaton Efficiency 2	Automaton Efficiency 2	Exploration_Industry	13	1	4	9E16C1962C1325C6	E 4_Automaton Efficiency	0	
+REFUGEES	B0131D084E15541A	E 6_Automatons Efficiency 3	Automatons Efficiency 3	Exploration_Industry	13	2	5	A181975459F6C673	E 5_Automaton Efficiency 2	0	
+REFUGEES	B12F86943A6036E4	E 5_Automaton Medical	Automaton Medical	Exploration_Industry	14	0	4	9E16C1962C1325C6	E 4_Automaton Efficiency	0	
+REFUGEES	85C386E583A32865	E 6_Automatons Medical 2	Automatons Medical 2	Exploration_Industry	14	1	5	B12F86943A6036E4	E 5_Automaton Medical	0	
+REFUGEES	8BC47F368138DA92	R 1_Gathering Upgrade	Gathering Upgrade	Resources	15	0	0			0	
+REFUGEES	B69B51DB31F4B001	R 3_Gathering Insulation	Gathering Insulation	Resources	15	1	2	8BC47F368138DA92	R 1_Gathering Upgrade	0	
+REFUGEES	851032DABCC703AE	R 5_Gathering Insulation 2	Gathering Insulation 2	Resources	15	2	4	B69B51DB31F4B001	R 3_Gathering Insulation	0	
+REFUGEES	B300360E7D7A3295	R 2_ResourceDepotUpgrade	ResourceDepotUpgrade	Resources	16	0	1	8BC47F368138DA92	R 1_Gathering Upgrade	0	
+REFUGEES	96031EA6A430BF85	R 3_Resource Depot Big	Resource Depot Big	Resources	16	1	2	B300360E7D7A3295	R 2_ResourceDepotUpgrade	0	
+REFUGEES	BF4935A464F03A66	R 4_Gathering upgrade 2	Gathering upgrade 2	Resources	17	0	3	B69B51DB31F4B001	R 3_Gathering Insulation	0	
+REFUGEES	86A71762D9705649	R 1_CoalThumper	CoalThumper	Resources	18	0	0			0	
+REFUGEES	B5B909AE4C1E54F6	R 3_SteamCoalThumper	SteamCoalThumper	Resources	18	1	2	86A71762D9705649	R 1_CoalThumper	0	
+REFUGEES	86CCBA956FEBC7DE	R 6_Coal Thumper Upgrade	Coal Thumper Upgrade	Resources	18	2	5	B5B909AE4C1E54F6	R 3_SteamCoalThumper	0	
+REFUGEES	A3796F28B9AC2A23	R 2_Coal Mine	Coal Mine	Resources	19	0	1			0	
+REFUGEES	AB63782F194E8021	R 4_Steam Coal Mine	Steam Coal Mine	Resources	19	1	3	A3796F28B9AC2A23	R 2_Coal Mine	0	
+REFUGEES	B82524B0D19D88D5	R 6_Adv Coal Mine	Adv Coal Mine	Resources	19	2	5	AB63782F194E8021	R 4_Steam Coal Mine	0	
+REFUGEES	A5A0DE87E8514928	R 3_Coal mine upgrade 1	Coal mine upgrade 1	Resources	20	0	2	A3796F28B9AC2A23	R 2_Coal Mine	0	
+REFUGEES	960C27264EA17CF9	R 5_Coal Mine upgrade 2	Coal Mine upgrade 2	Resources	20	1	4	A5A0DE87E8514928	R 3_Coal mine upgrade 1	0	
+REFUGEES	BEC33A80C6853BA3	R 2_CharcoalKiln	CharcoalKiln	Resources	21	0	1			0	
+REFUGEES	BBD8663CFA3F3D7D	R 3_Kiln upgrade	Kiln upgrade	Resources	21	1	2	BEC33A80C6853BA3	R 2_CharcoalKiln	0	
+REFUGEES	87221793ACD9ED8A	R 4_Kiln upgrade 2	Kiln upgrade 2	Resources	21	2	3	BBD8663CFA3F3D7D	R 3_Kiln upgrade	0	
+REFUGEES	A9F39DF2AEEB21B1	R 1_Sawmill	Sawmill	Resources	22	0	0			0	
+REFUGEES	AC019A23402AB883	R 3_Steam Sawmill	Steam Sawmill	Resources	22	1	2	A9F39DF2AEEB21B1	R 1_Sawmill	0	
+REFUGEES	9D7F762601622CA6	R 2_Sawmill Upgrade	Sawmill Upgrade	Resources	23	0	1	A9F39DF2AEEB21B1	R 1_Sawmill	0	
+REFUGEES	BC770E739218DAB4	R 5_Sawmill Upgrade - range	Sawmill Upgrade - range	Resources	23	1	4	9D7F762601622CA6	R 2_Sawmill Upgrade	0	
+REFUGEES	B3C7DF784DC97A83	R 2_WallDrill	WallDrill	Resources	24	0	1			0	
+REFUGEES	88698E693179DD2D	R 4_Steam WallDrill	Steam WallDrill	Resources	24	1	3	B3C7DF784DC97A83	R 2_WallDrill	0	
+REFUGEES	9DA3ABAE1FA72621	R 6_Adv Wall Drill	Adv Wall Drill	Resources	24	2	5	88698E693179DD2D	R 4_Steam WallDrill	0	
+REFUGEES	87856A059CE65971	R 1_Steel Mine	Steel Mine	Resources	25	0	0			0	
+REFUGEES	A9AC3601AE5EA23C	R 3_Steam Steel Mine	Steam Steel Mine	Resources	25	1	2	87856A059CE65971	R 1_Steel Mine	0	
+REFUGEES	884E0D684DAAB02D	R 5_Adv Steel Mine	Adv Steel Mine	Resources	25	2	4	A9AC3601AE5EA23C	R 3_Steam Steel Mine	0	
+REFUGEES	BF7153CF70731641	F 2_Plantation	Plantation	Food_Health_Shelter	26	0	1			0	
+REFUGEES	B49A95770CB83298	F 4_Steam Plantation	Steam Plantation	Food_Health_Shelter	26	1	3	BF7153CF70731641	F 2_Plantation	0	
+REFUGEES	A92780AFF69180BF	F 6_Plantation upgrade	Plantation upgrade	Food_Health_Shelter	26	2	5	B49A95770CB83298	F 4_Steam Plantation	0	
+REFUGEES	95DCED5FD8466387	F 3_Plantation Insulation	Plantation Insulation	Food_Health_Shelter	27	0	2	BF7153CF70731641	F 2_Plantation	0	
+REFUGEES	94FCD02E48F30228	F 5_Plantation Insulation	Plantation Insulation 2	Food_Health_Shelter	27	1	4	95DCED5FD8466387	F 3_Plantation Insulation	0	
+REFUGEES	BD90D178518E872C	F 1_HuntersUpgrade	HuntersUpgrade	Food_Health_Shelter	28	0	0			0	
+REFUGEES	90F460E6380DFD7A	F 3_Flying Hunters	Flying Hunters	Food_Health_Shelter	28	1	2	BD90D178518E872C	F 1_HuntersUpgrade	0	
+REFUGEES	93B19C3058E896DC	F 5_FlyingHuntersUpgrade	FlyingHuntersUpgrade	Food_Health_Shelter	28	2	4	90F460E6380DFD7A	F 3_Flying Hunters	0	
+REFUGEES	9781BAE37ABD9B94	F 3_Hunters Upgrade - less workers	Hunters Upgrade - less workers	Food_Health_Shelter	29	0	2	BD90D178518E872C	F 1_HuntersUpgrade	0	
+REFUGEES	AEBE6A8DC9857616	F 2_MedPost Upgrade	MedPost Upgrade	Food_Health_Shelter	30	0	1			0	
+REFUGEES	AE0D5029C4FAFA6A	F 3_Steam healthcare	Steam healthcare	Food_Health_Shelter	30	1	2	AEBE6A8DC9857616	F 2_MedPost Upgrade	0	
+REFUGEES	A8E5A152E5F619C4	F 5_Infirmary Upgrade	Infirmary Upgrade	Food_Health_Shelter	30	2	4	AE0D5029C4FAFA6A	F 3_Steam healthcare	0	
+REFUGEES	9EB2A329D39949C0	F 3_HealthCare Buildings - warmer	HealthCare Buildings - warmer	Food_Health_Shelter	31	0	2	AEBE6A8DC9857616	F 2_MedPost Upgrade	0	
+REFUGEES	881F9801EF69831F	F 6_Healthcare Buildings - warmer	Healthcare Buildings 2 - warmer	Food_Health_Shelter	31	1	5	9EB2A329D39949C0	F 3_HealthCare Buildings - warmer	0	
+REFUGEES	B5C1BFCACE2F518A	F 4_Infirmary Upgrade - less workers	Infirmary Upgrade - less workers	Food_Health_Shelter	32	0	3	AE0D5029C4FAFA6A	F 3_Steam healthcare	0	
+REFUGEES	9479CC7A027A3F61	F 2_Bunkhouse	Bunkhouse	Food_Health_Shelter	33	0	1			0	
+REFUGEES	8226B4149A4C642A	F 4_House	House	Food_Health_Shelter	33	1	3	9479CC7A027A3F61	F 2_Bunkhouse	0	
+REFUGEES	A751C3903745ABD5	F 6_House Insulation	House Insulation	Food_Health_Shelter	33	2	5	8226B4149A4C642A	F 4_House	0	
+REFUGEES	9E93A93F1C0C2C51	F 3_Cantinee - warmer	Cantinee - warmer	Food_Health_Shelter	34	0	2	9479CC7A027A3F61	F 2_Bunkhouse	0	
+REFUGEES	BFB89F7354D04AE2	F 5_House Upgrade - cheaper	House Upgrade - cheaper	Food_Health_Shelter	35	0	4	8226B4149A4C642A	F 4_House	0	
+REFUGEES	BE5B5F3661B74AAE	01_TierUnlock 1	TierUnlock1	-	36	0	0			0	
+REFUGEES	99F67FD0200252EF	02_TierUnlock2	TierUnlock2	-	36	1	0	BE5B5F3661B74AAE	01_TierUnlock 1	0	
+REFUGEES	9D18A6629DC54E67	03_TierUnlock3	TierUnlock3	-	36	2	0	99F67FD0200252EF	02_TierUnlock2	0	
+REFUGEES	9F5C9E5513755596	04_TierUnlock4	TierUnlock4	-	36	3	0	9D18A6629DC54E67	03_TierUnlock3	0	
+REFUGEES	8D5D8F90ED24296E	05_TierUnlock5	TierUnlock5	-	36	4	0	9F5C9E5513755596	04_TierUnlock4	0	
+REFUGEES	A01F9F7DBAB21917	E 5_Automaton Engineers	Automaton Engineers	Exploration_Industry	79	0	4	9E16C1962C1325C6	E 4_Automaton Efficiency	0	
+WINTERHOME	8ACF1A3F6CD1A7FB	H 3_Steamhub Upgrade - range	Steamhub Upgrade - range	Heating	0	0	2	A0E0D2727D0B336A	H 1_SteamHub	1	
+WINTERHOME	8169FDE4BB9BB141	H 5_Steamhub Upgrade - less coal	Steamhub Upgrade - less coal	Heating	0	1	4	8ACF1A3F6CD1A7FB	H 3_Steamhub Upgrade - range	0	
+WINTERHOME	B8DD400DADCDEF8E	H 6_Generator Upgrade - power 3	Generator Upgrade - power 3	Heating	1	0	5	BDF0CF1D41987C65	H 4_Generator Upgrade - power 2	1	
+WINTERHOME	AAE37A9B8A8B25F1	H 3_Generator Upgrade - less coal	Generator Upgrade - less coal	Heating	2	0	2	A55C1E23258CB056	H 2_Generator Upgrade - power 1	1	
+WINTERHOME	B6C37AB9E60FF207	H 5 Generator Upgrade - less coal 2	Generator Upgrade - less coal 2	Heating	2	1	4	AAE37A9B8A8B25F1	H 3_Generator Upgrade - less coal	0	
+WINTERHOME	B800B652FE01D119	H 6_Generator Upgrade - range 2	Generator Upgrade - range 3	Heating	3	0	5	94BF1A6EF2603AE0	H 4_Generator Upgrade - range 2	1	
+WINTERHOME	8F0A051638529900	H 3_Generator Overdrive 1	Generator Overdrive 1	Heating	4	0	2	A55C1E23258CB056	H 2_Generator Upgrade - power 1	1	
+WINTERHOME	91D2CE4C68CE4109	H 6_Generator Upgrade - less stress	Generator Upgrade - less stress	Heating	4	1	5	8F0A051638529900	H 3_Generator Overdrive 1	0	
+WINTERHOME	B2366AD179BD4D26	H 3_Boiler Upgrade	Boiler Upgrade	Heating	5	0	2	85BCE42D5F9E4F3B	H 1_Boilers	1	
+WINTERHOME	BA712FF32CF9CAAE	H 5_Boiler Upgrade 2	Boiler Upgrade 2	Heating	5	1	4	B2366AD179BD4D26	H 3_Boiler Upgrade	0	
+WINTERHOME	8095FB143BBF82CC	H 4_Boiler Upgrade - less coal	Boiler Upgrade - less coal	Heating	6	0	3	B2366AD179BD4D26	H 3_Boiler Upgrade	0	
+WINTERHOME	AF702239C79A412B	E 5_ExpeditionUpgradeWinterhome	ExpeditionUpgradeWinterhome	Exploration_Industry	8	0	4	A16CF8DC50B2727A	E 3_ExpeditionCenter	1	unlock [Winterhome] EvacuationUpgradeDescription
+WINTERHOME	BFB9EC0F1190EBC8	E 2_ScoutsLimit	ScoutsLimit	Exploration_Industry	9	0	1	BD91C0E32EE8A6B2	E 1_Beacon	1	
+WINTERHOME	903BF385083D378F	E 5_ScoutsLimit2	ScoutsLimit2	Exploration_Industry	9	1	4	BFB9EC0F1190EBC8	E 2_ScoutsLimit	0	
+WINTERHOME	980DA1A7BA055FAD	E 3_ScoutsSpeed	ScoutsSpeed	Exploration_Industry	10	0	2	BFB9EC0F1190EBC8	E 2_ScoutsLimit	0	
+WINTERHOME	AFDDF739B5C4D799	E 6_ScoutsSpeed 2	ScoutsSpeed 2	Exploration_Industry	10	1	5	980DA1A7BA055FAD	E 3_ScoutsSpeed	0	
+WINTERHOME	A3E95C4CEB6C2B7F	E 3_Factory	Factory	Exploration_Industry	11	0	2			0	
+WINTERHOME	AD20BB9845A5DDC5	E 4_Cheaper Automatons	Cheaper Automatons	Exploration_Industry	11	1	3	A3E95C4CEB6C2B7F	E 3_Factory	0	
+WINTERHOME	973B35A4E76361EE	E 6_Automatons no Steamcores	Automatons no Steamcores	Exploration_Industry	11	2	5	AD20BB9845A5DDC5	E 4_Cheaper Automatons	0	
+WINTERHOME	8AFE2FDE0DF97D69	E 4_Cheaper Augmentation Parts	Cheaper Augmentation Parts	Exploration_Industry	12	0	3	A3E95C4CEB6C2B7F	E 3_Factory	0	
+WINTERHOME	981F59F3146CF4C6	E 5_Faster Augmentation Parts production	Faster Augmentation Parts production	Exploration_Industry	12	1	4	8AFE2FDE0DF97D69	E 4_Cheaper Augmentation Parts	0	
+WINTERHOME	9E16C1962C1325C6	E 4_Automaton Efficiency	Automaton Efficiency	Exploration_Industry	13	0	3	A3E95C4CEB6C2B7F	E 3_Factory	0	
+WINTERHOME	A181975459F6C673	E 5_Automaton Efficiency 2	Automaton Efficiency 2	Exploration_Industry	13	1	4	9E16C1962C1325C6	E 4_Automaton Efficiency	0	
+WINTERHOME	B0131D084E15541A	E 6_Automatons Efficiency 3	Automatons Efficiency 3	Exploration_Industry	13	2	5	A181975459F6C673	E 5_Automaton Efficiency 2	0	
+WINTERHOME	B12F86943A6036E4	E 5_Automaton Medical	Automaton Medical	Exploration_Industry	14	0	4	9E16C1962C1325C6	E 4_Automaton Efficiency	0	
+WINTERHOME	85C386E583A32865	E 6_Automatons Medical 2	Automatons Medical 2	Exploration_Industry	14	1	5	B12F86943A6036E4	E 5_Automaton Medical	0	
+WINTERHOME	8BC47F368138DA92	R 1_Gathering Upgrade	Gathering Upgrade	Resources	15	0	0			0	
+WINTERHOME	B69B51DB31F4B001	R 3_Gathering Insulation	Gathering Insulation	Resources	15	1	2	8BC47F368138DA92	R 1_Gathering Upgrade	0	
+WINTERHOME	851032DABCC703AE	R 5_Gathering Insulation 2	Gathering Insulation 2	Resources	15	2	4	B69B51DB31F4B001	R 3_Gathering Insulation	0	
+WINTERHOME	B300360E7D7A3295	R 2_ResourceDepotUpgrade	ResourceDepotUpgrade	Resources	16	0	1	8BC47F368138DA92	R 1_Gathering Upgrade	0	
+WINTERHOME	96031EA6A430BF85	R 3_Resource Depot Big	Resource Depot Big	Resources	16	1	2	B300360E7D7A3295	R 2_ResourceDepotUpgrade	0	
+WINTERHOME	BF4935A464F03A66	R 4_Gathering upgrade 2	Gathering upgrade 2	Resources	17	0	3	B69B51DB31F4B001	R 3_Gathering Insulation	0	
+WINTERHOME	B5B909AE4C1E54F6	R 3_SteamCoalThumper	SteamCoalThumper	Resources	18	0	2	86A71762D9705649	R 1_CoalThumper	1	
+WINTERHOME	86CCBA956FEBC7DE	R 6_Coal Thumper Upgrade	Coal Thumper Upgrade	Resources	18	1	5	B5B909AE4C1E54F6	R 3_SteamCoalThumper	0	
+WINTERHOME	AB63782F194E8021	R 4_Steam Coal Mine	Steam Coal Mine	Resources	19	0	3	A3796F28B9AC2A23	R 2_Coal Mine	1	
+WINTERHOME	B82524B0D19D88D5	R 6_Adv Coal Mine	Adv Coal Mine	Resources	19	1	5	AB63782F194E8021	R 4_Steam Coal Mine	0	
+WINTERHOME	A5A0DE87E8514928	R 3_Coal mine upgrade 1	Coal mine upgrade 1	Resources	20	0	2	A3796F28B9AC2A23	R 2_Coal Mine	1	
+WINTERHOME	960C27264EA17CF9	R 5_Coal Mine upgrade 2	Coal Mine upgrade 2	Resources	20	1	4	A5A0DE87E8514928	R 3_Coal mine upgrade 1	0	
+WINTERHOME	BBD8663CFA3F3D7D	R 3_Kiln upgrade	Kiln upgrade	Resources	21	0	2	BEC33A80C6853BA3	R 2_CharcoalKiln	1	
+WINTERHOME	87221793ACD9ED8A	R 4_Kiln upgrade 2	Kiln upgrade 2	Resources	21	1	3	BBD8663CFA3F3D7D	R 3_Kiln upgrade	0	
+WINTERHOME	AC019A23402AB883	R 3_Steam Sawmill	Steam Sawmill	Resources	22	0	2	A9F39DF2AEEB21B1	R 1_Sawmill	1	
+WINTERHOME	9D7F762601622CA6	R 2_Sawmill Upgrade	Sawmill Upgrade	Resources	23	0	1	A9F39DF2AEEB21B1	R 1_Sawmill	1	
+WINTERHOME	BC770E739218DAB4	R 5_Sawmill Upgrade - range	Sawmill Upgrade - range	Resources	23	1	4	9D7F762601622CA6	R 2_Sawmill Upgrade	0	
+WINTERHOME	88698E693179DD2D	R 4_Steam WallDrill	Steam WallDrill	Resources	24	0	3	B3C7DF784DC97A83	R 2_WallDrill	1	
+WINTERHOME	9DA3ABAE1FA72621	R 6_Adv Wall Drill	Adv Wall Drill	Resources	24	1	5	88698E693179DD2D	R 4_Steam WallDrill	0	
+WINTERHOME	A9AC3601AE5EA23C	R 3_Steam Steel Mine	Steam Steel Mine	Resources	25	0	2	87856A059CE65971	R 1_Steel Mine	1	
+WINTERHOME	884E0D684DAAB02D	R 5_Adv Steel Mine	Adv Steel Mine	Resources	25	1	4	A9AC3601AE5EA23C	R 3_Steam Steel Mine	0	
+WINTERHOME	B49A95770CB83298	F 4_Steam Plantation	Steam Plantation	Food_Health_Shelter	26	0	3	BF7153CF70731641	F 2_Plantation	1	
+WINTERHOME	A92780AFF69180BF	F 6_Plantation upgrade	Plantation upgrade	Food_Health_Shelter	26	1	5	B49A95770CB83298	F 4_Steam Plantation	0	
+WINTERHOME	95DCED5FD8466387	F 3_Plantation Insulation	Plantation Insulation	Food_Health_Shelter	27	0	2	BF7153CF70731641	F 2_Plantation	1	
+WINTERHOME	94FCD02E48F30228	F 5_Plantation Insulation	Plantation Insulation 2	Food_Health_Shelter	27	1	4	95DCED5FD8466387	F 3_Plantation Insulation	0	
+WINTERHOME	90F460E6380DFD7A	F 3_Flying Hunters	Flying Hunters	Food_Health_Shelter	28	0	2	BD90D178518E872C	F 1_HuntersUpgrade	1	
+WINTERHOME	93B19C3058E896DC	F 5_FlyingHuntersUpgrade	FlyingHuntersUpgrade	Food_Health_Shelter	28	1	4	90F460E6380DFD7A	F 3_Flying Hunters	0	
+WINTERHOME	9781BAE37ABD9B94	F 3_Hunters Upgrade - less workers	Hunters Upgrade - less workers	Food_Health_Shelter	29	0	2	BD90D178518E872C	F 1_HuntersUpgrade	1	
+WINTERHOME	AEBE6A8DC9857616	F 2_MedPost Upgrade	MedPost Upgrade	Food_Health_Shelter	30	0	1			0	
+WINTERHOME	AE0D5029C4FAFA6A	F 3_Steam healthcare	Steam healthcare	Food_Health_Shelter	30	1	2	AEBE6A8DC9857616	F 2_MedPost Upgrade	0	
+WINTERHOME	A8E5A152E5F619C4	F 5_Infirmary Upgrade	Infirmary Upgrade	Food_Health_Shelter	30	2	4	AE0D5029C4FAFA6A	F 3_Steam healthcare	0	
+WINTERHOME	9EB2A329D39949C0	F 3_HealthCare Buildings - warmer	HealthCare Buildings - warmer	Food_Health_Shelter	31	0	2	AEBE6A8DC9857616	F 2_MedPost Upgrade	0	
+WINTERHOME	881F9801EF69831F	F 6_Healthcare Buildings - warmer	Healthcare Buildings 2 - warmer	Food_Health_Shelter	31	1	5	9EB2A329D39949C0	F 3_HealthCare Buildings - warmer	0	
+WINTERHOME	B5C1BFCACE2F518A	F 4_Infirmary Upgrade - less workers	Infirmary Upgrade - less workers	Food_Health_Shelter	32	0	3	AE0D5029C4FAFA6A	F 3_Steam healthcare	0	
+WINTERHOME	A751C3903745ABD5	F 6_House Insulation	House Insulation	Food_Health_Shelter	33	0	5	8226B4149A4C642A	F 4_House	1	
+WINTERHOME	9E93A93F1C0C2C51	F 3_Cantinee - warmer	Cantinee - warmer	Food_Health_Shelter	34	0	2	9479CC7A027A3F61	F 2_Bunkhouse	1	
+WINTERHOME	BFB89F7354D04AE2	F 5_House Upgrade - cheaper	House Upgrade - cheaper	Food_Health_Shelter	35	0	4	8226B4149A4C642A	F 4_House	1	
+WINTERHOME	9F5C9E5513755596	04_TierUnlock4	TierUnlock4	-	36	0	0	9D18A6629DC54E67	03_TierUnlock3	1	
+WINTERHOME	8D5D8F90ED24296E	05_TierUnlock5	TierUnlock5	-	36	1	0	9F5C9E5513755596	04_TierUnlock4	0	
+WINTERHOME	A24E361D87891912	[Winterhome] E 1_RepairStation	E RepairStation	Heating	37	0	0			0	unlock [Winterhome] Repair Station
+WINTERHOME	9004FB1D2E95369F	[Winterhome] E 3_RC Efficiency 1	E RC Efficiency 1	Heating	37	1	0	A24E361D87891912	[Winterhome] E 1_RepairStation	0	unlock [Winterhome] Repair Station Upgrades
+WINTERHOME	9BAE7B748D5B7820	[Winterhome] E 5_RC Efficiency 2	E RC Efficiency 2	Heating	37	2	4	9004FB1D2E95369F	[Winterhome] E 3_RC Efficiency 1	0	unlock [Winterhome] Repair Station Upgrades
+WINTERHOME	9A306E92F391690A	[Winterhome] E 6_RC Efficiency 3	E RC Efficiency 3	Heating	37	3	5	9BAE7B748D5B7820	[Winterhome] E 5_RC Efficiency 2	0	unlock [Winterhome] Repair Station Upgrades
+WINTERHOME	A54820F7892B9652	[Winterhome] E 3_RC Ability	E RC Ability	Heating	38	0	0	A24E361D87891912	[Winterhome] E 1_RepairStation	0	unlock [Winterhome] Repair Station Upgrades
+WINTERHOME	8A15192C335D2FEC	[Winterhome] E 6_RC Ability	E RC Ability 2	Heating	38	1	5	A54820F7892B9652	[Winterhome] E 3_RC Ability	0	unlock [Winterhome] Repair Station Upgrades
+WINTERHOME	BC7C654BF3D6E484	[Winterhome] E 5_RC Less workers	E RC Less workers	Heating	39	0	4	9004FB1D2E95369F	[Winterhome] E 3_RC Efficiency 1	0	unlock [Winterhome] Repair Station Upgrades
+WINTERHOME	A01F9F7DBAB21917	E 5_Automaton Engineers	Automaton Engineers	Exploration_Industry	79	0	4	9E16C1962C1325C6	E 4_Automaton Efficiency	0	
+BUILDERS	BE5B5F3661B74AAE	01_TierUnlock 1	TierUnlock1	-	36	0	0			0	
+BUILDERS	99F67FD0200252EF	02_TierUnlock2	TierUnlock2	-	36	1	0	BE5B5F3661B74AAE	01_TierUnlock 1	0	
+BUILDERS	9D18A6629DC54E67	03_TierUnlock3	TierUnlock3	-	36	2	0	99F67FD0200252EF	02_TierUnlock2	0	
+BUILDERS	9F5C9E5513755596	04_TierUnlock4	TierUnlock4	-	36	3	0	9D18A6629DC54E67	03_TierUnlock3	0	
+BUILDERS	8D5D8F90ED24296E	05_TierUnlock5	TierUnlock5	-	36	4	0	9F5C9E5513755596	04_TierUnlock4	0	
+BUILDERS	9A3EB5C5736C5CF8	[Builders] HC 2_Brazier	HC Brazier	Builders_Heat	40	0	2			0	unlock [Builder] HeatTab
+BUILDERS	8BA6E8ADEAA56A13	[Builders] HC 4_BrazierPower1	HC BrazierPower1	Builders_Heat	40	1	4	9A3EB5C5736C5CF8	[Builders] HC 2_Brazier	0	unlock [Builder] HeatTab
+BUILDERS	BE2A8E7B932D9C2D	[Builders] HC 4_BrazierRange1	HC BrazierRange1	Builders_Heat	41	0	4	9A3EB5C5736C5CF8	[Builders] HC 2_Brazier	0	unlock [Builder] HeatTab
+BUILDERS	84FFDAF28948F16B	[Builders] HC 3_BrazierCoalOpt1	HC BrazierCoalOpt1	Builders_Heat	42	0	3	9A3EB5C5736C5CF8	[Builders] HC 2_Brazier	0	unlock [Builder] HeatTab
+BUILDERS	A21A49B6CC78F2C0	[Builders] HC 5_BrazierCoalOpt2	HC BrazierCoalOpt2	Builders_Heat	42	1	5	84FFDAF28948F16B	[Builders] HC 3_BrazierCoalOpt1	0	unlock [Builder] HeatTab
+BUILDERS	8F3095A50ABE5B8C	[Builders] HH 2_Heater	HH Heater	Builders_Heat	43	0	2			0	unlock [Builder] HeatTab
+BUILDERS	98973939A041BFB3	[Builders] HH 4_Heater Upgrade	HH Heater Upgrade	Builders_Heat	43	1	4	8F3095A50ABE5B8C	[Builders] HH 2_Heater	0	unlock [Builder] HeatTab
+BUILDERS	95884318394691F1	[Builders] HH 5_Heater Upgrade - less coal	HH Heater Upgrade - less coal	Builders_Heat	43	2	5	98973939A041BFB3	[Builders] HH 4_Heater Upgrade	0	unlock [Builder] HeatTab
+BUILDERS	AD9A3CCFA5A5E216	[Builders] HI 2_HealthCare Insulation1	HI HealthCare Insulation1	Builders_Heat	44	0	2			0	unlock [Builder] HeatTab
+BUILDERS	89E11B6D8D3EBB34	[Builders] HI 4_Healthcare Insulation2	HI Healthcare Insulation2	Builders_Heat	44	1	4	AD9A3CCFA5A5E216	[Builders] HI 2_HealthCare Insulation1	0	unlock [Builder] HeatTab
+BUILDERS	B64F631E2C554692	[Builders] GS 0_ScaffoldingManufacture	GS ScaffoldingManufacture	Builders_Generator	45	0	0			0	
+BUILDERS	A73DE9D28A567C7D	[Builders] GS 2_ManufactureCheaperMaterials	GS ManufactureCheaperMaterials	Builders_Generator	45	1	2	B64F631E2C554692	[Builders] GS 0_ScaffoldingManufacture	0	
+BUILDERS	A585F6C76A51C68D	[Builders] GS 3_Manufacture safety improve	GS Manufacture safety improve	Builders_Generator	45	2	3	A73DE9D28A567C7D	[Builders] GS 2_ManufactureCheaperMaterials	0	
+BUILDERS	A3744892FFB106B8	[Builders] GS 1_ProtectiveStructure1	GS ProtectiveStructure1	Builders_Generator	46	0	1	B64F631E2C554692	[Builders] GS 0_ScaffoldingManufacture	0	
+BUILDERS	9B1DFC4166BDF1F2	[Builders] GS 3_ProtectiveStructure2	GS ProtectiveStructure2	Builders_Generator	46	1	3	A3744892FFB106B8	[Builders] GS 1_ProtectiveStructure1	0	
+BUILDERS	869CB004219D9B9F	[Builders] GM 2_SteelPlateForge	GM SteelPlateForge	Builders_Generator	47	0	2			0	
+BUILDERS	B340712E1AA67558	[Builders] GM 4_Forge safety improve	GM Forge safety improve	Builders_Generator	47	1	4	869CB004219D9B9F	[Builders] GM 2_SteelPlateForge	0	
+BUILDERS	BB76809681658ED6	[Builders] GM 3_ForgeCheaperMaterials	GM ForgeCheaperMaterials	Builders_Generator	48	0	3	869CB004219D9B9F	[Builders] GM 2_SteelPlateForge	0	
+BUILDERS	A6AB1E204FB27849	[Builders] GG 1_SteamMill	GG SteamMill	Builders_Generator	49	0	1			0	
+BUILDERS	8626EF58D76A77AA	[Builders] GG 3_Steam Mill safety improve	GG Steam Mill safety improve	Builders_Generator	49	1	3	A6AB1E204FB27849	[Builders] GG 1_SteamMill	0	
+BUILDERS	B52481405FA109E4	[Builders] GG 4_SteamMillCheaperMaterials	GG SteamMillCheaperMaterials	Builders_Generator	49	2	4	8626EF58D76A77AA	[Builders] GG 3_Steam Mill safety improve	0	
+BUILDERS	907F270A35547E8E	[Builders] GG 2_Supercharge1	GG Supercharge1	Builders_Generator	50	0	2	A6AB1E204FB27849	[Builders] GG 1_SteamMill	0	
+BUILDERS	A3DF3639D1906909	[Builders] GG 4_Supercharge2	GG Supercharge2	Builders_Generator	50	1	4	907F270A35547E8E	[Builders] GG 2_Supercharge1	0	
+BUILDERS	B7DB8BC2F8AA8D18	[Builders] GF 1_Air Scrubbers1	GF Air Scrubbers1	Builders_Generator	51	0	1			0	
+BUILDERS	AB7A0E6FE556795C	[Builders] GF 3_Air Scrubbers2	GF Air Scrubbers2	Builders_Generator	51	1	3	B7DB8BC2F8AA8D18	[Builders] GF 1_Air Scrubbers1	0	
+BUILDERS	91D3615B9CA9BD25	[Builders] GF 5_Air Scrubbers3	GF Air Scrubbers3	Builders_Generator	51	2	5	AB7A0E6FE556795C	[Builders] GF 3_Air Scrubbers2	0	
+BUILDERS	9E446E15CA7F3829	[Builders] GF 3_Air ScrubbersOptimalization	GF Air ScrubbersOptimalization	Builders_Generator	52	0	3	B7DB8BC2F8AA8D18	[Builders] GF 1_Air Scrubbers1	0	
+BUILDERS	BF2E2AB5620FFB4C	[Builders] GF 5_Air ScrubbersOptimalization2	GF Air ScrubbersOptimalization2	Builders_Generator	52	1	5	9E446E15CA7F3829	[Builders] GF 3_Air ScrubbersOptimalization	0	
+BUILDERS	B1E32EC5BA936484	[Builders] GU 3_GeneratorUpgrade1	GU GeneratorUpgrade1	Builders_Generator	53	0	3			0	unlock [Builder] Generator Upgrades
+BUILDERS	8F91A5E56C1F7808	[Builders] GU 4_GeneratorUpgrade2	GU GeneratorUpgrade2	Builders_Generator	53	1	4			0	unlock [Builder] Generator Upgrades
+BUILDERS	8E6360937ECF4770	[Builders] GU 5_GeneratorUpgrade3	GU GeneratorUpgrade3	Builders_Generator	53	2	5			0	unlock [Builder] Generator Upgrades
+BUILDERS	84CE92C6D1B6B9A6	[Builders] FF 0_Foragers	FF Foragers	Builders_Health_Food_Exploration	54	0	0			0	
+BUILDERS	B2EBD63D29F02BAA	[Builders] FF 1_Foragers_+1	FF Foragers_+1	Builders_Health_Food_Exploration	55	0	1	84CE92C6D1B6B9A6	[Builders] FF 0_Foragers	0	
+BUILDERS	A5C87129AA78EB4C	[Builders] FF 3_Foragers_+2	FF Foragers_+2	Builders_Health_Food_Exploration	55	1	3	B2EBD63D29F02BAA	[Builders] FF 1_Foragers_+1	0	
+BUILDERS	BB86A865575F0898	[Builders] FF 1_ForagersSpeedUpgrade	FF ForagersSpeedUpgrade	Builders_Health_Food_Exploration	56	0	1	84CE92C6D1B6B9A6	[Builders] FF 0_Foragers	0	
+BUILDERS	BC30C632069AB76B	[Builders] FF 4_ForagersSpeedUpgrade2	FF ForagersSpeedUpgrade2	Builders_Health_Food_Exploration	56	1	4	BB86A865575F0898	[Builders] FF 1_ForagersSpeedUpgrade	0	
+BUILDERS	9926B4EED59BBBBD	[Builders] FH 1_Fishing Harbor	FH Fishing Harbor	Builders_Health_Food_Exploration	57	0	1			0	
+BUILDERS	B3BCC2FDE230AD82	[Builders] FH 4_Fishing Harbor2	FH Fishing Harbor2	Builders_Health_Food_Exploration	57	1	4	9926B4EED59BBBBD	[Builders] FH 1_Fishing Harbor	0	
+BUILDERS	8F721C114E1F5EA1	[Builders] FH 2_Fishing Harbor_efficiencyBoost	FH Fishing Harbor_efficiencyBoost	Builders_Health_Food_Exploration	58	0	2	9926B4EED59BBBBD	[Builders] FH 1_Fishing Harbor	0	
+BUILDERS	B25899C67C3E13C7	[Builders] FM 1_MedPost Upgrade	FM MedPost Upgrade	Builders_Health_Food_Exploration	59	0	1			0	
+BUILDERS	9BEFF8545E4A0C48	[Builders] FM 3_Steam healthcare	FM Steam healthcare	Builders_Health_Food_Exploration	59	1	3	B25899C67C3E13C7	[Builders] FM 1_MedPost Upgrade	0	
+BUILDERS	A6C2C6A453C1036F	[Builders] FM 5_Infirmary Upgrade - less workers	FM Infirmary Upgrade - less workers	Builders_Health_Food_Exploration	59	2	5	9BEFF8545E4A0C48	[Builders] FM 3_Steam healthcare	0	
+BUILDERS	92BD99FA0B8CF5FD	[Builders] FM 4_Infirmary Upgrade	FM Infirmary Upgrade	Builders_Health_Food_Exploration	60	0	4	9BEFF8545E4A0C48	[Builders] FM 3_Steam healthcare	0	
+BUILDERS	8BA655C00C38E5DB	[Builders] RD 0_Docksv1	RD Docksv1	Builders_Resources	61	0	0			0	
+BUILDERS	BC42749C23D732DE	[Builders] RD 2_Docksv2	RD Docksv2	Builders_Resources	61	1	2	8BA655C00C38E5DB	[Builders] RD 0_Docksv1	0	
+BUILDERS	A45EC7F7C4042BA7	[Builders] RD 4_Docksv3	RD Docksv3	Builders_Resources	61	2	4	BC42749C23D732DE	[Builders] RD 2_Docksv2	0	
+BUILDERS	AB3378C1C0F63FDF	[Builders] RU 1_URS	RU URS	Builders_Resources	62	0	1	8BA655C00C38E5DB	[Builders] RD 0_Docksv1	0	
+BUILDERS	9DA9438616748A1B	[Builders] RU 3_URS_Steam	RU URS_Steam	Builders_Resources	63	0	3	AB3378C1C0F63FDF	[Builders] RU 1_URS	0	
+BUILDERS	A189AA1BA1E45B98	[Builders] RU 2_URS_Faster gathering	RU URS_Faster gathering	Builders_Resources	63	1	4	9DA9438616748A1B	[Builders] RU 3_URS_Steam	0	
+BUILDERS	A4A3B3D1583AE97D	[Builders] RD 1_Docks faster reload	RD Docks faster reload	Builders_Resources	64	0	1	8BA655C00C38E5DB	[Builders] RD 0_Docksv1	0	
+BUILDERS	8EDC34ADC0A71BD9	[Builders] RG 0_Gathering Upgrade	RG Gathering Upgrade	Builders_Resources	65	0	0			0	
+BUILDERS	A383E8E076BDAC46	[Builders] RG 2_Gathering upgrade 2	RG Gathering upgrade 2	Builders_Resources	65	1	2	8EDC34ADC0A71BD9	[Builders] RG 0_Gathering Upgrade	0	
+BUILDERS	9CA531E645AA9138	[Builders] RG 1_ResourceDepotUpgrade	RG ResourceDepotUpgrade	Builders_Resources	66	0	1	8EDC34ADC0A71BD9	[Builders] RG 0_Gathering Upgrade	0	
+BUILDERS	9767F8931DCF733E	[Builders] RG 2_Resource Depot Big	RG Resource Depot Big	Builders_Resources	66	1	2	9CA531E645AA9138	[Builders] RG 1_ResourceDepotUpgrade	0	
+BUILDERS	9B8662D8557103EF	[Builders] RW 0_Sawmill	RW Sawmill	Builders_Resources	67	0	0			0	
+BUILDERS	853470E14031EC9D	[Builders] RW 3_Steam Sawmill	RW Steam Sawmill	Builders_Resources	67	1	2	9B8662D8557103EF	[Builders] RW 0_Sawmill	0	
+BUILDERS	B3E26DFFB50E015E	[Builders] RW 1_Sawmill Upgrade	RW Sawmill Upgrade	Builders_Resources	68	0	1	9B8662D8557103EF	[Builders] RW 0_Sawmill	0	
+BUILDERS	9222D9DF836D090A	[Builders] RW 3_Sawmill Upgrade - range	RW Sawmill Upgrade - range	Builders_Resources	68	1	3	B3E26DFFB50E015E	[Builders] RW 1_Sawmill Upgrade	0	
+BUILDERS	9D93FA7554513F8D	[Builders] RC 2_CharcoalKiln	RC CharcoalKiln	Builders_Resources	69	0	2			0	
+BUILDERS	9A9531B0F90E6D29	[Builders] RC 3_Kiln upgrade	RC Kiln upgrade	Builders_Resources	69	1	3	9D93FA7554513F8D	[Builders] RC 2_CharcoalKiln	0	
+BUILDERS	9A8EA035E1F6BD7D	[Builders] RC 4_Kiln upgrade 2	RC Kiln upgrade 2	Builders_Resources	69	2	4	9A9531B0F90E6D29	[Builders] RC 3_Kiln upgrade	0	
+BUILDERS	82F3957C59928F95	[Builders] RU 5_URS_Advanced	RU URS_Advanced	Builders_Resources	81	0	5	9DA9438616748A1B	[Builders] RU 3_URS_Steam	0	
+Reconquest	85BCE42D5F9E4F3B	H 1_Boilers	Boilers	Heating	5	0	0			0	
+Reconquest	B2366AD179BD4D26	H 3_Boiler Upgrade	Boiler Upgrade	Heating	5	1	2	85BCE42D5F9E4F3B	H 1_Boilers	0	
+Reconquest	BA712FF32CF9CAAE	H 5_Boiler Upgrade 2	Boiler Upgrade 2	Heating	5	2	4	B2366AD179BD4D26	H 3_Boiler Upgrade	0	
+Reconquest	8095FB143BBF82CC	H 4_Boiler Upgrade - less coal	Boiler Upgrade - less coal	Heating	6	0	3	B2366AD179BD4D26	H 3_Boiler Upgrade	0	
+Reconquest	BFB9EC0F1190EBC8	E 2_ScoutsLimit	ScoutsLimit	Exploration_Industry	9	0	1	BD91C0E32EE8A6B2	E 1_Beacon	1	
+Reconquest	903BF385083D378F	E 5_ScoutsLimit2	ScoutsLimit2	Exploration_Industry	9	1	4	BFB9EC0F1190EBC8	E 2_ScoutsLimit	0	
+Reconquest	980DA1A7BA055FAD	E 3_ScoutsSpeed	ScoutsSpeed	Exploration_Industry	10	0	2	BFB9EC0F1190EBC8	E 2_ScoutsLimit	0	
+Reconquest	AFDDF739B5C4D799	E 6_ScoutsSpeed 2	ScoutsSpeed 2	Exploration_Industry	10	1	5	980DA1A7BA055FAD	E 3_ScoutsSpeed	0	
+Reconquest	A3E95C4CEB6C2B7F	E 3_Factory	Factory	Exploration_Industry	11	0	2			0	
+Reconquest	8AFE2FDE0DF97D69	E 4_Cheaper Augmentation Parts	Cheaper Augmentation Parts	Exploration_Industry	12	0	3	A3E95C4CEB6C2B7F	E 3_Factory	0	
+Reconquest	981F59F3146CF4C6	E 5_Faster Augmentation Parts production	Faster Augmentation Parts production	Exploration_Industry	12	1	4	8AFE2FDE0DF97D69	E 4_Cheaper Augmentation Parts	0	
+Reconquest	8BC47F368138DA92	R 1_Gathering Upgrade	Gathering Upgrade	Resources	15	0	0			0	
+Reconquest	B69B51DB31F4B001	R 3_Gathering Insulation	Gathering Insulation	Resources	15	1	2	8BC47F368138DA92	R 1_Gathering Upgrade	0	
+Reconquest	851032DABCC703AE	R 5_Gathering Insulation 2	Gathering Insulation 2	Resources	15	2	4	B69B51DB31F4B001	R 3_Gathering Insulation	0	
+Reconquest	B300360E7D7A3295	R 2_ResourceDepotUpgrade	ResourceDepotUpgrade	Resources	16	0	1	8BC47F368138DA92	R 1_Gathering Upgrade	0	
+Reconquest	96031EA6A430BF85	R 3_Resource Depot Big	Resource Depot Big	Resources	16	1	2	B300360E7D7A3295	R 2_ResourceDepotUpgrade	0	
+Reconquest	BF4935A464F03A66	R 4_Gathering upgrade 2	Gathering upgrade 2	Resources	17	0	3	B69B51DB31F4B001	R 3_Gathering Insulation	0	
+Reconquest	86A71762D9705649	R 1_CoalThumper	CoalThumper	Resources	18	0	0			0	
+Reconquest	B5B909AE4C1E54F6	R 3_SteamCoalThumper	SteamCoalThumper	Resources	18	1	2	86A71762D9705649	R 1_CoalThumper	0	
+Reconquest	86CCBA956FEBC7DE	R 6_Coal Thumper Upgrade	Coal Thumper Upgrade	Resources	18	2	5	B5B909AE4C1E54F6	R 3_SteamCoalThumper	0	
+Reconquest	A3796F28B9AC2A23	R 2_Coal Mine	Coal Mine	Resources	19	0	1			0	
+Reconquest	AB63782F194E8021	R 4_Steam Coal Mine	Steam Coal Mine	Resources	19	1	3	A3796F28B9AC2A23	R 2_Coal Mine	0	
+Reconquest	B82524B0D19D88D5	R 6_Adv Coal Mine	Adv Coal Mine	Resources	19	2	5	AB63782F194E8021	R 4_Steam Coal Mine	0	
+Reconquest	A5A0DE87E8514928	R 3_Coal mine upgrade 1	Coal mine upgrade 1	Resources	20	0	2	A3796F28B9AC2A23	R 2_Coal Mine	0	
+Reconquest	960C27264EA17CF9	R 5_Coal Mine upgrade 2	Coal Mine upgrade 2	Resources	20	1	4	A5A0DE87E8514928	R 3_Coal mine upgrade 1	0	
+Reconquest	BEC33A80C6853BA3	R 2_CharcoalKiln	CharcoalKiln	Resources	21	0	1			0	
+Reconquest	BBD8663CFA3F3D7D	R 3_Kiln upgrade	Kiln upgrade	Resources	21	1	2	BEC33A80C6853BA3	R 2_CharcoalKiln	0	
+Reconquest	87221793ACD9ED8A	R 4_Kiln upgrade 2	Kiln upgrade 2	Resources	21	2	3	BBD8663CFA3F3D7D	R 3_Kiln upgrade	0	
+Reconquest	A9F39DF2AEEB21B1	R 1_Sawmill	Sawmill	Resources	22	0	0			0	
+Reconquest	AC019A23402AB883	R 3_Steam Sawmill	Steam Sawmill	Resources	22	1	2	A9F39DF2AEEB21B1	R 1_Sawmill	0	
+Reconquest	9D7F762601622CA6	R 2_Sawmill Upgrade	Sawmill Upgrade	Resources	23	0	1	A9F39DF2AEEB21B1	R 1_Sawmill	0	
+Reconquest	BC770E739218DAB4	R 5_Sawmill Upgrade - range	Sawmill Upgrade - range	Resources	23	1	4	9D7F762601622CA6	R 2_Sawmill Upgrade	0	
+Reconquest	AEBE6A8DC9857616	F 2_MedPost Upgrade	MedPost Upgrade	Food_Health_Shelter	30	0	1			0	
+Reconquest	AE0D5029C4FAFA6A	F 3_Steam healthcare	Steam healthcare	Food_Health_Shelter	30	1	2	AEBE6A8DC9857616	F 2_MedPost Upgrade	0	
+Reconquest	A8E5A152E5F619C4	F 5_Infirmary Upgrade	Infirmary Upgrade	Food_Health_Shelter	30	2	4	AE0D5029C4FAFA6A	F 3_Steam healthcare	0	
+Reconquest	9EB2A329D39949C0	F 3_HealthCare Buildings - warmer	HealthCare Buildings - warmer	Food_Health_Shelter	31	0	2	AEBE6A8DC9857616	F 2_MedPost Upgrade	0	
+Reconquest	881F9801EF69831F	F 6_Healthcare Buildings - warmer	Healthcare Buildings 2 - warmer	Food_Health_Shelter	31	1	5	9EB2A329D39949C0	F 3_HealthCare Buildings - warmer	0	
+Reconquest	B5C1BFCACE2F518A	F 4_Infirmary Upgrade - less workers	Infirmary Upgrade - less workers	Food_Health_Shelter	32	0	3	AE0D5029C4FAFA6A	F 3_Steam healthcare	0	
+Reconquest	9479CC7A027A3F61	F 2_Bunkhouse	Bunkhouse	Food_Health_Shelter	33	0	1			0	
+Reconquest	8226B4149A4C642A	F 4_House	House	Food_Health_Shelter	33	1	3	9479CC7A027A3F61	F 2_Bunkhouse	0	
+Reconquest	A751C3903745ABD5	F 6_House Insulation	House Insulation	Food_Health_Shelter	33	2	5	8226B4149A4C642A	F 4_House	0	
+Reconquest	9E93A93F1C0C2C51	F 3_Cantinee - warmer	Cantinee - warmer	Food_Health_Shelter	34	0	2	9479CC7A027A3F61	F 2_Bunkhouse	0	
+Reconquest	BFB89F7354D04AE2	F 5_House Upgrade - cheaper	House Upgrade - cheaper	Food_Health_Shelter	35	0	4	8226B4149A4C642A	F 4_House	0	
+Reconquest	BE5B5F3661B74AAE	01_TierUnlock 1	TierUnlock1	-	36	0	0			0	
+Reconquest	99F67FD0200252EF	02_TierUnlock2	TierUnlock2	-	36	1	0	BE5B5F3661B74AAE	01_TierUnlock 1	0	
+Reconquest	9D18A6629DC54E67	03_TierUnlock3	TierUnlock3	-	36	2	0	99F67FD0200252EF	02_TierUnlock2	0	
+Reconquest	9F5C9E5513755596	04_TierUnlock4	TierUnlock4	-	36	3	0	9D18A6629DC54E67	03_TierUnlock3	0	
+Reconquest	8D5D8F90ED24296E	05_TierUnlock5	TierUnlock5	-	36	4	0	9F5C9E5513755596	04_TierUnlock4	0	
+Reconquest	AC4103808CBCB5B8	[Reconquest] HC 1_Brazier	HC Brazier	Heating	70	0	0			0	
+Reconquest	87BA3B1685C7F1D1	[Reconquest] HC 4_BrazierPower	HC BrazierPower	Heating	70	1	3	AC4103808CBCB5B8	[Reconquest] HC 1_Brazier	0	
+Reconquest	B6F142D34017C5E2	[Reconquest] HC 4_BrazierRange	HC BrazierRange	Heating	71	0	3	AC4103808CBCB5B8	[Reconquest] HC 1_Brazier	0	
+Reconquest	B81384D36C8EEABF	[Reconquest] HC 3_BrazierCoalOpt1	HC BrazierCoalOpt1	Heating	72	0	2	AC4103808CBCB5B8	[Reconquest] HC 1_Brazier	0	
+Reconquest	B4E312D3864D6BE2	[Reconquest] HC 5_BrazierCoalOpt2	HC BrazierCoalOpt2	Heating	72	1	4	B81384D36C8EEABF	[Reconquest] HC 3_BrazierCoalOpt1	0	
+Reconquest	BAD9632D2482EB30	[Reconquest] R 1_VaultEfficiencyBoost	R VaultEfficiencyBoost	Resources	73	0	0			0	unlock [Reconquest] SteamCores
+Reconquest	A0F1BE0F4175B30F	[Reconquest] R 1_VaultUpgrade1	R VaultUpgrade1	Resources	74	0	0			0	unlock [Reconquest] SteamCores
+Reconquest	BF5C4DDAD1CAFE3B	[Reconquest] R 3_VaultUpgrade2	R VaultUpgrade2	Resources	74	1	2	A0F1BE0F4175B30F	[Reconquest] R 1_VaultUpgrade1	0	unlock [Reconquest] SteamCores
+Reconquest	876F9433DD7C12DA	[Reconquest] R 5_VaultUpgrade3	R VaultUpgrade3	Resources	74	2	4	BF5C4DDAD1CAFE3B	[Reconquest] R 3_VaultUpgrade2	0	unlock [Reconquest] SteamCores
+Reconquest	A6B7DCE3504E6494	[Reconquest] R 2_VaultMultitasking	R VaultMultitasking	Resources	75	0	1	A0F1BE0F4175B30F	[Reconquest] R 1_VaultUpgrade1	0	unlock [Reconquest] SteamCores
+Reconquest	98356E3CE54E08AD	[Reconquest] R 4_VaultInsulation	R VaultInsulation	Resources	76	0	3	BF5C4DDAD1CAFE3B	[Reconquest] R 3_VaultUpgrade2	0	unlock [Reconquest] SteamCores
+Reconquest	A0606FEF83CB14C8	[Reconquest] R 6_VaultSteamCoresUpgrade	R VaultSteamCoresUpgrade	Resources	77	0	5	876F9433DD7C12DA	[Reconquest] R 5_VaultUpgrade3	0	unlock [Reconquest] SteamCores
+# depart DEFAULT : (aucune)
+# depart TechHaven : (aucune)
+# depart REFUGEES : (aucune)
+# depart WINTERHOME : 01_TierUnlock 1, 02_TierUnlock2, 03_TierUnlock3, E 1_Beacon, E 3_ExpeditionCenter, F 1_HuntersUpgrade, F 2_Bunkhouse, F 2_Plantation, F 4_House, H 1_Boilers, H 1_SteamHub, H 2_Generator Upgrade - power 1, H 2_Generator Upgrade - range 1, H 4_Generator Upgrade - power 2, H 4_Generator Upgrade - range 2, R 1_CoalThumper, R 1_Sawmill, R 1_Steel Mine, R 2_CharcoalKiln, R 2_Coal Mine, R 2_WallDrill
+# depart BUILDERS : (aucune)
+# depart Reconquest : E 1_Beacon, [Reconquest] E 1_Transport Depot

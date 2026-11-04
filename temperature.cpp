@@ -50,6 +50,7 @@
 #include "mod_common.h"
 #include "lois.h"
 #include "scenario.h"   // FindSceneSystem
+#include "archipelago.h"  // SendTemperatureCheck
 #include "MinHook.h"
 #include <cstring>
 
@@ -779,9 +780,19 @@ void NoterChangement(uintptr_t ws)
     for (int i = 0; i < g_nRetirees; ++i)
         if (g_retirees[i].date == date) return;          // deja comptee (sauvegarde plus ancienne)
     if (g_nRetirees >= MAX_RETIREES) return;
+    // Un check par NIVEAU retire (decision de l'auteur, 2026-11-03) : une
+    // montee de N niveaux envoie les checks k+1..k+N, k = niveaux des
+    // montees retirees plus anciennes de la partie. Un item rend 1 niveau :
+    // tous les items recus = la temperature vanilla.
+    int deja = 0;
+    for (int i = 0; i < g_nRetirees; ++i)
+        if (g_retirees[i].date < date) deja += g_retirees[i].niveaux;
     g_retirees[g_nRetirees++] = { date, dc - dp };
     Sauver();
-    printf("[TEMPAP] changement de meteo %s -> %s : MONTEE de %d niveau(x) retiree\n", mp, mc, dc - dp);
+    printf("[TEMPAP] changement de meteo %s -> %s : MONTEE de %d niveau(x) retiree (checks %d a %d)\n",
+        mp, mc, dc - dp, deja + 1, deja + dc - dp);
+    for (int k = deja + 1; k <= deja + dc - dp; ++k)
+        SendTemperatureCheck(k);
 }
 
 // Hook de FUN_141812c10 : la meteo courante porte, le temps de l'appel, le
@@ -868,6 +879,12 @@ bool TemperatureNomActe(const uint64_t guid[2], char* out, int taille)
 void TemperatureRecevoirMontee(int niveaux)
 {
     InterlockedExchangeAdd(&g_niveauxEnAttente, niveaux);
+}
+
+int TemperatureItemsRecus(const uint64_t gid[2])
+{
+    if (!g_partieLue || gid[0] != g_partie[0] || gid[1] != g_partie[1]) return -1;
+    return g_recus + (int)g_niveauxEnAttente;
 }
 
 void TemperatureDemanderReleve()

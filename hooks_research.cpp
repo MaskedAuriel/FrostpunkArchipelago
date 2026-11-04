@@ -33,6 +33,13 @@ static char hkCanResearch(uintptr_t self, uintptr_t tech, uintptr_t ctx)
 {
     int32_t st = TechStateByPtr(self, tech);
 
+    // Techno sans check dans ce scenario (techno de depart de Winterhome ou
+    // On the Edge, decision de l'auteur du 2026-11-03) : le jeu decide seul ;
+    // a l'etat 2 elle est deja recherchee, donc refusee.
+    uint64_t h0 = HashOfTechPtr(tech);
+    if (h0 && !TechEstUnCheck(h0))
+        return st == 2 ? 0 : oCanResearch(self, tech, ctx);
+
     // Annulation d'une recherche portant sur une techno recue : interdite.
     if (st == 2 && IsInProgress(self, tech))
         return 0;                      // le clic ne fait rien

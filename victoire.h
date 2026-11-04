@@ -1,25 +1,13 @@
 // victoire.h
 // ---------------------------------------------------------------------------
 // Fin de partie : hook de FrostpunkGameStateGameplay::EndGame (FUN_141301490),
-// seul point de passage de toute fin (victoire ou defaite). Une victoire dans
-// un scenario Archipelago envoie des checks selon le mode de victoire :
-//   Complete : un check par scenario, quelle que soit la difficulte ;
-//   General  : un check par niveau de difficulte generale (Easy, Medium,
-//              Hard, Very Hard), cumulatif ; niveau general d'une difficulte
-//              personnalisee = le plus faible des sous-difficultes ;
-//   (Detail  : un check par sous-difficulte (ligne de curseur) et par niveau,
-//              cumulatif (4 checks par ligne). ABANDONNE le 2026-11-03,
-//              decision de l'auteur : seule la difficulte principale importe.
-//              Code commente, pas supprime.)
-// Les lignes de curseur restent lues : le niveau general en est deduit.
+// seul point de passage de toute fin (victoire ou defaite). Toute victoire
+// dans un scenario Archipelago est un EVENEMENT pour le goal, sans item
+// (SendScenarioVictory, archipelago) : la difficulte est imposee a la
+// creation de la partie et l'ironman ne change rien (auteur, 2026-11-04).
 // ---------------------------------------------------------------------------
 #pragma once
 #include <cstdint>
-
-enum class ModeVictoire { Complete = 0, General = 1 /*, Detail = 2 (abandonne le 2026-11-03) */ };
-
-// Mode courant (TEMPORAIRE : constante de test, viendra des options du slot).
-ModeVictoire VictoireMode();
 
 void InstallHooksVictoire(uintptr_t modBase);
 

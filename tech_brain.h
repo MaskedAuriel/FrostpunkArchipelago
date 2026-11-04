@@ -18,6 +18,11 @@ extern bool g_showApInfo;
 // Applique l'etat jeu correspondant aux booleens de r.
 void SyncGameState(TechRuntime* r);
 
+// La techno porte-t-elle un check dans le scenario courant ? = presente dans
+// le groupe de known_techs.h du scenario. Non pour les technos de depart
+// (Winterhome, On the Edge), desactivees ou absentes du scenario.
+bool TechEstUnCheck(uint64_t hash);
+
 // Le joueur vient de TERMINER une recherche (appele APRES l'original du jeu).
 void OnResearchComplete(uint64_t hash);
 
@@ -44,3 +49,7 @@ int  ArbreProgressifAuHasard();   // -1 si tous les arbres sont epuises
 // sur le serveur. Boucle du mod, tick d'une seconde, apres CaptureRunState :
 // relit et reapplique l'etat a chaque nouvelle partie.
 void TechPersistanceTick();
+
+// Progressives deja recues par l'arbre 'tree' dans la partie 'gid' (GameId).
+// -1 si la sauvegarde locale de cette partie n'est pas encore relue.
+int TechProgressivesRecues(int tree, const uint64_t gid[2]);

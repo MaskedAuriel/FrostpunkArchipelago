@@ -189,6 +189,7 @@ void ListeDeLiens(uintptr_t adrTableau, char* out, int taille)
 
 bool NomPolitique(const Guid& g, char* out, int taille);
 bool NomScenario(const Guid& g, char* out, int taille);
+bool NomTechno(const Guid& g, char* out, int taille);   // releve des technos (plus bas)
 
 // FrostpunkUnlocksConfig : instance statique inconnue ; on la cherche par RTTI
 // autour de son gestionnaire de proprietes (base + 0x4082EC0), lecture seule.
@@ -261,6 +262,14 @@ void DecrireExigence(uintptr_t req, char* out, int taille, int profondeur)
         LireGuid(req + REQ_LIEN, g);
         const char* nom = NomDeLoi(g);
         sprintf_s(elem, "loi %s", nom ? nom : "?");
+        Ajouter(out, taille, elem);
+    } else if (strcmp(court, "TechnologyRequirement") == 0) {
+        Guid g{};
+        LireGuid(req + REQ_LIEN, g);
+        char nom[96];
+        if (!NomTechno(g, nom, sizeof(nom)))
+            sprintf_s(nom, "?%016llX", (unsigned long long)g.a);
+        sprintf_s(elem, "techno %s", nom);
         Ajouter(out, taille, elem);
     } else if (strcmp(court, "SociotechExclusionRequirement") == 0) {
         char groupe[64];
@@ -1051,6 +1060,230 @@ void DiagUnlocks()
         }
 }
 
+// --- Releve des technologies (F4, 2026-11-03) ---------------------------------
+// But : palier, arbre et prerequis de chaque techno, pour la logique de
+// l'apworld. Decompiles du 2026-11-03 :
+//   FrostpunkTechnologiesConfig (instance statique base + 0x4074430 ; sa
+//     collection de technos, en +0x90, est rendue par FUN_14145b680)
+//     : +0x78 categories (onglets), +0xB0 technos,
+//     +0x100 ensembles de technos (tableaux de pointeurs, compte +8)
+//   FrostpunkTechnologyEntry (0x128, base FrostpunkProgressTreeEntry) :
+//     +0x18 nom, +0x20 GUID (hash du mod = 8 premiers octets), +0x30 Enabled,
+//     +0x38 Requirements, +0x50 Show requirements, +0x68 Display name,
+//     +0x88 Grid position (2 x int32), +0x90 Category (lien GUID),
+//     +0x10C Display category (enum), +0x110 Tree entry type (NameString)
+//   FrostpunkTechnologyRequirement (0x40) : +0x30 lien GUID vers la techno
+//     (verifie par FUN_1416a71f0, cas 4 : techno a l'etat 2)
+//   FrostpunkTechnologyCategoryEntry (0x38) : +0x00 nom, +0x08 GUID,
+//     +0x18 Display name
+//   FrostpunkTechnologySetEntry (0x30) : +0x00 nom, +0x08 GUID, +0x18 Technologies
+//   FrostpunkScenariosConfig +0x1D8 : FrostpunkScenarioTechnologySetupEntry
+//     (0x50) : +0x00 nom, +0x08 GUID, +0x18 Starting technologies,
+//     +0x30 Technology set (lien)
+//   FrostpunkScenarioEntry +0x138 : Technology setups (liens de 0x10, compte +8)
+// Lignes a format fixe, relues par outils\technos_table.py.
+constexpr uintptr_t OFF_TECH_CONFIG = 0x4074430;
+constexpr int TCFG_CATEGORIES = 0x78;
+constexpr int TCFG_TECHNOS    = 0xB0;
+constexpr int TCFG_ENSEMBLES  = 0x100;
+constexpr int TECH_NOM        = 0x18;
+constexpr int TECH_GUID       = 0x20;
+constexpr int TECH_ACTIVE     = 0x30;
+constexpr int TECH_PREREQUIS  = 0x38;
+constexpr int TECH_AFFICHAGE  = 0x50;
+constexpr int TECH_GRILLE     = 0x88;
+constexpr int TECH_CATEGORIE  = 0x90;
+constexpr int TECH_CAT_AFF    = 0x10C;
+constexpr int TECH_TYPE_ARBRE = 0x110;
+constexpr int TCAT_NOM        = 0x00;
+constexpr int TCAT_GUID       = 0x08;
+constexpr int TSET_NOM        = 0x00;
+constexpr int TSET_GUID       = 0x08;
+constexpr int TSET_TECHNOS    = 0x18;
+constexpr int CFG_REGLAGES_TECH = 0x1D8;
+constexpr int TREG_NOM        = 0x00;
+constexpr int TREG_GUID       = 0x08;
+constexpr int TREG_DEPART     = 0x18;
+constexpr int TREG_ENSEMBLE   = 0x30;
+constexpr int SCN_REGLAGES_TECH = 0x138;
+
+// 1er test (2026-11-03) : base + 0x40744C0 = EntryCollection<FrostpunkTechnologyEntry>,
+// membre de la config en +0x90 (constructeur FUN_14145a4c0) -> config en
+// base + 0x4074430. Repli : balayage RTTI autour, comme FrostpunkUnlocksConfig.
+uintptr_t ConfigTechnos()
+{
+    static uintptr_t trouvee = 0;
+    if (trouvee) return trouvee;
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
+    for (uintptr_t a = base + OFF_TECH_CONFIG - 0x1000; a < base + OFF_TECH_CONFIG + 0x1000; a += 8) {
+        uintptr_t vptr = 0;
+        if (!SafeRead((void*)a, &vptr, 8) || vptr < base || vptr > base + 0x5000000) continue;
+        char cls[64] = {};
+        if (GetClassNameFP(a, cls, sizeof(cls)) && strcmp(cls, "FrostpunkTechnologiesConfig") == 0) {
+            trouvee = a;
+            printf("[TECHNO] FrostpunkTechnologiesConfig trouvee a base + 0x%llX\n", (unsigned long long)(a - base));
+            return a;
+        }
+    }
+    return 0;
+}
+
+bool NomTechno(const Guid& g, char* out, int taille)
+{
+    uintptr_t cfg = ConfigTechnos();
+    uintptr_t tab = 0; int n = 0;
+    if (!cfg || !LireTableau(cfg + TCFG_TECHNOS, tab, n)) return false;
+    for (int i = 0; i < n; ++i) {
+        uintptr_t t = 0; Guid gt{};
+        if (!SafeRead((void*)(tab + (uintptr_t)i * 8), &t, 8) || t <= 0x10000) continue;
+        if (LireGuid(t + TECH_GUID, gt) && GuidEgal(gt, g)) { LireTexte(t + TECH_NOM, out, taille); return true; }
+    }
+    return false;
+}
+
+// Nom d'une entree (+0x00 nom, +0x08 GUID) d'un tableau de pointeurs.
+bool NomEntreeParGuid(uintptr_t adrTableau, const Guid& g, char* out, int taille)
+{
+    uintptr_t tab = 0; int n = 0;
+    if (!LireTableau(adrTableau, tab, n)) return false;
+    for (int i = 0; i < n; ++i) {
+        uintptr_t e = 0; Guid ge{};
+        if (!SafeRead((void*)(tab + (uintptr_t)i * 8), &e, 8) || e <= 0x10000) continue;
+        if (LireGuid(e + 0x08, ge) && GuidEgal(ge, g)) { LireTexte(e, out, taille); return true; }
+    }
+    return false;
+}
+
+// Liste de liens GUID (pas de 0x10) vers des technos, en noms.
+void ListeDeTechnos(uintptr_t adrTableau, char* out, int taille)
+{
+    out[0] = 0;
+    uintptr_t tab = 0; int n = 0;
+    if (!LireTableau(adrTableau, tab, n)) { strcpy_s(out, taille, "(illisible)"); return; }
+    if (n == 0) { strcpy_s(out, taille, "(aucune)"); return; }
+    for (int i = 0; i < n; ++i) {
+        Guid g{}; char nom[96];
+        if (!LireGuid(tab + (uintptr_t)i * 0x10, g)) continue;
+        if (!NomTechno(g, nom, sizeof(nom))) sprintf_s(nom, "?%016llX", (unsigned long long)g.a);
+        if (i > 0) Ajouter(out, taille, ", ");
+        Ajouter(out, taille, nom);
+    }
+}
+
+void DiagTechnos()
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
+    uintptr_t cfg = ConfigTechnos();
+    if (!cfg) {
+        char cls[64] = "?";
+        GetClassNameFP(base + OFF_TECH_CONFIG, cls, sizeof(cls));
+        printf("[TECHNO] config des technos introuvable autour de base + 0x%llX (classe %s)\n",
+            (unsigned long long)OFF_TECH_CONFIG, cls);
+        return;
+    }
+
+    // --- Onglets --------------------------------------------------------------
+    uintptr_t tabCat = 0; int nCat = 0;
+    LireTableau(cfg + TCFG_CATEGORIES, tabCat, nCat);
+    uintptr_t tabT = 0; int nT = 0;
+    LireTableau(cfg + TCFG_TECHNOS, tabT, nT);
+    uintptr_t tabSet = 0; int nSet = 0;
+    LireTableau(cfg + TCFG_ENSEMBLES, tabSet, nSet);
+    printf("[TECHNO] ===== %d technos, %d onglets, %d ensembles (config 0x%llX) =====\n",
+        nT, nCat, nSet, (unsigned long long)cfg);
+    for (int c = 0; c < nCat; ++c) {
+        uintptr_t cat = 0; Guid g{};
+        if (!SafeRead((void*)(tabCat + (uintptr_t)c * 8), &cat, 8) || cat <= 0x10000) continue;
+        char nom[96];
+        LireTexte(cat + TCAT_NOM, nom, sizeof(nom));
+        LireGuid(cat + TCAT_GUID, g);
+        printf("[TECHNO] CAT | %s | %016llX\n", nom, (unsigned long long)g.a);
+    }
+
+    // --- Technos ----------------------------------------------------------------
+    // T | hash | nom | onglet | colonne | ligne | type d'entree | categorie d'affichage | active
+    // REQ | hash | prerequis        VOIR | hash | prerequis d'affichage
+    for (int i = 0; i < nT; ++i) {
+        uintptr_t t = 0;
+        if (!SafeRead((void*)(tabT + (uintptr_t)i * 8), &t, 8) || t <= 0x10000) continue;
+        char nom[96], onglet[96], type[64];
+        Guid g{}, gCat{};
+        int32_t grille[2] = { -1, -1 }, catAff = -1;
+        uint8_t active = 0;
+        LireTexte(t + TECH_NOM, nom, sizeof(nom));
+        LireGuid(t + TECH_GUID, g);
+        LireGuid(t + TECH_CATEGORIE, gCat);
+        SafeRead((void*)(t + TECH_GRILLE), grille, sizeof(grille));
+        SafeRead((void*)(t + TECH_CAT_AFF), &catAff, 4);
+        SafeRead((void*)(t + TECH_ACTIVE), &active, 1);
+        LireTexte(t + TECH_TYPE_ARBRE, type, sizeof(type));
+        if (GuidNul(gCat)) strcpy_s(onglet, "-");
+        else if (!NomEntreeParGuid(cfg + TCFG_CATEGORIES, gCat, onglet, sizeof(onglet)))
+            sprintf_s(onglet, "?%016llX", (unsigned long long)gCat.a);
+        printf("[TECHNO] T | %016llX | %s | %s | %d | %d | %s | %d | %d\n",
+            (unsigned long long)g.a, nom, onglet, grille[0], grille[1], type, catAff, active);
+        char req[2048] = {}, voir[2048] = {};
+        DecrireListeExigences(t + TECH_PREREQUIS, req, sizeof(req), 0, " ; ");
+        DecrireListeExigences(t + TECH_AFFICHAGE, voir, sizeof(voir), 0, " ; ");
+        printf("[TECHNO] REQ | %016llX | %s\n", (unsigned long long)g.a, req);
+        printf("[TECHNO] VOIR | %016llX | %s\n", (unsigned long long)g.a, voir);
+    }
+
+    // --- Ensembles (technos presentes dans un scenario) ------------------------
+    for (int s = 0; s < nSet; ++s) {
+        uintptr_t e = 0;
+        if (!SafeRead((void*)(tabSet + (uintptr_t)s * 8), &e, 8) || e <= 0x10000) continue;
+        char nom[96];
+        LireTexte(e + TSET_NOM, nom, sizeof(nom));
+        uintptr_t liens = 0; int nl = 0;
+        LireTableau(e + TSET_TECHNOS, liens, nl);
+        printf("[TECHNO] SET | %s | %d\n", nom, nl);
+        for (int k = 0; k < nl; ++k) {
+            Guid g{};
+            if (!LireGuid(liens + (uintptr_t)k * 0x10, g)) continue;
+            printf("[TECHNO] SETT | %s | %016llX\n", nom, (unsigned long long)g.a);
+        }
+    }
+
+    // --- Reglages de technos et scenarios -----------------------------------
+    uintptr_t scenarios = base + OFF_SCENARIOS_CONFIG;
+    uintptr_t tabReg = 0; int nReg = 0;
+    LireTableau(scenarios + CFG_REGLAGES_TECH, tabReg, nReg);
+    for (int r = 0; r < nReg; ++r) {
+        uintptr_t reg = 0;
+        if (!SafeRead((void*)(tabReg + (uintptr_t)r * 8), &reg, 8) || reg <= 0x10000) continue;
+        char nom[96], ens[96], depart[2048];
+        Guid gEns{};
+        LireTexte(reg + TREG_NOM, nom, sizeof(nom));
+        LireGuid(reg + TREG_ENSEMBLE, gEns);
+        if (GuidNul(gEns)) strcpy_s(ens, "-");
+        else if (!NomEntreeParGuid(cfg + TCFG_ENSEMBLES, gEns, ens, sizeof(ens)))
+            sprintf_s(ens, "?%016llX", (unsigned long long)gEns.a);
+        ListeDeTechnos(reg + TREG_DEPART, depart, sizeof(depart));
+        printf("[TECHNO] REG | %s | %s | %s\n", nom, ens, depart);
+    }
+    uintptr_t tabScn = 0; int nScn = 0;
+    LireTableau(scenarios + CFG_SCENARIOS, tabScn, nScn);
+    for (int s = 0; s < nScn; ++s) {
+        uintptr_t scn = 0;
+        if (!SafeRead((void*)(tabScn + (uintptr_t)s * 8), &scn, 8) || scn <= 0x10000) continue;
+        char nom[96], liste[1024] = {};
+        LireTexte(scn + SCN_NOM, nom, sizeof(nom));
+        uintptr_t tab = 0; int n = 0;
+        LireTableau(scn + SCN_REGLAGES_TECH, tab, n);
+        for (int i = 0; i < n; ++i) {
+            Guid g{}; char trouve[96];
+            if (!LireGuid(tab + (uintptr_t)i * 0x10, g)) continue;
+            if (!NomEntreeParGuid(scenarios + CFG_REGLAGES_TECH, g, trouve, sizeof(trouve)))
+                sprintf_s(trouve, "?%016llX", (unsigned long long)g.a);
+            if (i > 0) Ajouter(liste, sizeof(liste), ", ");
+            Ajouter(liste, sizeof(liste), trouve);
+        }
+        printf("[TECHNO] SCN | %s | %s\n", nom, n ? liste : "-");
+    }
+    printf("[TECHNO] releve termine\n");
+}
+
 // Releve pour la table des checks de lois (outils\lois_table.py), une ligne
 // par objet, champs separes par " | " :
 //   CAT | nom | prerequis de l'arbre
@@ -1192,6 +1425,12 @@ void LoisDecrireEvenement(uintptr_t evt, const char* prefixe)
     DecrireEvenement(evt, prefixe);
 }
 
+void LoisDecrireExigences(uintptr_t adrTableau, char* out, int taille)
+{
+    out[0] = 0;
+    DecrireListeExigences(adrTableau, out, taille, 0, " ; ");
+}
+
 void LoisDemanderReleve()
 {
     g_releveDemande = true;
@@ -1215,6 +1454,7 @@ void LoisPompe()
         DiagTableLois((uintptr_t)GetModuleHandleW(NULL));   // table des checks de lois
         DiagUnlocks();
         printf("[LOIS] releve termine\n");
+        DiagTechnos();   // releve des technos (palier, arbre, prerequis)
     }
     if (!LOIS_SANS_DELAI || !PartiePrete()) return;
 
@@ -1380,9 +1620,3 @@ void DiagLois()
     }
     printf("[LOIS] etats non nuls : %s\n", ligne[0] ? ligne : "(aucun)");
 }
-void LoisDecrireExigences(uintptr_t adrTableau, char* out, int taille)
-{
-    out[0] = 0;
-    DecrireListeExigences(adrTableau, out, taille, 0, " ; ");
-}
-

@@ -21,7 +21,7 @@ struct ChoixDilemmeAP {
 };
 
 struct DilemmeAP {
-    const char*    id;             // identifiant unique, ex. "trap_coal_or_steel"
+    const char*    id;             // identifiant unique, ex. "trap_coal"
     const char*    titre;          // titre du panneau
     const char*    sousTitre;      // petite ligne au-dessus du titre ("New Arrivals" chez le jeu)
     const char*    texte;          // description

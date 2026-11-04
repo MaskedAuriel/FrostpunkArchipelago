@@ -20,6 +20,9 @@ int ScootingListePourAffichage(wchar_t* out, int maxChars, int* exp);
 int ExpeditionSelectionnee();
 
 void ScootingInit();        // objets du scouting ; appele par le tick a chaque nouvelle partie
+// Au demarrage : table des sites porteurs d'un check = toutes les locations
+// de site de known_ap_ids.h (descriptions dans ap_data).
+void ScootingPayloadsInit();
 void ScootingTick();        // une fois par seconde, APRES PartieTick (mod_common)
 int  ScootingLocationPourCleSite(const char* cle);
 

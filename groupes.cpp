@@ -24,6 +24,7 @@
 #include "evenements.h"
 #include "resources.h"   // Res_Definition (cases de l'inventaire)
 #include "scooting.h"    // ScootingExpeditionAffichee (infobulle de l'item AP)
+#include "sites_contenu.h"  // SitesEntreeSurvivants (survivants par classe)
 #include <cmath>
 #include <cstring>
 
@@ -380,7 +381,8 @@ ComposantAjoute_t g_origComposantAjoute = nullptr;
 GroupeArrive_t    g_origGroupeArrive    = nullptr;
 int       g_slotAPoser = -1;     // thread du jeu : groupe en cours de creation
 uintptr_t g_compClone  = 0;      // composant qui a recu la copie
-uintptr_t g_survivantsAPoser = 0;  // tableau d'une SurvivorsEntry pour la copie (0 : contenu du template)
+uintptr_t g_survivantsAPoser = 0;  // tableau de SurvivorsEntry pour la copie (0 : contenu du template)
+int       g_nSurvivantsAPoser = 1; // nombre d'entrees de ce tableau
 bool      g_chargementEnCours = false;  // entre l'entree et la sortie de FrostpunkGame::LoadGame
 bool      g_chargementReinit  = false;  // slots remis a zero pour ce chargement
 bool      g_lectureFaite      = false;  // la sauvegarde a ete lue pendant ce LoadGame
@@ -614,17 +616,18 @@ bool LireGroupe(const uint64_t* guid, GroupeSuivi& s)
 // Copie du template posee sur le composant (creation et recollage), AVANT que
 // FUN_1418b1cc0 ne recopie nom et icone dans le composant de carte de
 // l'entite (entite +0x2A0 + type x 8 : +0x30 nom, +0x40..+0x50 icone).
-uintptr_t PoserCopieTemplate(uintptr_t comp, int slot, uintptr_t survivants)
+uintptr_t PoserCopieTemplate(uintptr_t comp, int slot, uintptr_t survivants, int nSurvivants)
 {
     uintptr_t orig = 0;
     SafeRead((void*)(comp + COMP_TEMPLATE), &orig, 8);
     uintptr_t clone = ClonerTemplateGroupe(orig, slot);
     if (clone) {
-        if (survivants) {
-            int32_t un[2] = { 1, 1 };   // compte, capacite
+        if (survivants && nSurvivants > 0) {
+            int32_t compte[2] = { nSurvivants, nSurvivants };   // compte, capacite
             SafeWrite((void*)(clone + TPL_SURVIVANTS), &survivants, 8);
-            SafeWrite((void*)(clone + TPL_SURVIVANTS + 8), un, 8);
-            printf("[GRP] copie : survivants remplaces par notre entree 0x%llX\n", (unsigned long long)survivants);
+            SafeWrite((void*)(clone + TPL_SURVIVANTS + 8), compte, 8);
+            printf("[GRP] copie : survivants remplaces par nos %d entree(s) 0x%llX\n", nSurvivants,
+                (unsigned long long)survivants);
         }
         // Pas de dilemme a l'arrivee : lien "City reached dilemma" (GUID
         // de 16 octets, compare au GUID nul par FUN_140e1a930) efface dans
@@ -741,7 +744,7 @@ int RecollerGroupe(uintptr_t entite, uintptr_t comp)
     s.dureeAppliquee = true;     // les dates du trajet sont dans la sauvegarde du jeu
     s.recolle = true;
     s.actif = true;
-    PoserCopieTemplate(comp, slot, 0);
+    PoserCopieTemplate(comp, slot, 0, 0);
     printf("[SAV] groupe \"%s\" recolle dans le slot %d : \"%s\", icone %s, %d ressource(s)\n", nomEnt, slot,
         s.nom, s.icone, s.nCargaison);
     return slot;
@@ -759,7 +762,7 @@ void hkComposantAjoute(uintptr_t sys, uintptr_t entite, uintptr_t comp, uintptr_
     if (g_slotAPoser >= 0 && ClasseExacte(comp, "FrostpunkSurvivorGroupComponent")) {
         int slot = g_slotAPoser;
         g_slotAPoser = -1;
-        PoserCopieTemplate(comp, slot, g_survivantsAPoser);
+        PoserCopieTemplate(comp, slot, g_survivantsAPoser, g_nSurvivantsAPoser);
         g_compClone = comp;
     }
     else if (g_chargementEnCours && entite > 0x10000 && ClasseExacte(comp, "FrostpunkSurvivorGroupComponent")) {
@@ -893,6 +896,44 @@ uintptr_t TemplateGroupeDe(uintptr_t compound, const char* chemin)
 bool PreparerSurvivants(const GroupeAP& g)
 {
     g_survivantsAPoser = 0;
+    g_nSurvivantsAPoser = 1;
+
+    // Survivants par classe : une entree par classe trouvee dans les sites ;
+    // une classe introuvable rejoint la premiere entree (citoyens livres,
+    // classe fausse) plutot que d'etre perdue.
+    if (g.classes[0].classe) {
+        uint8_t* tab = MoteurAlloc ? (uint8_t*)MoteurAlloc(MAX_CLASSES_AP * ENTREE_SURVIVANTS) : nullptr;
+        if (!tab) return false;
+        int n = 0, orphelins = 0;
+        for (int i = 0; i < MAX_CLASSES_AP && g.classes[i].classe; ++i) {
+            uint8_t* e = tab + n * ENTREE_SURVIVANTS;
+            if (g.classes[i].nombre <= 0) continue;
+            if (!SitesEntreeSurvivants(g.classes[i].classe, e)) {
+                printf("[GRP] classe \"%s\" introuvable : %d survivant(s) reportes\n", g.classes[i].classe, g.classes[i].nombre);
+                orphelins += g.classes[i].nombre;
+                continue;
+            }
+            int32_t nb = g.classes[i].nombre;
+            memcpy(e, &nb, 4);
+            printf("[GRP] entree %d : %d %s\n", n, nb, g.classes[i].classe);
+            ++n;
+        }
+        if (n == 0) {
+            printf("[GRP] aucune classe trouvee : %d survivant(s) non livres\n", orphelins);
+            return false;
+        }
+        if (orphelins) {
+            int32_t nb = 0;
+            memcpy(&nb, tab, 4);
+            nb += orphelins;
+            memcpy(tab, &nb, 4);
+            printf("[GRP] %d survivant(s) reportes ajoutes a l'entree 0\n", orphelins);
+        }
+        g_survivantsAPoser = (uintptr_t)tab;
+        g_nSurvivantsAPoser = n;
+        return true;
+    }
+
     if (g.survivants < 0) return true;
     static const char* const DONNEURS[] = {
         "GameEntities/WorldMap/SurvivorGroups/Builders/BuildersScenarioWorkers",
@@ -1859,6 +1900,7 @@ int GroupeCreer(const GroupeAP& g)
     uintptr_t e = AppelerCreer(gestionnaire, tpl, parent, m);
     g_slotAPoser = -1;
     g_survivantsAPoser = 0;
+    g_nSurvivantsAPoser = 1;
     if (!e) { s.actif = false; return -1; }
     s.entite = e;
     DecrireEntite("cree", e);
@@ -1875,7 +1917,8 @@ int GroupeCreer(const GroupeAP& g)
         if (!s.comp) { printf("[GRP] composant du groupe introuvable\n"); s.actif = false; return -1; }
     }
 
-    AppliquerContenu(s.comp, g.survivants, g.sansMorts);
+    // Par classe : comptes deja poses dans les entrees de la copie du template.
+    AppliquerContenu(s.comp, g.classes[0].classe ? -1 : g.survivants, g.sansMorts);
     uintptr_t dilemme = 0;
     SafeRead((void*)(s.comp + COMP_DILEMME_ARRIVEE), &dilemme, 8);
     printf("[GRP] dilemme d'arrivee apres Creer : 0x%llX%s\n", (unsigned long long)dilemme,
@@ -1996,6 +2039,34 @@ void GroupesApresChargement()
     }
     JournalImmediat("[SAV] chargement termine : %d groupe(s) AP recolle(s)\n", recolles);
     ReleverGroupes("sortie de LoadGame");
+}
+
+float GroupesHeuresAvantDerniereArrivee()
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    uintptr_t sysMouv = 0, horloge = 0;
+    int32_t secParHeure = 0;
+    int64_t maintenant = 0;
+    SafeRead((void*)(base + OFF_SYS_MOUVEMENT), &sysMouv, 8);
+    SafeRead((void*)(base + OFF_HORLOGE), &horloge, 8);
+    SafeRead((void*)(base + OFF_SECONDES_PAR_HEURE), &secParHeure, 4);
+    if (!sysMouv || !horloge || secParHeure <= 0 || !SafeRead((void*)(horloge + HORLOGE_DATE), &maintenant, 8))
+        return 0.0f;
+    double tph = secParHeure * TICKS_PAR_SECONDE;
+    float plusTard = 0.0f;
+    for (const GroupeSuivi& s : g_groupes) {
+        if (!s.actif || s.arrive || s.entite <= 0x10000) continue;
+        // Duree pas encore posee : celle qui le sera.
+        if (!s.dureeAppliquee) { if (s.heures > plusTard) plusTard = s.heures; continue; }
+        uintptr_t mouv = 0;
+        int64_t arrivee = 0;
+        __try { mouv = ((MouvementDe_t)(base + OFF_MOUVEMENT_DE))(sysMouv, s.entite); }
+        __except (EXCEPTION_EXECUTE_HANDLER) { mouv = 0; }
+        if (!mouv || !SafeRead((void*)(mouv + MOUV_DATE_ARRIVEE), &arrivee, 8)) continue;
+        float restant = (float)((double)(arrivee - maintenant) / tph);
+        if (restant > plusTard) plusTard = restant;
+    }
+    return plusTard;
 }
 
 void GroupesDemanderCreation()

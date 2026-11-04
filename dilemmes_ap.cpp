@@ -21,15 +21,38 @@
 
 static const DilemmeAP DILEMMES_AP[] = {
     {
-        "trap_coal_or_steel",
+        "trap_wood",
         "Archipelago Trap",
         "Archipelago",
-        "Another world has sent you a trap. Choose what the city will sacrifice.",
+        "Another world has sent you a trap. The city loses some of its wood.",
         "icon_trap",
         "Archipelago Trap",
         0,
         {
-            { "Lose 50 coal",  "coal",  -50, nullptr },
+            { "Lose 50 wood", "wood", -50, nullptr },
+        }
+    },
+    {
+        "trap_coal",
+        "Archipelago Trap",
+        "Archipelago",
+        "Another world has sent you a trap. The city loses some of its coal.",
+        "icon_trap",
+        "Archipelago Trap",
+        0,
+        {
+            { "Lose 50 coal", "coal", -50, nullptr },
+        }
+    },
+    {
+        "trap_steel",
+        "Archipelago Trap",
+        "Archipelago",
+        "Another world has sent you a trap. The city loses some of its steel.",
+        "icon_trap",
+        "Archipelago Trap",
+        0,
+        {
             { "Lose 50 steel", "steel", -50, nullptr },
         }
     },

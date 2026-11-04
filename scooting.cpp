@@ -62,15 +62,31 @@ static bool g_persistChargee = false;
 
 
 
-static const SitePayload SITE_PAYLOADS[] = {
-    { "REFUGEES", "[ref]Builder_Camp", 1001 },
-    { "DEFAULT",  "Site_052_A3",       1002 },
-    { "REFUGEES",  "[t-plain][landmark]site11",       1003 },
-    { "REFUGEES",  "[t-plain][landmark]site04",       1004 },   // "Lone Boulder" (tests a plusieurs items)
-};
+// Tous les sites qui sont des locations AP (2026-11-04, demande de l'auteur ;
+// remplace les 4 sites de test 1001-1004) : construite au demarrage par
+// ScootingPayloadsInit depuis known_ap_ids.h, jamais reconstruite (les
+// enAttente des expeditions pointent dedans). locationId = id local stable
+// = 100000 + numero de la location AP (7747300000 + n), garde dans
+// ap_pending_<GameId>.txt.
+static const int   MAX_PAYLOADS = 512;
+static SitePayload SITE_PAYLOADS[MAX_PAYLOADS];
+static int         SITE_PAYLOAD_COUNT = 0;
 
-static const int SITE_PAYLOAD_COUNT =
-(int)(sizeof(SITE_PAYLOADS) / sizeof(SITE_PAYLOADS[0]));
+void ScootingPayloadsInit()
+{
+    static ApSiteLoc locs[MAX_PAYLOADS];
+    int n = ApSitesLocations(locs, MAX_PAYLOADS);
+    SITE_PAYLOAD_COUNT = 0;
+    for (int i = 0; i < n; ++i) {
+        int id = 100000 + (int)(locs[i].id - 7747300000LL);
+        SITE_PAYLOADS[SITE_PAYLOAD_COUNT++] = { locs[i].scenario, locs[i].cle, id };
+        // TODO reseau : l'objet reel de la location (joueur, nom de l'item).
+        char desc[160];
+        sprintf_s(desc, "[AP] Check: %s", locs[i].nom);
+        ApSetCheck(id, "", desc);
+    }
+    printf("[SCOUT] %d site(s) AP (locations de known_ap_ids.h)\n", SITE_PAYLOAD_COUNT);
+}
 
 static wchar_t g_listePortee[512];
 static int     g_nListePortee = 0;
@@ -147,12 +163,16 @@ static bool DejaEnAttente(const ExpCache& e, const SitePayload* p)
     return false;
 }
 
+// Paire exclusive ([ref]X / [ref]X-dead) : les deux sites renvoient le meme
+// contenu, donc un seul check (ApCleDeSite).
 static const SitePayload* PayloadDuSite(const char* site)
 {
     if (!site || !site[0] || !g_run.valid) return nullptr;
+    char cle[128];
+    ApCleDeSite(site, cle, sizeof(cle));
     for (int i = 0; i < SITE_PAYLOAD_COUNT; ++i) {
         if (!StrEq(SITE_PAYLOADS[i].scenario, g_run.scenario)) continue;
-        if (!StrEq(SITE_PAYLOADS[i].site, site)) continue;
+        if (!StrEq(SITE_PAYLOADS[i].site, cle)) continue;
         return &SITE_PAYLOADS[i];
     }
     return nullptr;
@@ -785,7 +805,7 @@ void ScootingTick()
         if (enVille && g_exps[i].nEnAttente > 0) {
             // Point de sortie unique vers Archipelago : archipelago.cpp.
             for (int k = 0; k < g_exps[i].nEnAttente; ++k)
-                SendLocationCheck(g_exps[i].enAttente[k]->locationId);
+                SendLocationCheck(g_exps[i].enAttente[k]->locationId, g_exps[i].enAttente[k]->site);
             g_exps[i].nEnAttente = 0;
             g_exps[i].dernierSite = 0;
             ViderCargaison(c);

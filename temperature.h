@@ -26,5 +26,10 @@ void InstallHooksTemperature(uintptr_t modBase);
 // applique par TemperaturePompe (thread du jeu, hors pause).
 void TemperatureRecevoirMontee(int niveaux);
 
+// Niveaux deja recus dans la partie 'gid' (GameId), en attente compris. -1 si
+// la sauvegarde locale de cette partie n'est pas relue. Thread du jeu (apres
+// TemperaturePompe).
+int TemperatureItemsRecus(const uint64_t gid[2]);
+
 // Nom d'un acte de donnees (FrostpunkGameActEntry) et de son reglage, par GUID.
 bool TemperatureNomActe(const uint64_t guid[2], char* out, int taille);
