@@ -477,7 +477,7 @@ int Res_InitDepuisEconomie()
 {
     if (!g_lockReady) return 0;
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL), eco = 0;
-    if (!SafeRead((void*)(base + 0x40916D0), &eco, 8) || eco <= 0x10000) {
+    if (!SafeRead((void*)(base + Adr(0x40916D0)), &eco, 8) || eco <= 0x10000) {
         printf("[RES] init : economie absente\n");
         return 0;
     }

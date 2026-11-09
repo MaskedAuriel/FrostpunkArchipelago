@@ -57,12 +57,12 @@
 
 namespace {
 
-constexpr uintptr_t OFF_ECONOMIE        = 0x40916D0;
+static const uintptr_t OFF_ECONOMIE        = Adr(0x40916D0);
 constexpr int       ECO_RESSOURCES      = 0x2240;   // entrees de 0x70, compte +8
 constexpr int       ECO_PAS             = 0x70;
-constexpr uintptr_t OFF_CLASSES_SOCIALES= 0x4072078;
-constexpr uintptr_t OFF_STATS_INITIALES = 0x4072140;   // config de population + 0x120 (FUN_141440690)
-constexpr uintptr_t OFF_EFFETS_CARTE    = 0x40806F8;
+static const uintptr_t OFF_CLASSES_SOCIALES= Adr(0x4072078);
+static const uintptr_t OFF_STATS_INITIALES = Adr(0x4072140);   // config de population + 0x120 (FUN_141440690)
+static const uintptr_t OFF_EFFETS_CARTE    = Adr(0x40806F8);
 constexpr int       VT_PAR_LIEN         = 0x88;
 
 constexpr int SITE_VARIANTE   = 0x38;
@@ -611,11 +611,69 @@ static bool EntreeCollectionParNom(uintptr_t coll, const char* quoi, const char*
     return false;
 }
 
+// Statistiques initiales "malade" (pas "gravement malade") pour les groupes AP
+// (demande de l'auteur, 2026-11-04 : les groupes arrivaient gravement
+// malades, statistiques copiees d'un site). FrostpunkCitizenInitialStatistics
+// Entry (0xA8, reflexion FUN_141446850) : +0x00 nom, +0x7C "Health level"
+// (lien vers FrostpunkCitizenHealthLevel). Les noms des entrees ne sont pas
+// connus a l'avance : toutes sont journalisees la 1re fois ([SCONT] stats ...).
+// Releve du 2026-11-04 (17 entrees) : "SurvivorsIll" (sante 7D9B74C7...) =
+// malade ; "SurvivorsGravelyIll" et "[Reconquest] Ex-Convicts sick" (sante
+// A942714D..., la meme) = gravement malade (1er essai : la recherche de
+// "sick" avait retenu Ex-Convicts sick, a tort). On retient donc
+// "SurvivorsIll" par son nom.
+// 2026-11-06 (l'auteur) : TOUT le groupe arrivait malade ; seuls les
+// "gravement malades" doivent devenir "malades", les autres gardent leur
+// etat. StatsSansGravite remplace donc les statistiques d'une entree
+// seulement si leur niveau de sante (+0x7C) est celui de SurvivorsGravelyIll.
+
+// Lien (GUID) d'une entree de la collection des statistiques ; 0 si absent.
+static uintptr_t StatsParNom(const char* nom, uint8_t guid[16])
+{
+    uintptr_t coll = (uintptr_t)GetModuleHandleW(NULL) + OFF_STATS_INITIALES, tab = 0;
+    uint32_t n = 0;
+    if (!LireTab(coll + 0x20, tab, n, 256) || !n) return 0;
+    for (uint32_t i = 0; i < n; ++i) {
+        uintptr_t e = 0;
+        char nomE[64];
+        if (!SafeRead((void*)(tab + (uintptr_t)i * 8), &e, 8) || e <= 0x10000 || !LireNom(e, nomE, sizeof(nomE))) continue;
+        if (_stricmp(nomE, nom) != 0) continue;
+        static const int DECALAGES[] = { 0x08, 0x10 };
+        for (int off : DECALAGES) {
+            uint8_t g[16] = {};
+            if (SafeRead((void*)(e + off), g, 16) && EntreeParLien(coll, g) == e) { memcpy(guid, g, 16); return e; }
+        }
+    }
+    return 0;
+}
+
+static void StatsSansGravite(const char* classe, uint8_t stats[16])
+{
+    uintptr_t coll = (uintptr_t)GetModuleHandleW(NULL) + OFF_STATS_INITIALES;
+    uint8_t gGrave[16], gMalade[16], santeGrave[16] = {}, santeEntree[16] = {};
+    uintptr_t grave = StatsParNom("SurvivorsGravelyIll", gGrave), malade = StatsParNom("SurvivorsIll", gMalade);
+    uintptr_t e = EntreeParLien(coll, stats);
+    if (!grave || !malade || !e) {
+        printf("[SCONT] classe \"%s\" : sante non verifiee (grave 0x%llX, malade 0x%llX, entree 0x%llX)\n",
+            classe, (unsigned long long)grave, (unsigned long long)malade, (unsigned long long)e);
+        return;
+    }
+    SafeRead((void*)(grave + 0x7C), santeGrave, 16);
+    SafeRead((void*)(e + 0x7C), santeEntree, 16);
+    char nom[64] = "?";
+    LireNom(e, nom, sizeof(nom));
+    if (memcmp(santeGrave, santeEntree, 16) == 0) {
+        memcpy(stats, gMalade, 16);
+        printf("[SCONT] classe \"%s\" : \"%s\" (gravement malade) -> \"SurvivorsIll\"\n", classe, nom);
+    }
+    else printf("[SCONT] classe \"%s\" : statistiques \"%s\" gardees\n", classe, nom);
+}
+
 // Entree de survivants d'une classe sociale, prise dans les sites de la carte
 // (composant +0xA8, tresor du gabarit +0x70, survivants aleatoires +0xD8) ;
 // classe et statistiques retenues par nom de classe pour toute la session
 // (liens globaux de la configuration).
-bool SitesEntreeSurvivants(const char* classeAP, uint8_t entree[0x24])
+bool SitesEntreeSurvivants(const char* classeAP, uint8_t entree[0x24], const char* site)
 {
     // Noms de l'apworld -> noms internes des classes sociales (inverse de
     // SURVIVANTS d'outils\sites_contenu.py ; collection relevee le
@@ -631,11 +689,11 @@ bool SitesEntreeSurvivants(const char* classeAP, uint8_t entree[0x24])
     struct Connue { char nom[32]; uint8_t e[0x24]; };
     static Connue connues[8];
     static int nConnues = 0;
-    for (int c = 0; c < nConnues; ++c)
-        if (_stricmp(connues[c].nom, classe) == 0) { memcpy(entree, connues[c].e, 0x24); return true; }
 
     // Une entree candidate (classe +0x00, statistiques +0x10) : retenue si
-    // sa classe s'appelle 'classe'.
+    // sa classe s'appelle 'classe'. 'garder' : mise en cache (recherche
+    // generale ; pas pour le site d'origine, propre a chaque item).
+    bool garder = true;
     auto essayer = [&](const uint8_t* cls, const uint8_t* stats) -> bool {
         char nom[64];
         NomClasseSociale(cls, nom, sizeof(nom));
@@ -643,17 +701,55 @@ bool SitesEntreeSurvivants(const char* classeAP, uint8_t entree[0x24])
         memset(entree, 0, 0x24);
         memcpy(entree + 0x04, cls, 16);
         memcpy(entree + 0x14, stats, 16);
-        if (nConnues < 8) {
+        if (garder && nConnues < 8) {
             strcpy_s(connues[nConnues].nom, classe);
             memcpy(connues[nConnues].e, entree, 0x24);
             ++nConnues;
         }
+        StatsSansGravite(classe, entree + 0x14);   // gravement malade -> malade
         printf("[SCONT] classe sociale \"%s\" trouvee dans les sites de la carte\n", classe);
         return true;
     };
 
     static uintptr_t objs[512];
     int n = ComposantsDuSysteme(IdSysteme::ExpeditionSite, "FrostpunkExpeditionSiteComponent", objs, 512);
+
+    // 1. Site d'origine du contenu (2026-11-06) : SES survivants (composant
+    //    +0xA8 jusqu'a sa capacite, son compte etant remis a 0 par scooting ;
+    //    tresor du gabarit +0x70 ; survivants aleatoires +0xD8).
+    if (site && *site) {
+        garder = false;
+        for (int i = 0; i < n; ++i) {
+            uintptr_t gab = 0, tab = 0;
+            char nomSite[128] = "";
+            if (!ClasseExacte(objs[i], "FrostpunkExpeditionSiteComponent") ||
+                !SafeRead((void*)(objs[i] + 0x20), &gab, 8) || gab <= 0x10000 ||
+                !ScootingNomDuGabarit(gab, nomSite, sizeof(nomSite)) || _stricmp(nomSite, site) != 0) continue;
+            uint8_t e[0x30];
+            uint32_t k = 0, cap = 0;
+            if (SafeRead((void*)(objs[i] + SITE_SURVIVANTS), &tab, 8) &&
+                SafeRead((void*)(objs[i] + SITE_SURVIVANTS + 12), &cap, 4) && tab > 0x10000 && cap <= 64)
+                for (uint32_t j = 0; j < cap; ++j)
+                    if (SafeRead((void*)(tab + (uintptr_t)j * 0x24), e, 0x24) && essayer(e + 0x04, e + 0x14)) return true;
+            if (LireTab(gab + GAB_TRESOR + TR_SURVIVANTS, tab, k, 64))
+                for (uint32_t j = 0; j < k; ++j)
+                    if (SafeRead((void*)(tab + (uintptr_t)j * 0x24), e, 0x24) && essayer(e + 0x04, e + 0x14)) return true;
+            if (LireTab(gab + GAB_TRESOR + TR_ALEA_SURV, tab, k, 64))
+                for (uint32_t j = 0; j < k; ++j)
+                    if (SafeRead((void*)(tab + (uintptr_t)j * 0x30), e, 0x30) && essayer(e, e + 0x10)) return true;
+            break;
+        }
+        printf("[SCONT] classe \"%s\" absente du site \"%s\" : recherche generale\n", classe, site);
+        garder = true;
+    }
+
+    for (int c = 0; c < nConnues; ++c)
+        if (_stricmp(connues[c].nom, classe) == 0) {
+            memcpy(entree, connues[c].e, 0x24);
+            StatsSansGravite(classe, entree + 0x14);
+            return true;
+        }
+
     for (int i = 0; i < n; ++i) {
         if (!ClasseExacte(objs[i], "FrostpunkExpeditionSiteComponent")) continue;
         uintptr_t gab = 0, tab = 0;

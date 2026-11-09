@@ -1,0 +1,184 @@
+﻿0E1A110	text	menu_ap.cpp:71
+0E1A120	text	menu_ap.cpp:70
+0E1A260	text	menu_ap.cpp:72
+0E1CE20	text	groupes.cpp:675
+0E1D180	text	groupes.cpp:1501 groupes.cpp:676 sauvegardes_ap.cpp:22
+0E27BF0	text	mod_common.cpp:1985
+0E27C00	text	scooting.cpp:1619
+0E4E990	text	MessageManager.cpp:986
+0E4EAB0	text	MessageManager.cpp:532 lois_ap.cpp:1073 menu_ap.cpp:75
+0E4F9A0	text	groupes.cpp:677
+0E4FA20	text	MessageManager.cpp:531 lois_ap.cpp:1073 menu_ap.cpp:74
+0E51FA0	text	mod_common.cpp:1414
+0FEB340	text	mod_common.h:145
+0FEB760	text	quetes.cpp:155
+1016250	text	groupes.cpp:37
+1017230	text	scooting.cpp:1580
+1023D70	text	lois_ap.cpp:1090
+10240D0	text	menu_ap.cpp:1287
+1025CC0	text	groupes.cpp:1496
+1025FF0	text	menu_ap.cpp:73
+10260C0	text	MessageManager.cpp:919 lois_ap.cpp:1074
+10261E0	text	menu_ap.cpp:68
+10266A0	text	menu_ap.cpp:63
+10297F0	text	MessageManager.cpp:632 lois_ap.cpp:1074
+102A3E0	text	lois_ap.cpp:1068
+102B170	text	lois_ap.cpp:1066
+102F720	text	menu_ap.cpp:77
+1030E90	text	menu_ap.cpp:69
+1035C80	text	menu_ap.cpp:61
+1035CF0	text	scooting.cpp:1668
+1035DD0	text	groupes.cpp:62
+105A1C0	text	menu_ap.cpp:64
+105A3A0	text	menu_ap.cpp:1286 scenarios_ap.cpp:324
+105AC90	text	lois_ap.cpp:1074 menu_ap.cpp:903
+1079AA0	text	hooks_loc.cpp:487
+1107140	text	IconSubManager.cpp:649 lois_ap.cpp:1097
+1107360	text	lois_ap.cpp:1097
+110C780	text	lois_ap.cpp:1090 menu_ap.cpp:60
+11180B0	text	scooting.cpp:1838
+1119140	text	menu_ap.cpp:62
+111BD70	text	IconSubManager.cpp:650
+111BEF0	text	lois_ap.cpp:1368 menu_ap.cpp:65 scenarios_ap.cpp:87
+111C4F0	text	scooting.cpp:1676
+111D100	text	groupes.cpp:63
+1129C90	text	menu_ap.cpp:79
+112A360	text	menu_ap.cpp:67
+112A920	text	menu_ap.cpp:66
+112AC10	text	menu_ap.cpp:78
+11FD800	text	menu_ap.cpp:76
+1265DF0	text	mod_common.cpp:1484
+1267C50	text	scenario.cpp:105
+126C9F0	text	mod_common.cpp:1486
+1283EA0	text	scenarios_ap.cpp:85
+1286840	text	mod_common.cpp:1485
+12892F0	text	sauvegardes_ap.cpp:20
+12EC200	text	groupes.cpp:674
+1301490	text	victoire.cpp:46
+131DE20	text	scooting.cpp:2243
+1325E40	text	hooks_research.cpp:34
+1326A60	text	mod_common.h:141
+1326C80	text	mod_common.h:144
+1327120	text	mod_common.h:143
+1329610	text	mod_common.h:142
+132F260	text	temperature.cpp:877
+132FD90	text	scooting.cpp:253
+1331940	text	groupes.cpp:1446
+1332CD0	text	groupes.cpp:1445
+139E930	text	mod_common.h:140
+148C130	text	scooting.cpp:1837 scooting.cpp:2121
+1518B70	text	scenarios_ap.cpp:323
+1559730	text	temperature.cpp:730
+167C580	text	MessageManager.cpp:98
+1685A50	text	MessageManager.cpp:90
+16896B0	text	MessageManager.cpp:118
+168DC50	text	scooting.cpp:2225
+169AEE0	text	quetes.cpp:947
+16A71F0	text	lois_ap.cpp:129
+16A83B0	text	IconSubManager.cpp:555
+16B7350	text	groupes.cpp:1493
+16C5EC0	text	quetes.cpp:1144
+16D22A0	text	quetes.cpp:1143
+16D2710	text	quetes.cpp:1381
+16E8570	text	quetes.cpp:936
+16FD350	text	lois_ap.cpp:42
+16FDBC0	text	lois_ap.cpp:43
+173FE40	text	mod_common.h:139
+17B9B70	text	evenements.cpp:46
+17CDE10	text	evenements.cpp:65
+17CFBF0	text	evenements.cpp:943
+17CFC40	text	evenements.cpp:826
+17CFD70	text	evenements.cpp:944
+17D16D0	text	evenements.cpp:827
+17D40C0	text	evenements.cpp:445
+1812C10	text	temperature.cpp:575
+1884960	text	groupes.cpp:320
+18B1CC0	text	groupes.cpp:319
+18B2870	text	groupes.cpp:347
+18EF2F0	text	scooting.cpp:2239
+18F2A30	text	scooting.cpp:2235
+1916F90	text	IconSubManager.cpp:307
+19E68B0	text	MessageManager.cpp:335
+19E9560	text	mod_common.cpp:2689
+1A0EB70	text	mod_common.cpp:2690
+1A0F1C0	text	groupes.cpp:672
+1A0F2A0	text	groupes.cpp:673
+1A31660	text	groupes.cpp:1494
+1A316B0	text	groupes.cpp:1495
+1A33780	text	evenements.cpp:945
+1AA9C00	text	MessageManager.cpp:105
+1AA9D70	text	MessageManager.cpp:104
+1AA9DF0	text	MessageManager.cpp:94
+1AAB820	text	MessageManager.cpp:913
+1AAD120	text	MessageManager.cpp:916
+1B28950	text	menu_ap.cpp:59
+1B28F10	text	menu_ap.cpp:1285
+1B2A9C0	text	mod_common.h:217
+1B2CB40	text	scenarios_ap.cpp:86
+1B2DCC0	text	mod_common.h:216
+1B2E8C0	text	scenarios_ap.cpp:322
+1BB2B60	text	IconSubManager.cpp:554
+1BB2D30	text	IconSubManager.cpp:554
+1BBC320	text	lois_ap.cpp:993
+1BC1440	text	lois_ap.cpp:1455
+1BC5810	text	IconSubManager.cpp:553
+1BCC1A0	text	temperature.cpp:731
+1BE67F0	text	IconSubManager.cpp:553
+1C19460	text	evenements.cpp:942
+1C1A0E0	text	scooting.cpp:2229
+1C2B6E0	text	groupes.cpp:1492
+1CDEE60	text	sauvegardes_ap.cpp:21
+1CE67F0	text	groupes.cpp:1500
+2929200	data	lois_ap.cpp:1098
+293FDE8	data	lois_ap.cpp:48
+2A12D60	data	scooting.cpp:1803 scooting.cpp:1877 scooting.cpp:1944
+2A12D90	data	lois_ap.cpp:1098
+2A22E20	data	groupes.cpp:1499
+2A25A30	data	quetes.cpp:155
+2A28D80	data	quetes.cpp:148
+2A2AFA4	data	scooting.cpp:1847
+2B2DE98	data	groupes.cpp:38 scooting.cpp:1578
+2B2E710	data	groupes.cpp:61 menu_ap.cpp:80 scooting.cpp:1628 scooting.cpp:1684 scooting.cpp:1854
+2BE0438	data	lois_ap.cpp:1090 menu_ap.cpp:81
+2BFD628	data	IconSubManager.cpp:651 lois_ap.cpp:1368 menu_ap.cpp:82 scenarios_ap.cpp:88
+2C2FCA8	data	evenements.cpp:828
+2C30158	data	victoire.cpp:47
+2C30200	data	mod_common.h:150
+2C309E0	data	mod_common.cpp:119
+2C30A20	data	mod_common.cpp:118
+2C31B20	data	mod_common.h:152 scenario.cpp:422 scenario.cpp:470 scenario.cpp:471
+2C31B48	data	scenario.cpp:302
+2C32A40	data	groupes.cpp:322 lois_ap.cpp:46 temperature.cpp:62
+2C34490	data	lois.cpp:29 quetes.cpp:41 scenarios_ap.cpp:89 scooting.cpp:1687 scooting.cpp:1688 temperature.cpp:60
+2C38E90	data	victoire.cpp:48
+2C38FF0	data	groupes.cpp:323 temperature.cpp:63
+40615C0	data	MessageManager.cpp:434
+4062870	data	lois.cpp:70
+4062BA8	data	IconSubManager.cpp:555 mod_common.cpp:118
+4062D48	data	temperature.cpp:61
+4069880	data	evenements.cpp:1051 quetes.cpp:871
+4069970	data	evenements.cpp:47 lois.cpp:710
+406AD18	data	groupes.cpp:1542
+406B4D0	data	temperature.cpp:59
+406DDA8	data	evenements.cpp:1136 lois.cpp:709 quetes.cpp:42
+4070460	data	lois.cpp:28 lois_ap.cpp:44 quetes.cpp:1060 quetes.cpp:847
+4072078	data	sites_contenu.cpp:63
+4072140	data	sites_contenu.cpp:64
+4074430	data	lois.cpp:1085
+4074548	data	IconSubManager.cpp:649
+4074550	data	IconSubManager.cpp:650
+407AE80	data	quetes.cpp:40
+407BE20	data	recettes.cpp:34
+40806F8	data	sites_contenu.cpp:65
+4082EC0	data	lois.cpp:57
+408B740	data	mod_common.cpp:327 mod_common.cpp:365 schema_reflexion.cpp:181
+408E390	data	MessageManager.cpp:1093 MessageManager.cpp:119
+408EC18	data	groupes.cpp:1497
+408F0E8	data	quetes.cpp:1380
+408FBD0	data	lois.cpp:30 lois_ap.cpp:45
+40916D0	data	mod_common.cpp:119 mod_common.cpp:1504 mod_common.cpp:2041 recettes.cpp:44 resources.cpp:480 scooting.cpp:1312 scooting.cpp:922 sites_contenu.cpp:60
+40935C8	data	lois.cpp:1003
+4095A98	data	evenements.cpp:446
+409AC18	data	groupes.cpp:321
+40AF6F0	data	groupes.cpp:1498
+40B1B30	data	MessageManager.cpp:278 evenements.cpp:447

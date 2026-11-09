@@ -31,7 +31,7 @@
 
 namespace {
 
-constexpr uintptr_t OFF_CONFIG_RECETTES = 0x407BE20;
+static const uintptr_t OFF_CONFIG_RECETTES = Adr(0x407BE20);
 constexpr int CFG_RECETTES   = 0x78;
 constexpr int REC_TRAITEMENT = 0x70;
 constexpr int REC_PRODUITS   = 0x78;
@@ -41,7 +41,7 @@ constexpr int REC_AMELIOR    = 0xC8;
 constexpr int PROD_RESSOURCE = 0x20;
 constexpr int PROD_QUANTITE  = 0x30;
 
-constexpr uintptr_t OFF_ECONOMIE   = 0x40916D0;
+static const uintptr_t OFF_ECONOMIE   = Adr(0x40916D0);
 constexpr int       ECO_RESSOURCES = 0x2240;   // entrees de 0x70, compte +8
 constexpr int       ECO_PAS        = 0x70;
 

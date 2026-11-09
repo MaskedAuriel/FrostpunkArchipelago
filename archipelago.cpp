@@ -56,6 +56,18 @@ static void EnvoyerLocation(const ApLocationInfo* l)
     ReseauEnvoyerLocation(l->id);
 }
 
+// Location deja cochee dans la session (une partie precedente, ou ce
+// rattrapage) : rien a renvoyer, pas de message (2026-11-04 : technos et
+// lois refaites dans une nouvelle partie ; le gate local des lois,
+// ap_lois_<GameId>, a fait PERDRE "Poor Soup Law 1", jamais recu par le
+// serveur : c'est desormais la session reseau qui decide).
+static bool DejaFaite(const ApLocationInfo* l)
+{
+    if (!l || !ReseauLocationFaite(l->id)) return false;
+    printf("[AP CHECK] location %lld \"%s\" deja cochee : rien envoye\n", (long long)l->id, l->nom);
+    return true;
+}
+
 // Journal d'un check sans location AP dans ce scenario : rien n'est envoye.
 static void LocationAbsente(const char* genre, const char* cle)
 {
@@ -135,6 +147,11 @@ static bool LivrerContenu(const ApItemInfo& it, const char* expediteur)
         strcat_s(liste, morceau);
     }
 
+    // Nom du convoi = son contenu, pas le nom du site (demande de l'auteur,
+    // 2026-11-07) ; "Supplies" seul si la liste est vide.
+    char nomConvoi[128];
+    _snprintf_s(nomConvoi, sizeof(nomConvoi), _TRUNCATE, "%s", liste[0] ? liste : "Supplies");
+    g.nom = nomConvoi;
     char description[600], texte[600];
     sprintf_s(description, "Heading to the city: %s (from %s).", liste, expediteur);
     sprintf_s(texte, "An Archipelago convoy from %s has reached the city: %s.", expediteur, liste);
@@ -143,6 +160,9 @@ static bool LivrerContenu(const ApItemInfo& it, const char* expediteur)
     g.dilemmeTexte = texte;
     g.dilemmeChoix = "Welcome the convoy";
     g.expediteur = expediteur;
+    // Site d'origine (classe et sante de SES survivants, 2026-11-06).
+    for (const ApItemSite& s : AP_ITEMS_SITES)
+        if (s.id == it.id) { g.site = s.site; break; }
 
     int slot = GroupeCreer(g);
     printf("[AP ITEMS] \"%s\" (%s) : groupe %s (slot %d, arrivee dans %.1f h = %.1f h d'attente + %d h)\n",
@@ -151,7 +171,7 @@ static bool LivrerContenu(const ApItemInfo& it, const char* expediteur)
     // quand un contenu de site arrivait, seulement la bulle a l'arrivee).
     if (slot >= 0) {
         char msg[256];
-        sprintf_s(msg, "%s from %s - convoy arrives in %.0f h", it.nom, expediteur, g.heures);
+        sprintf_s(msg, "%s from %s - convoy arrives in %.0f h", nomConvoi, expediteur, g.heures);
         AfficherNotificationAP("Item received", msg);
     }
     return slot >= 0;
@@ -193,6 +213,11 @@ static SRWLOCK g_verrouItems = SRWLOCK_INIT;
 // partie (ou sa k-ieme livraison) reprend le k-ieme expediteur. Garde dans
 // ap_items_recus.txt ("<id>\t<joueur>"), sous g_verrouItems.
 static std::vector<std::string> g_expediteurs[AP_ITEM_COUNT];
+// Ordre des receptions (indices de AP_ITEMS, une entree par ligne de
+// ap_items_recus.txt), sous g_verrouItems : les items livres le sont dans cet
+// ordre (bug du 2026-11-04 : a la relance d'une partie, le premier contenu
+// recu partait en dernier, livraisons faites dans l'ordre de AP_ITEMS).
+static std::vector<int> g_ordreRecus;
 
 // Dossier de la session sous mods\ ("" : mods\ lui-meme), sous son propre
 // verrou (lu sous g_verrouItems par AjouterLigne : pas d'imbrication du meme).
@@ -239,11 +264,14 @@ bool ApCheminSession(char* out, size_t taille, const char* fichier)
 
 // Une ligne "<id>[\t<joueur>]" par evenement : compte par entree de
 // AP_ITEMS ; 'noms' (facultatif) recoit le joueur de chaque ligne, dans
-// l'ordre ("" pour les lignes anciennes, sans joueur).
-static int LireComptes(const char* fichier, int* comptes, std::vector<std::string>* noms = nullptr)
+// l'ordre ("" pour les lignes anciennes, sans joueur) ; 'ordre' (facultatif)
+// recoit l'indice de chaque ligne, dans l'ordre du fichier.
+static int LireComptes(const char* fichier, int* comptes, std::vector<std::string>* noms = nullptr,
+                       std::vector<int>* ordre = nullptr)
 {
     memset(comptes, 0, sizeof(int) * AP_ITEM_COUNT);
     if (noms) for (int i = 0; i < AP_ITEM_COUNT; ++i) noms[i].clear();
+    if (ordre) ordre->clear();
     char chemin[MAX_PATH];
     FILE* f = nullptr;
     if (!CheminItems(chemin, sizeof(chemin), fichier) || fopen_s(&f, chemin, "r") != 0 || !f) return 0;
@@ -256,6 +284,7 @@ static int LireComptes(const char* fichier, int* comptes, std::vector<std::strin
             if (AP_ITEMS[i].id != id) continue;
             ++comptes[i];
             ++n;
+            if (ordre) ordre->push_back(i);
             if (noms) {
                 const char* tab = strchr(ligne, '\t');
                 std::string nom = tab ? tab + 1 : "";
@@ -286,7 +315,7 @@ static void ChargerItemsSiBesoin()
 {
     if (g_itemsLus) return;
     g_itemsLus = true;
-    int n = LireComptes("ap_items_recus.txt", g_itemsRecus, g_expediteurs);
+    int n = LireComptes("ap_items_recus.txt", g_itemsRecus, g_expediteurs, &g_ordreRecus);
     int l = LireComptes("ap_items_livres.txt", g_itemsLivres);
     printf("[AP ITEMS] %d item(s) deja recu(s), %d item(s) commun(s) deja livre(s)\n", n, l);
 }
@@ -304,6 +333,7 @@ static int NoterItemRecu(int index, const char* expediteur)
     ChargerItemsSiBesoin();
     int n = ++g_itemsRecus[index];
     g_expediteurs[index].push_back(nom);
+    g_ordreRecus.push_back(index);
     AjouterLigne("ap_items_recus.txt", index, nom);
     ReleaseSRWLockExclusive(&g_verrouItems);
     return n;
@@ -422,15 +452,20 @@ void ApItemsPompe()
     memcpy(recus, g_itemsRecus, sizeof(recus));
     for (int i = 0; i < AP_ITEM_COUNT; ++i)
         livres[i] = AP_ITEMS[i].scenario ? g_livresPartie[i] : g_itemsLivres[i];
+    std::vector<int> ordre = g_ordreRecus;
     ReleaseSRWLockExclusive(&g_verrouItems);
 
     // Items livres : un seul par passage (un groupe a la fois) ; apres un
     // echec (plus de slot de groupe...), nouvel essai 5 s plus tard. Contenu
-    // d'un site : seulement dans une partie de son scenario.
+    // d'un site : seulement dans une partie de son scenario. Ordre : celui
+    // des receptions (la k-ieme reception d'un item = sa k-ieme livraison).
     static DWORD prochainEssai = 0;
     if (GetTickCount() >= prochainEssai) {
-        for (int i = 0; i < AP_ITEM_COUNT; ++i) {
-            if (!EstItemCommun(AP_ITEMS[i]) || livres[i] >= recus[i]) continue;
+        int vues[AP_ITEM_COUNT] = {};
+        for (int i : ordre) {
+            if (i < 0 || i >= AP_ITEM_COUNT) continue;
+            int k = vues[i]++;                       // rang de cette reception pour cet item
+            if (!EstItemCommun(AP_ITEMS[i]) || k < livres[i]) continue;
             if (AP_ITEMS[i].scenario && _stricmp(AP_ITEMS[i].scenario, scenario) != 0) continue;
             char expediteur[64];
             ExpediteurDe(i, livres[i], expediteur, sizeof(expediteur));
@@ -689,6 +724,7 @@ void SendResearchCheck(uint64_t techHash)
     sprintf_s(cle, "%016llX", (unsigned long long)techHash);
     const ApLocationInfo* l = LocationAP(ApLocGenre::Techno, cle);
     if (!l) { LocationAbsente("recherche", cle); return; }
+    if (DejaFaite(l)) return;
 
     // 2. Ce que contient cette location (pour l'instant : savoir local).
     char texte[160];
@@ -728,6 +764,7 @@ void SendLocationCheck(int locationId, const char* site)
     ApCleDeSite(site, cle, sizeof(cle));
     const ApLocationInfo* l = LocationAP(ApLocGenre::Site, cle);
     if (!l) { LocationAbsente("site", site); return; }
+    if (DejaFaite(l)) return;
 
     // Nom du check : "<joueur> - <item>" d'apres le scout (ApCheckById le
     // reprend), sinon le nom de la location.
@@ -749,6 +786,7 @@ void SendLawCheck(const char* tree, int rank, const char* lawName, bool effectPe
     sprintf_s(cle, "%s|%d", tree, rank);
     const ApLocationInfo* l = LocationAP(ApLocGenre::Loi, cle);
     if (!l) { LocationAbsente("loi", cle); return; }
+    if (DejaFaite(l)) return;
 
     // 2. Envoi.
     printf("[AP CHECK] loi \"%s\" -> arbre %s, rang %d%s\n", lawName, tree, rank,
@@ -758,6 +796,21 @@ void SendLawCheck(const char* tree, int rank, const char* lawName, bool effectPe
     // 3. Popup : la loi et ce que le check envoie.
     char check[200], texte[256];
     sprintf_s(check, "Law: %s%s", lawName, effectPending ? " (effect pending)" : "");
+    TexteCheckEnvoye(l, check, texte, sizeof(texte));
+    AfficherNotificationAP("Check sent", texte);
+}
+
+void SendRefugeesCheck(int groupe)
+{
+    char cle[8];
+    sprintf_s(cle, "%d", groupe);
+    const ApLocationInfo* l = LocationAP(ApLocGenre::Refugies, cle);
+    if (!l) { LocationAbsente("refugies", cle); return; }
+    if (DejaFaite(l)) return;
+    printf("[AP CHECK] refugies : groupe %d a la porte\n", groupe);
+    EnvoyerLocation(l);
+    char check[64], texte[256];
+    sprintf_s(check, "Refugees arrival #%d", groupe);
     TexteCheckEnvoye(l, check, texte, sizeof(texte));
     AfficherNotificationAP("Check sent", texte);
 }
@@ -1162,7 +1215,12 @@ const char* ApIconeDuCheck(const char* genre, const char* cle)
     else if (_stricmp(genre, "quest") == 0) g = ApLocGenre::Quete;
     else if (_stricmp(genre, "temperature") == 0) g = ApLocGenre::Temperature;
     else return nullptr;
+    const ApLocationInfo* l = LocationAP(g, cleLoc);
+    // Check deja fait dans la session (partie / sauvegarde precedente
+    // comprise ; demande de l'auteur, 2026-11-04) : icone "fait", meme si la
+    // techno / la loi peut etre refaite dans cette partie.
+    if (l && ReseauLocationFaite(l->id)) return "icon_done";
     ApScoutInfo s;
-    if (!ScoutDe(LocationAP(g, cleLoc), &s)) return nullptr;
+    if (!ScoutDe(l, &s)) return nullptr;
     return IconeDuScout(s);
 }

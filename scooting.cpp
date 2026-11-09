@@ -16,7 +16,9 @@
 //  Etat interne
 // ============================================================================
 
-static const int MAX_EN_ATTENTE = 8;
+// Checks portes par un scout. 8 au depart : test grandeur nature du
+// 2026-11-04, un 9e check (Tesla City) a ete PERDU ("file pleine") -> 64.
+static const int MAX_EN_ATTENTE = 64;
 
 struct ExpCache {
     uintptr_t comp;
@@ -248,7 +250,7 @@ static void ViderCargaison(uintptr_t comp)
 //   l'entite du contexte), FrostpunkAddSiteRevealsEffect (+0x18 "Sites to
 //   reveal templates", GUID de gabarits au pas de 0x10).
 // ---------------------------------------------------------------------------
-constexpr uintptr_t OFF_TYPE_ENTITE_CARTE = 0x132FD90;
+static const uintptr_t OFF_TYPE_ENTITE_CARTE = Adr(0x132FD90);
 constexpr int WM_DECOUVERT = 0x30, WM_VISIBLE = 0x48, WM_DIST2 = 0x4C;
 constexpr int WMT_REVELE_INIT = 0x28, WMT_REVELE_VUE = 0x29;
 constexpr int SITE_REVELE = 0xF8;
@@ -847,6 +849,18 @@ void ScootingTick()
 }
 
 
+int ScootingEtatSite(const char* nom)
+{
+    if (!nom) return -1;
+    for (int i = 0; i < g_nSites; ++i) {
+        if (strcmp(g_sites[i].nom, nom) != 0) continue;
+        int32_t etat = -1;
+        if (!SafeRead((void*)(g_sites[i].comp + 0x34), &etat, 4)) return -1;
+        return etat;
+    }
+    return -1;
+}
+
 int ScootingLocationPourCleSite(const char* cle)
 {
     if (!cle || !g_run.valid) return -1;
@@ -905,7 +919,7 @@ static bool DefRessourceValide(uintptr_t def)
 
     uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr), eco = 0, cont = 0;
     uint32_t cnt = 0;
-    if (!SafeRead((void*)(base + 0x40916D0), &eco, 8) || eco <= 0x10000 ||
+    if (!SafeRead((void*)(base + Adr(0x40916D0)), &eco, 8) || eco <= 0x10000 ||
         !SafeRead((void*)(eco + RES_CONT_OFF), &cont, 8) || cont <= 0x10000 ||
         !SafeRead((void*)(eco + RES_CONT_OFF + 8), &cnt, 4) || cnt == 0 || cnt > 64)
         return false;
@@ -1295,7 +1309,7 @@ bool EnJeu()
 {
     uintptr_t eco = 0;
     uintptr_t modBase = (uintptr_t)GetModuleHandleW(NULL);
-    if (!SafeRead((void*)(modBase + 0x40916D0), &eco, 8)) return false;
+    if (!SafeRead((void*)(modBase + Adr(0x40916D0)), &eco, 8)) return false;
     return eco > 0x10000;
 }
 
@@ -1561,9 +1575,9 @@ void ScootingSitesDuNom(uintptr_t adrNom, char* out, int taille)
 {
     out[0] = 0;
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL), mgr = 0;
-    if (!SafeRead((void*)(base + 0x2B2DE98), &mgr, 8) || mgr <= 0x10000) { strcpy_s(out, taille, "?gestionnaire"); return; }
+    if (!SafeRead((void*)(base + Adr(0x2B2DE98)), &mgr, 8) || mgr <= 0x10000) { strcpy_s(out, taille, "?gestionnaire"); return; }
     DynEntites d{};
-    if (!AppelerEntitesParNom(base + 0x1017230, mgr, adrNom, &d)) { strcpy_s(out, taille, "?appel"); return; }
+    if (!AppelerEntitesParNom(base + Adr(0x1017230), mgr, adrNom, &d)) { strcpy_s(out, taille, "?appel"); return; }
     static uintptr_t objs[512];
     int n = ComposantsDuSysteme(IdSysteme::ExpeditionSite, "FrostpunkExpeditionSiteComponent", objs, 512);
     for (int i = 0; i < d.n && i < 16 && d.ptr > 0x10000; ++i) {
@@ -1602,7 +1616,7 @@ void ScootingSitesDuNom(uintptr_t adrNom, char* out, int taille)
         strncat_s(out, taille, item, _TRUNCATE);
     }
     if (d.n == 0) strcpy_s(out, taille, "(aucune entite dans cette partie)");
-    if (d.ptr > 0x10000 && d.cap > 0 && !d.alloc) ((void (*)(uintptr_t))(base + 0xE27C00))(d.ptr);
+    if (d.ptr > 0x10000 && d.cap > 0 && !d.alloc) ((void (*)(uintptr_t))(base + Adr(0xE27C00)))(d.ptr);
 }
 
 // Nom de gabarit d'un GUID (pool des gabarits, recherche pure) : pour les
@@ -1611,7 +1625,7 @@ static uintptr_t StubParGuidSur(uintptr_t pool, const uint8_t* guid);
 bool ScootingNomGabaritParGuid(const uint8_t* guid, char* out, int taille)
 {
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
-    uintptr_t stub = StubParGuidSur(base + 0x2B2E710, guid), pnom = 0;
+    uintptr_t stub = StubParGuidSur(base + Adr(0x2B2E710), guid), pnom = 0;
     strcpy_s(out, taille, "?");
     if (stub <= 0x10000 || !SafeRead((void*)(stub + 8), &pnom, 8) || pnom <= 0x10000) return false;
     SafeRead((void*)pnom, out, taille - 1);
@@ -1651,7 +1665,7 @@ typedef void (*CheminDuStub_t)(uintptr_t, char*, int, uintptr_t, uintptr_t);
 static uintptr_t StubParGuidSur(uintptr_t pool, const uint8_t* guid)
 {
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
-    __try { return ((StubParGuid_t)(base + 0x1035CF0))(pool, guid); }
+    __try { return ((StubParGuid_t)(base + Adr(0x1035CF0)))(pool, guid); }
     __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
 
@@ -1659,7 +1673,7 @@ static bool CheminDuStubSur(uintptr_t stub, char* out, int taille)
 {
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
     out[0] = 0;
-    __try { ((CheminDuStub_t)(base + 0x111C4F0))(stub, out, taille, 1, 0); }
+    __try { ((CheminDuStub_t)(base + Adr(0x111C4F0)))(stub, out, taille, 1, 0); }
     __except (EXCEPTION_EXECUTE_HANDLER) { out[0] = 0; return false; }
     return out[0] != 0;
 }
@@ -1667,11 +1681,11 @@ static bool CheminDuStubSur(uintptr_t stub, char* out, int taille)
 void ScootingReleverTablesDeSites()
 {
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
-    uintptr_t pool = base + 0x2B2E710;
+    uintptr_t pool = base + Adr(0x2B2E710);
     uintptr_t tables = 0;
     uint32_t nTables = 0;
-    if (!SafeRead((void*)(base + 0x2C34490 + 0x368), &tables, 8) ||
-        !SafeRead((void*)(base + 0x2C34490 + 0x368 + 8), &nTables, 4) || tables <= 0x10000 || nTables > 512) {
+    if (!SafeRead((void*)(base + Adr(0x2C34490) + 0x368), &tables, 8) ||
+        !SafeRead((void*)(base + Adr(0x2C34490) + 0x368 + 8), &nTables, 4) || tables <= 0x10000 || nTables > 512) {
         printf("[SITES] tables de tirage illisibles\n");
         return;
     }
@@ -1786,7 +1800,7 @@ static uintptr_t hkRepartirContenu(uintptr_t sortie, uintptr_t sites, uintptr_t 
 {
     if (!SITES_TIRAGE_FIXE) return oRepartirContenu(sortie, sites, table, p4);
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
-    uint32_t* etat = (uint32_t*)(base + 0x2A12D60);
+    uint32_t* etat = (uint32_t*)(base + Adr(0x2A12D60));
     uint32_t avantA = etat[0], avantB = etat[1];
     uint32_t n = 0;
     if (sites > 0x10000) SafeRead((void*)(sites + 8), &n, 4);
@@ -1820,8 +1834,8 @@ static uintptr_t GabaritSiteDuStub(uintptr_t stub)
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL), gabarit = 0;
     if (!SafeRead((void*)(stub + 0x38), &gabarit, 8) || gabarit <= 0x10000) return 0;
     __try {
-        int type = ((TypeCompSite_t)(base + 0x148C130))();
-        return ((CompDuStub_t)(base + 0x11180B0))(gabarit, type, 0);
+        int type = ((TypeCompSite_t)(base + Adr(0x148C130)))();
+        return ((CompDuStub_t)(base + Adr(0x11180B0)))(gabarit, type, 0);
     }
     __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
@@ -1830,14 +1844,14 @@ static void JournaliserCandidats(uintptr_t table, const char* nomTable)
 {
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
     uintptr_t gab = 0; uint32_t nGab = 0; int32_t evalue = -1;
-    SafeRead((void*)(base + 0x2A2AFA4), &evalue, 4);
+    SafeRead((void*)(base + Adr(0x2A2AFA4)), &evalue, 4);
     if (!SafeRead((void*)(table + 0x18), &gab, 8) || !SafeRead((void*)(table + 0x20), &nGab, 4) ||
         gab <= 0x10000 || nGab > 1024) return;
     printf("[STIR] table \"%s\" : %u candidat(s), evaluation des conditions = %d\n", nomTable, nGab, evalue);
     for (uint32_t k = 0; k < nGab; ++k) {
         uint8_t guid[16] = {};
         SafeRead((void*)(gab + (uintptr_t)k * 0x10), guid, 16);
-        uintptr_t stub = StubParGuidSur(base + 0x2B2E710, guid), pnom = 0;
+        uintptr_t stub = StubParGuidSur(base + Adr(0x2B2E710), guid), pnom = 0;
         char nom[128] = "?";
         if (stub > 0x10000 && SafeRead((void*)(stub + 8), &pnom, 8) && pnom > 0x10000) {
             SafeRead((void*)pnom, nom, sizeof(nom) - 1);
@@ -1860,7 +1874,7 @@ static uintptr_t hkTirerTable(uintptr_t sys, uintptr_t emplacements, uintptr_t t
 {
     if (!SITES_TIRAGE_FIXE) return oTirerTable(sys, emplacements, table, p4);
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
-    uint32_t* etat = (uint32_t*)(base + 0x2A12D60);
+    uint32_t* etat = (uint32_t*)(base + Adr(0x2A12D60));
     uint32_t avantA = etat[0], avantB = etat[1];
     // Compte lu AVANT : le tirage vide la liste des emplacements (1er test :
     // "0 emplacement(s)").
@@ -1927,7 +1941,7 @@ static uintptr_t hkReglagesScenario(uintptr_t params, uintptr_t scenario, uintpt
     NomEntree(scenario, nom, sizeof(nom));
     bool fixe = SITES_TIRAGE_FIXE && scenario > 0x10000 && ScenarioAP(nom);
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
-    uint32_t* etat = (uint32_t*)(base + 0x2A12D60);
+    uint32_t* etat = (uint32_t*)(base + Adr(0x2A12D60));
     uint32_t avantA = etat[0], avantB = etat[1];
     if (fixe) { etat[0] = GRAINE_VARIANTE_A; etat[1] = GRAINE_VARIANTE_B; }
     uintptr_t res = oReglagesScenario(params, scenario, p3, p4);
@@ -2104,7 +2118,7 @@ static void IconeMarqueurSite(uintptr_t trk)
     uintptr_t ent = LirePoignee(trk + TRK_ENTITE);
     if (!ent) return;
     uintptr_t comp = 0;
-    int type = ((int(*)())((uintptr_t)GetModuleHandleW(NULL) + 0x148C130))();
+    int type = ((int(*)())((uintptr_t)GetModuleHandleW(NULL) + Adr(0x148C130)))();
     if (type < 0 || type >= 512 || !SafeRead((void*)(ent + 0x2A0 + (uintptr_t)type * 8), &comp, 8) ||
         comp <= 0x10000) return;
     uintptr_t racine = LirePoignee(trk + TRK_RACINE);
@@ -2191,23 +2205,42 @@ static uintptr_t hkMajTrackerSite(uintptr_t trk)
     return res;
 }
 
+// Scouts tues par un dilemme d'exploration (test grandeur nature, Tesla City ;
+// demande de l'auteur du 2026-11-06 : l'issue est forcement positive).
+// FUN_14168dc50(executeur, effet, contexte) = execution de
+// FrostpunkDestroyStationingExpeditionEffect (decompile le 2026-11-06) :
+// l'entite du contexte doit etre un site ou un groupe de survivants ; la
+// premiere expedition qui y stationne (filtre de gabarit +0x28) est detruite
+// par FUN_141895580. On ne l'execute plus : l'expedition survit.
+typedef void(*DetruireExpedition_t)(uintptr_t executeur, uintptr_t effet, uintptr_t contexte, uintptr_t p4);
+static DetruireExpedition_t oDetruireExpedition = nullptr;
+
+static void hkDetruireExpedition(uintptr_t executeur, uintptr_t effet, uintptr_t contexte, uintptr_t p4)
+{
+    printf("[SCOUT] effet \"Destroy stationing expedition\" ignore : les eclaireurs survivent\n");
+}
+
 void InstallHooksExpeditions(uintptr_t modBase)
 {
-    void* m = (void*)(modBase + 0x1C1A0E0);
+    void* d = (void*)(modBase + Adr(0x168DC50));
+    bool okD = MH_CreateHook(d, (void*)&hkDetruireExpedition, (void**)&oDetruireExpedition) == MH_OK &&
+        MH_EnableHook(d) == MH_OK;
+    printf("[SCOUT] hook destruction d'expedition (+168DC50) %s\n", okD ? "OK" : "KO");
+    void* m = (void*)(modBase + Adr(0x1C1A0E0));
     bool okM = MH_CreateHook(m, (void*)&hkMajTrackerSite, (void**)&oMajTrackerSite) == MH_OK &&
         MH_EnableHook(m) == MH_OK;
     printf("[SITEUI] hook mise a jour du tracker de site (+1C1A0E0) %s\n", okM ? "OK" : "KO");
     // (Hook de l'envoi d'expedition FUN_1418a0a60, debug EXPEDITIONS_RAPIDES,
     // retire le 2026-11-04 a la demande de l'auteur.)
-    void* t = (void*)(modBase + 0x18F2A30);
+    void* t = (void*)(modBase + Adr(0x18F2A30));
     bool ok = MH_CreateHook(t, (void*)&hkTirerTable, (void**)&oTirerTable) == MH_OK && MH_EnableHook(t) == MH_OK;
     printf("[SITES] hook tirage des sites (+18F2A30) %s%s\n", ok ? "OK" : "KO",
            SITES_TIRAGE_FIXE ? " - tirage fixe" : "");
-    void* c = (void*)(modBase + 0x18EF2F0);
+    void* c = (void*)(modBase + Adr(0x18EF2F0));
     ok = MH_CreateHook(c, (void*)&hkRepartirContenu, (void**)&oRepartirContenu) == MH_OK && MH_EnableHook(c) == MH_OK;
     printf("[SITES] hook repartition du contenu des sites (+18EF2F0) %s%s\n", ok ? "OK" : "KO",
            SITES_TIRAGE_FIXE ? " - repartition fixe" : "");
-    void* r = (void*)(modBase + 0x131DE20);
+    void* r = (void*)(modBase + Adr(0x131DE20));
     ok = MH_CreateHook(r, (void*)&hkReglagesScenario, (void**)&oReglagesScenario) == MH_OK && MH_EnableHook(r) == MH_OK;
     printf("[SITES] hook reglages du scenario (+131DE20) %s%s\n", ok ? "OK" : "KO",
            SITES_TIRAGE_FIXE ? " - variante de carte fixe" : "");

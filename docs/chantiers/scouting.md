@@ -68,3 +68,19 @@
   instantanés **laissés vanilla**. D'après le relevé du 2026-11-03
   (`sites.md`), ils ne donnent ni ressources ni survivants ; seul
   « 63. Convoy in Distress » retire des ressources (gardé tel quel).
+
+### 2026-11-06 — Éclaireurs tués par un dilemme d'exploration (Tesla City)
+
+- **Demande de l'auteur** : un événement d'exploration ne doit jamais tuer
+  les éclaireurs ; l'issue est forcément positive.
+- **Ghidra** : la mort passe par `FrostpunkDestroyStationingExpeditionEffect`,
+  exécuté par **`FUN_14168dc50`(exécuteur, effet, contexte)** : entité du
+  contexte = site ou groupe de survivants ; la 1re expédition qui y
+  stationne (filtre de gabarit `effet +0x28`) est détruite par
+  `FUN_141895580`.
+- **Correctif (compilé, déployé 20:36, non testé)** : hook
+  `hkDetruireExpedition` (scooting.cpp, `InstallHooksExpeditions`) : l'effet
+  n'est plus exécuté, journal `[SCOUT] effet "Destroy stationing expedition"
+  ignore`. Limite : les autres effets du choix (textes, pertes de
+  ressources de l'expédition) restent ; si le texte du dilemme annonce la
+  mort, il ne sera pas changé.

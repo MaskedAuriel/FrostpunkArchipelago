@@ -15,5 +15,8 @@ void SitesContenuReleve();
 // statistiques +0x14) de la classe sociale 'classe' ("workers", "engineers",
 // "children", "automaton"...), copiee d'un site de la carte (composant,
 // tresor ou survivants aleatoires du gabarit). Thread du jeu. false si aucun
-// site de la partie ne porte cette classe.
-bool SitesEntreeSurvivants(const char* classe, uint8_t entree[0x24]);
+// site de la partie ne porte cette classe. 'site' (nom interne, facultatif) :
+// site d'origine du contenu, cherche en premier (classe et sante de SES
+// survivants). Sante : "gravement malade" devient "malade", le reste est
+// garde (demande de l'auteur, 2026-11-06).
+bool SitesEntreeSurvivants(const char* classe, uint8_t entree[0x24], const char* site = nullptr);

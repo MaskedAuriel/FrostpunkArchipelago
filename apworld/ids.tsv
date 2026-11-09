@@ -892,6 +892,9 @@ loc_temp|REFUGEES|4	7747500028
 loc_temp|WINTERHOME|5	7747500029
 loc_temp|WINTERHOME|6	7747500030
 loc_temp|Reconquest|9	7747500031
+loc_refugies|DEFAULT|1	7747600001
+loc_refugies|DEFAULT|2	7747600002
+loc_refugies|DEFAULT|3	7747600003
 item_arbre|DEFAULT|0	7748100001
 item_arbre|DEFAULT|1	7748100002
 item_arbre|DEFAULT|2	7748100003
@@ -1291,6 +1294,9 @@ item_site|BUILDERS|61. Workers Camp	7748500129
 item_site|Reconquest|06. Storm Watch	7748500130
 item_site|Reconquest|15. Distant Colony	7748500131
 item_site|Reconquest|22. Fortified Hut	7748500132
+item_site|DEFAULT|refugies_1	7748500133
+item_site|DEFAULT|refugies_2	7748500134
+item_site|DEFAULT|refugies_3	7748500135
 item_filler|Wood Crate	7748600001
 item_filler|Coal Crate	7748600002
 item_filler|Steel Crate	7748600003

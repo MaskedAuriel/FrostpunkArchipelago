@@ -102,7 +102,7 @@ void InstallScenarioHooks(uintptr_t modBase)
             printf("[!] hook ApplyConfig KO\n");
     }
     {
-        void* t = (void*)(modBase + 0x1267C50);
+        void* t = (void*)(modBase + Adr(0x1267C50));
         if (MH_CreateHook(t, (void*)&hkSetScenario, (void**)&oSetScenario) != MH_OK
             || MH_EnableHook(t) != MH_OK)
             printf("[!] hook SetScenario KO\n");
@@ -299,7 +299,7 @@ void FindScenarioGlobals()
 
 void DumpScenarioGlobal()
 {
-    const uintptr_t OFF = 0x2C31B48;
+    const uintptr_t OFF = Adr(0x2C31B48);
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL);
 
     uintptr_t p = 0;
@@ -419,7 +419,7 @@ void ProbeForScenario(uintptr_t obj, int lenBytes)
 uintptr_t FindSceneSystem(const char* name)
 {
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL), scene = 0;
-    if (!SafeRead((void*)(base + 0x2C31B20), &scene, 8) || scene <= 0x10000) return 0;
+    if (!SafeRead((void*)(base + Adr(0x2C31B20)), &scene, 8) || scene <= 0x10000) return 0;
 
     for (int off = 0; off < 0x1000; off += 0x10) {
         uintptr_t p = 0;
@@ -467,8 +467,8 @@ void FindValueInObject(uintptr_t obj, int lenBytes, uintptr_t needle, const char
 void DumpSceneSystems()
 {
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL), scene = 0;
-    if (!SafeRead((void*)(base + 0x2C31B20), &scene, 8) || scene <= 0x10000) {
-        printf("[SCENE] global +0x2C31B20 vide -- pas en partie ?\n");
+    if (!SafeRead((void*)(base + Adr(0x2C31B20)), &scene, 8) || scene <= 0x10000) {
+        printf("[SCENE] global +0x2C31B20 (RVA Epic) vide -- pas en partie ?\n");
         return;
     }
     char cls[128] = { 0 };

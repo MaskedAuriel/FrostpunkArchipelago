@@ -918,3 +918,52 @@ Table générée par `outils\technos_classification.py` depuis `technos_table.ts
 | 77 | R VaultSteamCoresUpgrade | 1 | useful | depend d'un autre arbre |  | 74 R VaultUpgrade1 |
 
 <!-- FIN CLASSIFICATION ARBRES -->
+
+### 2026-11-04 — Techno reçue sans recherche : effets non appliqués (ScoutsLimit)
+
+- **Problème (test grandeur nature)** : `Progressive ScoutsLimit` reçu,
+  ScoutsLimit pas recherchée → pas de 2e équipe d'éclaireurs. L'auteur : la
+  **réception seule** doit suffire.
+- **Cause (Ghidra)** : `ResearchComplete` (`FUN_141327120`) remet l'état à 0
+  puis appelle **`AddResearchedTechnology` (`FUN_141325e40`(système, techno,
+  1))** : si l'état n'est pas déjà 2, état = 2, effets de la techno
+  (`FUN_141326650`) puis écouteurs de « techno recherchée » (système
+  `+0x2108`, compteur `+0x2120`). Le mod écrivait seulement l'état 2 à la
+  réception : les bâtiments (lus sur l'état) se débloquaient, mais pas les
+  modificateurs (équipes d'éclaireurs, améliorations...). D'où le « double
+  standard ».
+- **Correctif (compilé, déployé 23:21, non testé)** : `OnItemReceived`
+  (thread du jeu) → `TechAppliquerEffets` (hooks_research.cpp) appelle
+  `AddResearchedTechnology` pour une techno pas encore recherchée ; déjà
+  recherchée, ses effets sont venus de la recherche, seul l'état 2 est posé.
+  Hook de `AddResearchedTechnology` : pendant une `ResearchComplete` d'une
+  techno **déjà reçue**, rien n'est réappliqué (pas de double effet). Journal
+  `[AP] techno … recue : effets appliques`.
+- Limites : une partie existante où la techno a déjà été écrite à l'état 2
+  sans effets n'est pas rattrapée (nouvelle partie ou nouvelle réception
+  nécessaires). Recherche **sans** item : comportement inchangé (le jeu
+  applique les effets à la recherche, l'état revient à 0).
+
+### 2026-11-06 — Descriptions vanilla « passé un certain point »
+
+- **Constat (auteur)** : Generator efficiency upgrade, Improved Heater 2…
+  gardaient leur description vanilla. `ApDescBuffer` (hooks_loc.cpp) : un
+  tampon par **clé** de texte, 256 au plus pour toute la session (toutes
+  parties et scénarios) ; plein → `nullptr` → texte vanilla. Porté à 2048,
+  journal `[TECHDESC] pool des descriptions plein` s'il se remplit encore.
+  (hooks_loc.cpp est en Windows-1252 : modifié en conservant l'encodage.)
+
+### 2026-11-06 — Menu des bâtiments en bleu à la réception d'une techno
+
+- **Constat (auteur)** : à la réception d'une techno, l'icône du menu des
+  bâtiments et sa catégorie passent au bleu (« nouveau »), sans nouveau
+  bâtiment. Vient de `TechAppliquerEffets` (`AddResearchedTechnology`, qui
+  prévient les écouteurs « techno recherchée » avec son 3e argument, 1 pour
+  une recherche).
+- **Essai (compilé, déployé 20:42, non testé)** : 3e argument à **0** à la
+  réception (notification présumée coupée). À vérifier : plus de bleu, et les
+  effets toujours appliqués (ex. ScoutsLimit).
+- **2026-11-07 (auteur)** : à 0, plus aucun bleu. Voulu : bleu à la
+  **réception**, pas à la recherche. → réception : 3e argument 1 ;
+  `ResearchComplete` d'une techno AP pas encore reçue : 0 (hook
+  `hkAjouterRecherchee`). Compilé, déployé 09:34, non testé.

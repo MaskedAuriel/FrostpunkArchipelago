@@ -216,3 +216,28 @@
       `[Act III] Cold steel`…) sont des **conditions** sur la température,
       pas des variations.
     Validation de l'auteur attendue.
+
+### 2026-11-06 — Montée retirée : le temps changeait quand même à l'écran
+
+- **Constat (auteur)** : à une montée vanilla retirée, la température ne
+  bougeait pas mais **le temps changeait** à l'écran (météo plus douce).
+- **Cause** : le mod laissait le jeu poser la nouvelle météo et compensait
+  seulement son décalage dans le recalcul. **`FUN_14132f260`(système météo,
+  météo)** (décompilé) : retire les calques SFX de l'ancienne météo, pose
+  `+0x158` = ancienne, `+0x150` = nouvelle, `+0x160` = date, applique les
+  visuels de la nouvelle (`FUN_14132b790`, globaux de rendu) et diffuse
+  « météo changée » (dont le recalcul).
+- **Correctif (compilé, déployé 20:42, non testé)** : hook `hkPoserMeteo` :
+  la météo que le jeu veut poser devient la **météo vanilla**
+  (`g_meteoVanilla`, ligne `V` du fichier local) ; la montée est notée
+  (`NoterChangement(précédente vanilla, nouvelle, date)`, plus dans le
+  recalcul) ; si c'est une montée par rapport à la météo **affichée**, elle
+  n'est pas posée (l'écran garde la météo froide) et le recalcul est forcé.
+  Recalcul : décalage AP = reçus − retirées + (décalage de la météo vanilla
+  − décalage de la météo affichée). Partie chargée : météo vanilla = dernière
+  entrée passée de la chronologie calculée (`+0x118`). Pendant un chargement
+  (partie pas prête), pose laissée au jeu. Journal `[TEMPAP] meteo … non
+  posee (montee retiree)`.
+- Limite : après réception des items `Temperature Rise`, la température
+  remonte mais l'écran garde la météo plus froide jusqu'au prochain
+  changement de météo.

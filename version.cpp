@@ -38,6 +38,7 @@
 #include "temperature.h"
 #include "quetes.h"
 #include "reseau_ap.h"
+#include "schema_reflexion.h"
 
 #include <io.h>
 #include <fcntl.h>
@@ -94,8 +95,28 @@ void CheckLocKeys()
 // --- Journal : copie de tout ce qui s'ecrit dans la console -----------------
 // stdout est redirige vers un tube ; un thread relais recopie chaque octet a la
 // fois dans la console et dans le fichier journal (ecrase a chaque lancement).
+// Build de release (/DAP_RELEASE, release\construire_release.ps1, 2026-11-07) :
+// pas de console, journal dans <dossier du jeu>\mods\logs\console.log, debug
+// neutralise. Build de dev : inchangee (journal dans le dossier du projet).
+#ifdef AP_RELEASE
+static wchar_t JOURNAL_DOSSIER[MAX_PATH] = L"";
+static wchar_t JOURNAL_FICHIER[MAX_PATH] = L"";
+static void CheminsJournalRelease()
+{
+	wchar_t base[MAX_PATH] = {};
+	GetModuleFileNameW(NULL, base, MAX_PATH);
+	for (int i = (int)wcslen(base) - 1; i >= 0; --i)
+		if (base[i] == L'\\') { base[i + 1] = 0; break; }
+	wchar_t mods[MAX_PATH];
+	swprintf_s(mods, MAX_PATH, L"%smods", base);
+	CreateDirectoryW(mods, NULL);
+	swprintf_s(JOURNAL_DOSSIER, MAX_PATH, L"%smods\\logs", base);
+	swprintf_s(JOURNAL_FICHIER, MAX_PATH, L"%smods\\logs\\console.log", base);
+}
+#else
 static const wchar_t* JOURNAL_DOSSIER = L"C:\\Users\\Simon\\Desktop\\Visual\\Frost\\DLL\\logs";
 static const wchar_t* JOURNAL_FICHIER = L"C:\\Users\\Simon\\Desktop\\Visual\\Frost\\DLL\\logs\\console.log";
+#endif
 
 static HANDLE g_tubeLecture = NULL;
 static HANDLE g_consoleSortie = INVALID_HANDLE_VALUE;
@@ -166,14 +187,28 @@ void JournalImmediat(const char* fmt, ...)
 // ---------------------------------------------------------------------------
 DWORD WINAPI PayloadThread(LPVOID)
 {
-	AllocConsole();
 	FILE* f = nullptr;
+#ifdef AP_RELEASE
+	// Release : pas de fenetre console. stdout pointe sur NUL pour avoir un
+	// descripteur valide, que DupliquerConsoleVersJournal remplace par le tube
+	// (le relais n'ecrit alors que dans le journal : CONOUT$ est introuvable).
+	CheminsJournalRelease();
+	freopen_s(&f, "NUL", "w", stdout);
+#else
+	AllocConsole();
 	freopen_s(&f, "CONOUT$", "w", stdout);
+#endif
 	setvbuf(stdout, NULL, _IONBF, 0);
 	DupliquerConsoleVersJournal();
 	g_consolePrete = true;
 
 	uintptr_t modBase = reinterpret_cast<uintptr_t>(GetModuleHandleW(NULL));
+
+	// Version de l'exe (versions_jeu.h, 2026-11-07) : Epic ou Steam. Exe
+	// inconnu : aucun hook, le jeu tourne en vanilla (adresses inconnues =
+	// crash immediat au premier hook).
+	JournalVersionJeu();
+	if (!VersionJeuSupportee()) return 0;
 
 	if (MH_Initialize() != MH_OK) {
 		printf("[!] MH_Initialize KO -- aucun hook installe\n");
@@ -221,6 +256,12 @@ DWORD WINAPI PayloadThread(LPVOID)
 		
 	while (true) {		
 		// Touches de debug (F3-F9, F11) retirees le 2026-11-04 a la demande de l'auteur.
+		// F11 (demande de l'auteur, 2026-11-06, pour tester les quetes comme
+		// 006) : terminer avec succes la quete d'histoire en cours (thread du
+		// jeu, QuetesPompe).
+#ifndef AP_RELEASE
+		if (ToucheAppuyee(VK_F11)) QuetesDemanderFinQueteEnCours();
+#endif
 		static DWORD prochain = 0;
 		if (GetTickCount() > prochain) {
 			
@@ -232,7 +273,10 @@ DWORD WINAPI PayloadThread(LPVOID)
 			CHRONO(TechPersistanceTick()); // technos : sauvegarde locale de la partie
 			CHRONO(ScootingTick());
 			CHRONO(SurveillerArbreTechno());
+#ifndef AP_RELEASE
 			RapportSubstitutions();        // DIAG : chargements des atlas substitues
+			SchemaReflexionTick();         // Big map : schema de la reflexion (une fois)
+#endif
 		}
 		CouleursMessagesTick();   // couleur de nos messages, 2 s apres leur ajout
 		Sleep(16);            // evite de saturer un coeur du CPU

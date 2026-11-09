@@ -25,6 +25,10 @@ void ScootingInit();        // objets du scouting ; appele par le tick a chaque 
 void ScootingPayloadsInit();
 void ScootingTick();        // une fois par seconde, APRES PartieTick (mod_common)
 int  ScootingLocationPourCleSite(const char* cle);
+// Etat (composant +0x34 : 0 = jamais explore) du site de nom interne 'nom'
+// dans la partie en cours ; -1 si le site n'est pas dans le cache. Tout thread
+// (lecture seule).
+int  ScootingEtatSite(const char* nom);
 
 void ScootingAppliquerTresors();
 void ScootingSubstituerContenuSites();

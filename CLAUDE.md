@@ -79,6 +79,19 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
   projet se demande à l'auteur, à chaque fois. **Pas de sauvegarde** de
   l'ancienne DLL (demande de l'auteur).
   Le message « 'vswhere.exe' n'est pas reconnu » de vcvars64 est sans effet.
+- **Build de release** (2026-11-07) : `release\construire_release.ps1`
+  (même commande + `/DAP_RELEASE /DNDEBUG`, sortie dans `release\build\`) →
+  `release\Frostpunk_Archipelago_<version>.zip` (DLL, 4 atlas copiés du
+  `mods\` du jeu, apworld, YAML d'exemple, README anglais, licences).
+  `AP_RELEASE` : pas de console, journal dans `<jeu>\mods\logs\console.log`,
+  F11 / relevé `[REFUG]` / `SchemaReflexionTick` / `RapportSubstitutions`
+  neutralisés, icônes de test remplacées par `icon_vanilla`. `release\` est
+  dans le `.gitignore`. Une seule DLL pour **Epic et Steam** (+
+  `ap_buildings_steam.gz`, `textures\`).
+- **Steam** : `C:\Program Files (x86)\Steam\steamapps\common\Frostpunk\`
+  (déploiement autorisé pour le portage du 2026-11-07 ; autorisation
+  permanente non donnée, à redemander). Epic se lance par le
+  lanceur Epic (l'exe lancé seul s'arrête avant de lire les archives).
 - Dépendance externe : **MinHook** (sources dans `minhook\`, lib statique).
 - Fichiers annexes du mod dans un sous-dossier `mods\` du jeu (persistance).
 - Outils utilisés hors build : **Ghidra** (analyse de `Frostpunk.exe`),
@@ -120,6 +133,8 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
 | `victoire.h/.cpp` | **Fin de partie** : hook de `EndGame` (`+0x1301490`, journal `[FIN]` victoire / défaite) ; toute victoire dans un scénario AP = **événement du goal**, sans item (difficulté imposée, ironman sans effet) (`SendScenarioVictory`, archipelago : `mods\ap_victoires.txt`, goal = tous les scénarios du slot gagnés) ; modes de victoire supprimés le 2026-11-04 |
 | `temperature.h/.cpp` | **Température / météo** : relevé F9 (`[TEMP]`, thread du jeu via `TemperaturePompe`) des niveaux, météos, chronologies météo, actes, modifications de difficulté et de la chronologie calculée de la partie ; **montées AP** : hook du recalcul `+0x1812C10`, montées retirées, `TemperatureRecevoirMontee` (← `ReceiveTemperatureRise`, archipelago), `mods\ap_temperature_<GameId>.txt` |
 | `sauvegardes_ap.h/.cpp` | **Sauvegardes de la session AP seulement** : hook de l'écriture `FUN_1412892f0` (nom noté dans `<session>\ap_sauvegardes.txt`) et de l'énumération `FUN_141cdee60` (`"saves"`, `"*.save"` : les autres sont retirées de la liste) ; log `[SAV]` |
+| `versions_jeu.h/.cpp` | **Versions de l'exe** (2026-11-07) : Epic (`0x611CFD2D`) et Steam (`0x68E665D9`) détectées par l'en-tête PE ; `Adr(rvaEpic)` traduit toute adresse (identité sur Epic, table `VERSION_STEAM` sur Steam) ; exe inconnu = aucun hook ; `FichierAtlasVersion` (atlas des bâtiments Steam). **Toute nouvelle adresse s'écrit `Adr(0x…)` en RVA Epic et entre dans `VERSION_STEAM`** (`outils\portage\`) |
+| `schema_reflexion.h/.cpp` | **Big map** : relevé unique du PropertyManager (classes, propriétés dans l'ordre de sérialisation) → `logs\schema_reflexion.tsv`, pour décoder les scènes hors jeu (`outils\scenes.py`) |
 | `quetes.h/.cpp` | **Quêtes** : relevé F9 (`[QUETE]`, thread du jeu via `QuetesPompe`) des répertoires, quêtes, objectifs, effets, et des événements portant un effet de quête ou d'acte |
 
 ---
@@ -197,6 +212,10 @@ Ce qui a effectivement payé, dans l'ordre d'efficacité :
 ## 7. Offsets, structures et constantes connus
 
 ### Globaux (relatifs à `modBase`, image chargée à `0x140000000` dans Ghidra)
+
+> Toutes les adresses de ce fichier sont des **RVA de l'exe Epic** ; dans le
+> code elles passent par `Adr(...)` (versions_jeu.h). Pour l'exe Steam :
+> `outils\portage\correspondances_steam.tsv`.
 
 | Offset | Contenu |
 |---|---|
@@ -663,6 +682,33 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   useful > filler) : lois vues en jeu le 2026-11-04. Expéditeur des items
   gardé par réception (`ap_items_recus.txt` = `<id>\t<joueur>`) : popups
   « from <joueur> » (technos, lois, température, convois, pièges).
+
+- **Version Steam** — `docs/chantiers/steam.md`. **2026-11-07** : exe
+  Steam = autre compilation (2025), pas de SteamStub. 184 adresses
+  appariées (fonctions identiques via `.pdata`, références exactes aux
+  globaux, cas douteux vérifiés dans Ghidra), `versions_jeu.cpp`, atlas par
+  hash de nom (`SubDecl.hashNom`), atlas des bâtiments Steam refait. Test
+  de fumée Steam et Epic : hooks OK, menu construit. **Non testé en
+  partie.** Bouton `CUSTOM_SCENARIO_BUTTON` (Steam, panneau `+0xF0`)
+  toujours inactif (décision de l'auteur, 2026-11-07).
+
+- **Big map (nouveau scénario, hors Archipelago)** — `docs/chantiers/big_map.md`.
+  Branche `Big-map` (2026-11-04). Cartes = scènes binaires de `scenes.dat`
+  faites à la main (aucune génération pour les villes). **Format de haut
+  niveau décodé et validé hors jeu** (`outils\scenes.py`, 38 scènes lues
+  à l'octet près) : entités = instances de gabarits (nom, GUID, parent,
+  GUID du gabarit, type, calque) + propriétés en format « solide » de la
+  réflexion. Relevé du schéma de la réflexion (`schema_reflexion.cpp` →
+  `logs\schema_reflexion.tsv`) : registre des classes `+0x2A12DC8` (trié
+  par nom ; classe = `PropertyManager` de 0xC0, nom `+0x60` ;
+  `0x408B740` n'est que le global d'une classe), **validé le 2026-11-09**
+  (2617 classes). **Propriétés des entités décodées** (`scenes.py lire
+  <scène> -v`, `valider`) : type exact par le nom RTTI décoré de la vtable
+  de chaque propriété (lu dans l'exe) ; **29 868 entités et 38 racines
+  consommées à l'octet près** (validé hors jeu le 2026-11-09).
+  **Écriture** (`Encodeur`, `Scene.ecrire`, `scenes.py allerretour`) : les
+  38 scènes décodées puis réencodées sont identiques octet pour octet
+  (validé le 2026-11-09). Suite : charger une scène modifiée en jeu.
 
 ### Constantes et touches de debug
 

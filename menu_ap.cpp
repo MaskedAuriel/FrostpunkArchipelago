@@ -56,30 +56,30 @@ typedef void      (*NomConstruire_t)(uintptr_t* nom, const char* texte);
 typedef void      (*NomDetruire_t)(uintptr_t* nom);
 typedef void      (*Relayout_t)(uintptr_t layout);
 
-constexpr uintptr_t OFF_INIT_PANNEAU_PRINCIPAL = 0x1B28950;
-constexpr uintptr_t OFF_INSTANCIER      = 0x110C780;
-constexpr uintptr_t OFF_OBTENIR_RECETTE = 0x1035C80;
-constexpr uintptr_t OFF_RACINE_RECETTE  = 0x1119140;
-constexpr uintptr_t OFF_INSERER_AVANT   = 0x10266A0;
-constexpr uintptr_t OFF_BRANCHER_CLIC   = 0x105A1C0;
-constexpr uintptr_t OFF_POSER_TEXTE     = 0x111BEF0;
-constexpr uintptr_t OFF_DEBUT_EDITION   = 0x112A920;
-constexpr uintptr_t OFF_PLACER_CURSEUR  = 0x112A360;
-constexpr uintptr_t OFF_ECRAN           = 0x10261E0;
-constexpr uintptr_t OFF_FOCALISER       = 0x1030E90;
-constexpr uintptr_t OFF_POIGNEE         = 0xE1A120;
-constexpr uintptr_t OFF_POIGNEE_PLUS    = 0xE1A110;
-constexpr uintptr_t OFF_POIGNEE_MOINS   = 0xE1A260;
-constexpr uintptr_t OFF_CHERCHER_ENFANT = 0x1025FF0;
-constexpr uintptr_t OFF_NOM_CONSTRUIRE  = 0xE4FA20;
-constexpr uintptr_t OFF_NOM_DETRUIRE    = 0xE4EAB0;
-constexpr uintptr_t OFF_RELAYOUT        = 0x11FD800;
-constexpr uintptr_t OFF_CLIC_ECRAN      = 0x102F720;   // FUN_14102f720 : clic souris d'un ecran
-constexpr uintptr_t OFF_INSERER_CAR     = 0x112AC10;   // FUN_14112ac10 : inserer un caractere
-constexpr uintptr_t OFF_TOUCHE          = 0x1129C90;   // FUN_141129c90 : touche (effacement, fleches)
-constexpr uintptr_t OFF_POOL_TEMPLATES  = 0x2B2E710;
-constexpr uintptr_t OFF_CTX_INSTANCIER  = 0x2BE0438;
-constexpr uintptr_t OFF_CFG_TEXTE       = 0x2BFD628;
+static const uintptr_t OFF_INIT_PANNEAU_PRINCIPAL = Adr(0x1B28950);
+static const uintptr_t OFF_INSTANCIER      = Adr(0x110C780);
+static const uintptr_t OFF_OBTENIR_RECETTE = Adr(0x1035C80);
+static const uintptr_t OFF_RACINE_RECETTE  = Adr(0x1119140);
+static const uintptr_t OFF_INSERER_AVANT   = Adr(0x10266A0);
+static const uintptr_t OFF_BRANCHER_CLIC   = Adr(0x105A1C0);
+static const uintptr_t OFF_POSER_TEXTE     = Adr(0x111BEF0);
+static const uintptr_t OFF_DEBUT_EDITION   = Adr(0x112A920);
+static const uintptr_t OFF_PLACER_CURSEUR  = Adr(0x112A360);
+static const uintptr_t OFF_ECRAN           = Adr(0x10261E0);
+static const uintptr_t OFF_FOCALISER       = Adr(0x1030E90);
+static const uintptr_t OFF_POIGNEE         = Adr(0xE1A120);
+static const uintptr_t OFF_POIGNEE_PLUS    = Adr(0xE1A110);
+static const uintptr_t OFF_POIGNEE_MOINS   = Adr(0xE1A260);
+static const uintptr_t OFF_CHERCHER_ENFANT = Adr(0x1025FF0);
+static const uintptr_t OFF_NOM_CONSTRUIRE  = Adr(0xE4FA20);
+static const uintptr_t OFF_NOM_DETRUIRE    = Adr(0xE4EAB0);
+static const uintptr_t OFF_RELAYOUT        = Adr(0x11FD800);
+static const uintptr_t OFF_CLIC_ECRAN      = Adr(0x102F720);   // FUN_14102f720 : clic souris d'un ecran
+static const uintptr_t OFF_INSERER_CAR     = Adr(0x112AC10);   // FUN_14112ac10 : inserer un caractere
+static const uintptr_t OFF_TOUCHE          = Adr(0x1129C90);   // FUN_141129c90 : touche (effacement, fleches)
+static const uintptr_t OFF_POOL_TEMPLATES  = Adr(0x2B2E710);
+static const uintptr_t OFF_CTX_INSTANCIER  = Adr(0x2BE0438);
+static const uintptr_t OFF_CFG_TEXTE       = Adr(0x2BFD628);
 
 constexpr int PAN_RACINE   = 0xA8;     // poignee de la racine du panneau
 constexpr int EL_NOM       = 0x1D8;
@@ -900,7 +900,7 @@ constexpr int REC_CLIP       = 0x128;
 constexpr int REC_CACHE      = 0x122;
 
 typedef void (*Montrer_t)(uintptr_t element, char visible, char anime, char forcer);
-constexpr uintptr_t OFF_MONTRER = 0x105AC90;   // FUN_14105ac90 : montrer / cacher
+static const uintptr_t OFF_MONTRER = Adr(0x105AC90);   // FUN_14105ac90 : montrer / cacher
 
 void DecrireChaine(const char* qui, uintptr_t el)
 {
@@ -1282,13 +1282,17 @@ void ReleverPlusTard()
 // possible, le bouton qui lance A New Home grise et non cliquable.
 // FUN_14105a3a0(element, actif, 1) = cliquable ; FUN_1410240d0(element,
 // &nom, 1, 0, 0, 0, 1, 0, 0) = etat d'animation "ENABLED" / "DISABLED".
-constexpr uintptr_t OFF_RAFRAICHIR_PANNEAU = 0x1B28F10;
-constexpr uintptr_t OFF_ACTIVER_ELEMENT    = 0x105A3A0;
-constexpr uintptr_t OFF_ETAT_ANIMATION     = 0x10240D0;
+static const uintptr_t OFF_RAFRAICHIR_PANNEAU = Adr(0x1B28F10);
+static const uintptr_t OFF_ACTIVER_ELEMENT    = Adr(0x105A3A0);
+static const uintptr_t OFF_ETAT_ANIMATION     = Adr(0x10240D0);
 constexpr int PAN_BOUTON_CONTINUER       = 0xD0;
 constexpr int PAN_BOUTON_NOUVELLE_PARTIE = 0xD8;
 constexpr int PAN_BOUTON_CHARGER         = 0xE0;   // LOAD (actif si sauvegardes, FUN_141b28f10)
 constexpr int PAN_BOUTON_SCENARIOS       = 0xE8;
+// Steam seulement (init du panneau FUN_1419c5b80 de l'exe Steam, 2026-11-07) :
+// CUSTOM_SCENARIO_BUTTON range en +0xF0 (ENDLESS_BUTTON passe en +0xF8).
+// Scenarios personnalises = jamais Archipelago -> toujours inactif.
+constexpr int PAN_BOUTON_PERSO_STEAM     = 0xF0;
 
 typedef void (*Rafraichir_t)(uintptr_t panneau, uintptr_t p2, uintptr_t p3, uintptr_t p4);
 typedef void (*ActiverElement_t)(uintptr_t element, uintptr_t actif, uintptr_t p3, uintptr_t p4);
@@ -1315,10 +1319,10 @@ void ForcerBouton(uintptr_t panneau, int off, bool actif, const char* qui)
         printf("[MENU] EXCEPTION 0x%08lX sur le bouton %s\n", GetExceptionCode(), qui);
         return;
     }
-    // Journal a chaque changement d'etat d'un bouton (decalages 0xD0..0xE8).
-    static int dernier[4] = { -1, -1, -1, -1 };
+    // Journal a chaque changement d'etat d'un bouton (decalages 0xD0..0xF0).
+    static int dernier[5] = { -1, -1, -1, -1, -1 };
     int k = (off - PAN_BOUTON_CONTINUER) / 8;
-    if (k >= 0 && k < 4 && dernier[k] != (actif ? 1 : 0)) {
+    if (k >= 0 && k < 5 && dernier[k] != (actif ? 1 : 0)) {
         dernier[k] = actif ? 1 : 0;
         printf("[MENU] bouton %s force %s\n", qui, actif ? "actif" : "inactif");
     }
@@ -1336,6 +1340,8 @@ void AppliquerVerrouConnexion(uintptr_t panneau)
     bool connecte = ApEstConnecte();
     ForcerBouton(panneau, PAN_BOUTON_NOUVELLE_PARTIE, false, "NEWGAME_BUTTON");
     ForcerBouton(panneau, PAN_BOUTON_SCENARIOS, connecte, "SCENARIO_BUTTON");
+    if (VersionDuJeu() == VersionJeu::Steam)
+        ForcerBouton(panneau, PAN_BOUTON_PERSO_STEAM, false, "CUSTOM_SCENARIO_BUTTON");
     if (!connecte) {
         ForcerBouton(panneau, PAN_BOUTON_CONTINUER, false, "CONTINUE_BUTTON");
         ForcerBouton(panneau, PAN_BOUTON_CHARGER, false, "LOAD_BUTTON");

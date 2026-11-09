@@ -274,3 +274,18 @@ contre la salle de l'auteur. DLL compilée et déployée.
 
 **VALIDÉ en jeu le 2026-11-04** par l'auteur (« Fonctionnel ») :
 connexion à archipelago.gg en `wss://`.
+
+### 2026-11-04 — Messages en double (test grandeur nature)
+
+- **Constat** : chaque check trouvé pour un autre joueur donnait deux
+  messages : « Check sent » (`<check> -> <joueur> - <item>`) puis « Item
+  sent » (`PrintJSON` `ItemSend`, `SurPrintJSON`). De même, un item reçu d'un
+  autre joueur : « Item received » (`ItemSend`) puis le message de son
+  application (« Technology received … from », convoi, loi…). Journal de la
+  session : 107 `ItemSend` de Masked_Frost vers d'autres joueurs.
+- **Correctif (compilé, déployé 23:25, non testé)** : `SurPrintJSON` ne crée
+  plus de message en jeu (le journal `[AP MSG]` garde tout). Le serveur
+  recevait bien chaque check une seule fois.
+- Vu aussi : `file des popups pleine : la plus ancienne est perdue` lors
+  d'envois groupés (16 messages en file) ; ces messages réseau en moins
+  allègent la file.

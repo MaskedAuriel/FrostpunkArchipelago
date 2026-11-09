@@ -35,6 +35,7 @@
 #include "MessageManager.h"
 #include "IconSubManager.h"
 #include "dilemmes_ap.h"
+#include "archipelago.h"   // SendRefugeesCheck
 #include "MinHook.h"
 #include <cstdio>
 #include <cstring>
@@ -42,8 +43,8 @@
 typedef void(*InvoquerEvenement_t)(uintptr_t sys, uintptr_t entree, uintptr_t contexte, uintptr_t forcer);
 typedef uintptr_t(*ResoudreLien_t)(uintptr_t gestionnaire, const void* guid);
 
-constexpr uintptr_t OFF_INVOQUER_EVENEMENT = 0x17B9B70;
-constexpr uintptr_t OFF_GESTIONNAIRE_DILEMMES = 0x4069970;
+static const uintptr_t OFF_INVOQUER_EVENEMENT = Adr(0x17B9B70);
+static const uintptr_t OFF_GESTIONNAIRE_DILEMMES = Adr(0x4069970);
 constexpr int       VT_RESOUDRE_LIEN       = 0x88;
 constexpr int       EVT_NOM                = 0x00;
 constexpr int       EVT_EFFETS             = 0x58;
@@ -61,7 +62,7 @@ constexpr long      MAX_LOGS_EVT           = 300;
 constexpr int       PROFONDEUR_MAX         = 4;
 
 typedef uintptr_t(*CreerDilemme_t)(uintptr_t sys, uintptr_t dilemme, uintptr_t contexte, uintptr_t p4);
-constexpr uintptr_t OFF_CREER_DILEMME      = 0x17CDE10;
+static const uintptr_t OFF_CREER_DILEMME      = Adr(0x17CDE10);
 
 InvoquerEvenement_t g_origInvoquer = nullptr;
 CreerDilemme_t      g_origCreerDilemme = nullptr;
@@ -322,8 +323,11 @@ void ReleverEvenement(uintptr_t entree)
 // d'autres modules (ex. quete demarree par un evenement, quetes.cpp).
 char g_nomEvtEnCours[128] = "";
 
+uintptr_t g_sysEvenements = 0;   // systeme des evenements, vu au dernier appel
+
 void hkInvoquerEvenement(uintptr_t sys, uintptr_t entree, uintptr_t contexte, uintptr_t forcer)
 {
+    g_sysEvenements = sys;
     char nom[128] = "?";
     uintptr_t p = 0;
     if (SafeRead((void*)(entree + EVT_NOM), &p, 8) && p > 0x10000) ReadAscii(p, nom, sizeof(nom));
@@ -342,6 +346,22 @@ void hkInvoquerEvenement(uintptr_t sys, uintptr_t entree, uintptr_t contexte, ui
     }
     // Les effets internes peuvent changer de contexte (SelectEffect sur les
     // survivants secourus) : on retient l'entite de l'evenement exterieur.
+    // Convoi AP (2026-11-07, demandes de l'auteur) : ni l'arrivee visuelle du
+    // 1er groupe de l'histoire, ni "U: Refugees in the City1/2/3" (bulles et
+    // points de la carte reveles). Les points de City3 sont reveles a la fin
+    // de 006 REFUGEES (EvenementsInvoquerParNom, quetes.cpp), comme le
+    // suggerait l'auteur, au lieu de l'arrivee d'un groupe quelconque.
+    if (suivie) {
+        static const char* const IGNORES[] = {
+            "U: Refugees in the City1", "U: Refugees in the City2", "U: Refugees in the City3",
+            "S: Survivors - main scenario first group",
+        };
+        for (const char* n : IGNORES)
+            if (strcmp(nom, n) == 0) {
+                printf("[EVT] \"%s\" ignore pour un convoi AP\n", nom);
+                return;
+            }
+    }
     int avant = g_suivieEnCours;
     if (suivie) g_suivieEnCours = indice;
     char nomAvant[128];
@@ -353,6 +373,21 @@ void hkInvoquerEvenement(uintptr_t sys, uintptr_t entree, uintptr_t contexte, ui
 }
 
 void SauverBulleGroupe(int id, uintptr_t copie);   // sauvegarde AP des bulles (plus bas)
+
+// Arrivee en ville d'un convoi AP en cours (groupes.cpp, autour de
+// l'original de FUN_1418b2870) : toute bulle du jeu creee pendant ce temps
+// (premier automate, refugies...) est refusee, sauf notre bulle d'arrivee.
+bool g_arriveeConvoiAP = false;
+void EvenementsArriveeConvoiAP(bool enCours) { g_arriveeConvoiAP = enCours; }
+
+// Bulles de la porte des refugies (2026-11-07, demande de l'auteur : elles
+// donnaient encore les refugies, desormais items AP) : resolues tout de
+// suite (choix 0 "Welcome them" : seul l'objectif de 006 avance, le groupe
+// ayant ete vide a son arrivee, groupes.cpp). File videe par
+// DilemmesResoudreEnAttente (DilemmesPompe, thread du jeu).
+int32_t g_aResoudre[8];
+int     g_nAResoudre = 0;
+bool    g_bullePorteCreee = false;   // lu par groupes.cpp apres l'arrivee d'un groupe de refugies
 
 // Hook de FUN_1417cde10(systeme des dilemmes, dilemme, contexte, p4) =
 // creer un dilemme (bulle). Renvoie l'identifiant du dilemme ou -1.
@@ -369,8 +404,22 @@ uintptr_t hkCreerDilemme(uintptr_t sys, uintptr_t dilemme, uintptr_t contexte, u
     printf("[DIL] creation du dilemme \"%s\" 0x%llX%s%llX, titre \"%s\" (evenement d'un groupe AP : %s)\n",
         nom, (unsigned long long)dilemme, remplace ? " REMPLACE par 0x" : " ", (unsigned long long)remplace,
         titre, i >= 0 ? "oui" : "non");
+    if (!remplace && (g_arriveeConvoiAP || i >= 0)) {
+        printf("[DIL]   refusee : bulle du jeu pendant l'arrivee d'un convoi AP\n");
+        return (uintptr_t)(intptr_t)-1;
+    }
     uintptr_t r = g_origCreerDilemme(sys, cree, contexte, p4);
     printf("[DIL]   -> %lld\n", (long long)(int32_t)r);
+    // Refugies de l'apres-005 (A New Home, 2026-11-05) : l'arrivee d'un groupe
+    // de refugies a la porte = check "Refugees Arrival k" ; la bulle est
+    // resolue tout de suite (2026-11-07).
+    static const char PORTE[] = "[Refugees] Refugees at the door ";
+    if ((int32_t)r >= 0 && strncmp(nom, PORTE, sizeof(PORTE) - 1) == 0) {
+        int k = atoi(nom + sizeof(PORTE) - 1);
+        if (k >= 1 && k <= 3) SendRefugeesCheck(k);
+        g_bullePorteCreee = true;
+        if (g_nAResoudre < 8) g_aResoudre[g_nAResoudre++] = (int32_t)r;
+    }
     // Bulle d'arrivee d'un groupe AP : la sauvegarde du jeu la relirait comme
     // l'original (meme GUID) ; on garde ses textes dans notre sauvegarde.
     if (remplace && (int32_t)r >= 0) SauverBulleGroupe((int32_t)r, remplace);
@@ -393,9 +442,9 @@ uintptr_t hkCreerDilemme(uintptr_t sys, uintptr_t dilemme, uintptr_t contexte, u
 // applique par le hook de la resolution.
 typedef uintptr_t(*ResoudreDilemme_t)(uintptr_t sys, uintptr_t id, uintptr_t choix, uintptr_t drapeaux);
 
-constexpr uintptr_t OFF_RESOUDRE_DILEMME   = 0x17D40C0;
-constexpr uintptr_t OFF_SYSTEME_DILEMMES   = 0x4095A98;
-constexpr uintptr_t OFF_CONTEXTE_DEFAUT    = 0x40B1B30;
+static const uintptr_t OFF_RESOUDRE_DILEMME   = Adr(0x17D40C0);
+static const uintptr_t OFF_SYSTEME_DILEMMES   = Adr(0x4095A98);
+static const uintptr_t OFF_CONTEXTE_DEFAUT    = Adr(0x40B1B30);
 constexpr int       DIL_EFFETS_INITIAUX    = 0x48;
 constexpr int       DIL_EFFETS_IGNORES     = 0x60;
 constexpr int       CHOIX_EFFETS           = 0x78;
@@ -774,9 +823,9 @@ bool ChercherBulle(int id, int64_t expire, LigneBulle& out)
 // 0, 0, 0, 0}.
 typedef int(*ChercherOccurrence_t)(uintptr_t table, const uint64_t* cle);
 typedef int(*InsererOccurrence_t)(uintptr_t table, const uint64_t* valeur);
-constexpr uintptr_t OFF_CHERCHER_OCCURRENCE = 0x17CFC40;
-constexpr uintptr_t OFF_INSERER_OCCURRENCE  = 0x17D16D0;
-constexpr uintptr_t OFF_DATE_NULLE          = 0x2C2FCA8;
+static const uintptr_t OFF_CHERCHER_OCCURRENCE = Adr(0x17CFC40);
+static const uintptr_t OFF_INSERER_OCCURRENCE  = Adr(0x17D16D0);
+static const uintptr_t OFF_DATE_NULLE          = Adr(0x2C2FCA8);
 constexpr int       SYS_DIL_OCCURRENCES     = 0x21B8;
 
 bool InscrireOccurrence(uintptr_t sys, uintptr_t entree)
@@ -890,10 +939,10 @@ typedef uintptr_t(*MajTrackerDilemme_t)(uintptr_t tracker);
 typedef int(*IndiceDilemmeMarqueur_t)(uintptr_t sys, uintptr_t marqueur);
 typedef uintptr_t(*EntreeDilemmeIndice_t)(uintptr_t sys, int indice);
 typedef void(*PoserTuileImage_t)(uintptr_t image, uintptr_t tuile);
-constexpr uintptr_t OFF_MAJ_TRACKER_DILEMME = 0x1C19460;
-constexpr uintptr_t OFF_INDICE_MARQUEUR     = 0x17CFBF0;
-constexpr uintptr_t OFF_ENTREE_INDICE       = 0x17CFD70;
-constexpr uintptr_t OFF_POSER_TUILE_IMAGE   = 0x1A33780;
+static const uintptr_t OFF_MAJ_TRACKER_DILEMME = Adr(0x1C19460);
+static const uintptr_t OFF_INDICE_MARQUEUR     = Adr(0x17CFBF0);
+static const uintptr_t OFF_ENTREE_INDICE       = Adr(0x17CFD70);
+static const uintptr_t OFF_POSER_TUILE_IMAGE   = Adr(0x1A33780);
 constexpr int       TRACKER_MARQUEUR        = 0x28;
 constexpr int       TRACKER_IMAGE           = 0x60;
 constexpr int       TRACKER_ICONE_POSEE     = 0x80;
@@ -965,4 +1014,155 @@ void InstallHooksEvenements(uintptr_t modBase)
     bool okT = MH_CreateHook(tracker, (void*)&hkMajTrackerDilemme, (void**)&g_origMajTracker) == MH_OK &&
                MH_EnableHook(tracker) == MH_OK;
     printf("[DIL] hook mise a jour d'une bulle (+%llX) %s\n", (unsigned long long)OFF_MAJ_TRACKER_DILEMME, okT ? "OK" : "KO");
+}
+
+// --- Releve des dilemmes par nom (2026-11-04, refugies de l'apres-005) -------
+// Collection des dilemmes = gestionnaire base + 0x4069970 (EntryCollection :
+// tableau de pointeurs +0x20, compte +0x28, SUPPOSE comme les autres
+// collections de la configuration). Pour chaque dilemme dont le nom contient
+// 'motif' : DecrireDilemme, effets initiaux (+0x48), effets si ignore
+// (+0x60), puis pour chaque choix ses effets (+0x78) et resultats (+0x90).
+static void ReleverTableauEffets(uintptr_t adr, const char* quoi, int profondeur)
+{
+    uintptr_t tab = 0;
+    int32_t n = 0;
+    if (!SafeRead((void*)adr, &tab, 8) || !SafeRead((void*)(adr + 8), &n, 4) || tab <= 0x10000 || n <= 0 || n > 32)
+        return;
+    Indenter(profondeur); printf("[REFUG] %s : %d element(s)\n", quoi, n);
+    for (int i = 0; i < n; ++i) {
+        uintptr_t e = 0;
+        if (!SafeRead((void*)(tab + (uintptr_t)i * 8), &e, 8) || e <= 0x10000) continue;
+        DecrireObjet(e, profondeur + 1);
+        // Champs numeriques (nombre de citoyens, quantites...) : DecrireObjet
+        // ne montre que textes et objets ; dwords bruts de +0x18 a +0x60.
+        int32_t v[18] = {};
+        SafeRead((void*)(e + 0x18), v, sizeof(v));
+        Indenter(profondeur + 2); printf("[REFUG] dwords +0x18..+0x60 :");
+        for (int k = 0; k < 18; ++k) printf(" %d", v[k]);
+        printf("\n");
+    }
+}
+
+// 1er essai (2026-11-04) : le gestionnaire +0x4069970 n'est pas un tableau.
+// Ghidra : FrostpunkDilemmasConfig (reflexion FUN_1413e6a10, instance
+// base + 0x4069880, FUN_1401a0560) : +0x130 "Dilemmas" = tableau de
+// EntryDirectory<FrostpunkDilemmaEntry> (compte +0x138) ; repertoire comme
+// ceux des quetes : +0x00 nom, +0x18 entrees (compte +0x20).
+static const uintptr_t OFF_CONFIG_DILEMMES = Adr(0x4069880);
+constexpr int       CFG_DIL_REPERTOIRES = 0x130;
+
+void ReleverDilemmesParNom(const char* motif)
+{
+    uintptr_t cfg = (uintptr_t)GetModuleHandleW(nullptr) + OFF_CONFIG_DILEMMES, reps = 0;
+    int32_t nr = 0;
+    if (!motif || !SafeRead((void*)(cfg + CFG_DIL_REPERTOIRES), &reps, 8) ||
+        !SafeRead((void*)(cfg + CFG_DIL_REPERTOIRES + 8), &nr, 4) || reps <= 0x10000 || nr <= 0 || nr > 1024) {
+        printf("[REFUG] repertoires des dilemmes illisibles (tableau 0x%llX, %d)\n", (unsigned long long)reps, nr);
+        return;
+    }
+    int trouves = 0, n = 0;
+    for (int r = 0; r < nr; ++r) {
+    uintptr_t rep = 0, tab = 0;
+    int32_t ne = 0;
+    if (!SafeRead((void*)(reps + (uintptr_t)r * 8), &rep, 8) || rep <= 0x10000 ||
+        !SafeRead((void*)(rep + 0x18), &tab, 8) || !SafeRead((void*)(rep + 0x20), &ne, 4) ||
+        tab <= 0x10000 || ne <= 0 || ne > 4096) continue;
+    n += ne;
+    for (int i = 0; i < ne; ++i) {
+        uintptr_t d = 0, p = 0;
+        char nom[160] = "";
+        if (!SafeRead((void*)(tab + (uintptr_t)i * 8), &d, 8) || d <= 0x10000) continue;
+        if (!SafeRead((void*)d, &p, 8) || !TexteDe(p, nom, sizeof(nom)) || !strstr(nom, motif)) continue;
+        ++trouves;
+        g_lignesReleve = -2000;          // releve long : budget large
+        printf("[REFUG] ===== dilemme \"%s\" (0x%llX) =====\n", nom, (unsigned long long)d);
+        DecrireDilemme(d, 1);
+        ReleverTableauEffets(d + DIL_EFFETS_INITIAUX, "effets initiaux", 1);
+        ReleverTableauEffets(d + DIL_EFFETS_IGNORES, "effets si ignore", 1);
+        uintptr_t choix = 0;
+        int32_t nc = 0;
+        SafeRead((void*)(d + DIL_CHOIX), &choix, 8);
+        SafeRead((void*)(d + DIL_CHOIX + 8), &nc, 4);
+        for (int c = 0; c < nc && c < 8 && choix > 0x10000; ++c) {
+            uintptr_t ch = 0;
+            char t[200] = "";
+            if (!SafeRead((void*)(choix + (uintptr_t)c * 8), &ch, 8) || ch <= 0x10000) continue;
+            if (SafeRead((void*)(ch + CHOIX_TEXTE), &p, 8)) TexteDe(p, t, sizeof(t));
+            printf("[REFUG]   choix %d \"%s\"\n", c, t);
+            ReleverTableauEffets(ch + CHOIX_EFFETS, "effets du choix", 2);
+            ReleverTableauEffets(ch + CHOIX_RESULTATS, "resultats du choix", 2);
+        }
+    }
+    }
+    printf("[REFUG] %d dilemme(s) \"%s\" sur %d (%d repertoire(s))\n", trouves, motif, n, nr);
+}
+
+// Bulles en attente de resolution automatique (porte des refugies) : choix 0.
+// Thread du jeu (DilemmesPompe), hors creation de la bulle.
+void DilemmesResoudreEnAttente()
+{
+    if (g_nAResoudre <= 0 || !g_origResoudre) return;
+    uintptr_t sys = 0;
+    SafeRead((void*)((uintptr_t)GetModuleHandleW(nullptr) + OFF_SYSTEME_DILEMMES), &sys, 8);
+    if (sys <= 0x10000) return;
+    int n = g_nAResoudre;
+    g_nAResoudre = 0;
+    for (int k = 0; k < n; ++k) {
+        uintptr_t r = 0;
+        bool ok = true;
+        __try { r = g_origResoudre(sys, (uintptr_t)(intptr_t)g_aResoudre[k], 0, 0); }
+        __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; }
+        printf("[DIL] bulle %d de la porte des refugies resolue automatiquement (choix 0) : %s\n",
+            g_aResoudre[k], ok ? ((r & 0xFF) ? "ok" : "refus du jeu") : "EXCEPTION");
+    }
+}
+
+bool EvenementsBullePorteCreee(bool remettreAZero)
+{
+    bool v = g_bullePorteCreee;
+    if (remettreAZero) g_bullePorteCreee = false;
+    return v;
+}
+
+// --- Invocation d'un evenement du jeu par son nom (2026-11-07) ----------------
+// Evenements : repertoires base + 0x406DDA8 ({tableau, compte}), repertoire
+// +0x00 nom, +0x18 evenements (comme LoisParcourirEvenements, lois.cpp).
+// Invocation par l'original de FUN_1417b9b70 avec le contexte par defaut
+// (base + 0x40B1B30) et forcer = 1. Thread du jeu.
+uintptr_t EvenementParNom(const char* nom)
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr), reps = 0;
+    int32_t nr = 0;
+    if (!nom || !SafeRead((void*)(base + Adr(0x406DDA8)), &reps, 8) || !SafeRead((void*)(base + Adr(0x406DDA8) + 8), &nr, 4) ||
+        reps <= 0x10000 || nr <= 0 || nr > 1024) return 0;
+    for (int r = 0; r < nr; ++r) {
+        uintptr_t rep = 0, evts = 0;
+        int32_t ne = 0;
+        if (!SafeRead((void*)(reps + (uintptr_t)r * 8), &rep, 8) || rep <= 0x10000 ||
+            !SafeRead((void*)(rep + 0x18), &evts, 8) || !SafeRead((void*)(rep + 0x20), &ne, 4) ||
+            evts <= 0x10000 || ne <= 0 || ne > 8192) continue;
+        for (int e = 0; e < ne; ++e) {
+            uintptr_t evt = 0, p = 0;
+            char n[128] = "";
+            if (!SafeRead((void*)(evts + (uintptr_t)e * 8), &evt, 8) || evt <= 0x10000) continue;
+            if (SafeRead((void*)(evt + EVT_NOM), &p, 8) && p > 0x10000 && ReadAscii(p, n, sizeof(n)) && strcmp(n, nom) == 0)
+                return evt;
+        }
+    }
+    return 0;
+}
+
+bool EvenementsInvoquerParNom(const char* nom)
+{
+    uintptr_t evt = EvenementParNom(nom);
+    if (!evt || !g_sysEvenements || !g_origInvoquer) {
+        printf("[EVT] invocation de \"%s\" impossible (evenement 0x%llX, systeme 0x%llX)\n",
+            nom ? nom : "?", (unsigned long long)evt, (unsigned long long)g_sysEvenements);
+        return false;
+    }
+    bool ok = true;
+    __try { g_origInvoquer(g_sysEvenements, evt, (uintptr_t)GetModuleHandleW(nullptr) + OFF_CONTEXTE_DEFAUT, 1); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; }
+    printf("[EVT] \"%s\" invoque par le mod : %s\n", nom, ok ? "ok" : "EXCEPTION");
+    return ok;
 }

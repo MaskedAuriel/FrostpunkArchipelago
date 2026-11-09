@@ -37,9 +37,9 @@
 
 namespace {
 
-constexpr uintptr_t OFF_QUESTS_CONFIG    = 0x407AE80;
-constexpr uintptr_t OFF_SCENARIOS_CONFIG = 0x2C34490;
-constexpr uintptr_t OFF_REPERTOIRES_EVT  = 0x406DDA8;
+static const uintptr_t OFF_QUESTS_CONFIG    = Adr(0x407AE80);
+static const uintptr_t OFF_SCENARIOS_CONFIG = Adr(0x2C34490);
+static const uintptr_t OFF_REPERTOIRES_EVT  = Adr(0x406DDA8);
 constexpr int CFG_REPERTOIRES = 0x98;
 constexpr int REP_ENTREES     = 0x18;
 constexpr int CFG_SCENARIOS   = 0x88;
@@ -145,14 +145,14 @@ void Traduire(uintptr_t adrCle, char* out, int taille)
     strcpy_s(out, taille, "-");
     uintptr_t cle = 0, mgr = 0;
     if (!SafeRead((void*)adrCle, &cle, 8) || cle <= 0x10000) return;
-    if (!SafeRead((void*)(Base() + 0x2A28D80), &mgr, 8) || mgr <= 0x10000) { strcpy_s(out, taille, "(gestionnaire ?)"); return; }
+    if (!SafeRead((void*)(Base() + Adr(0x2A28D80)), &mgr, 8) || mgr <= 0x10000) { strcpy_s(out, taille, "(gestionnaire ?)"); return; }
     // Les cles des donnees commencent par '@' : l'appelant du jeu le saute
     // (FUN_141ce5a40) avant de traduire. 1er essai du 2026-11-01 avec le '@' :
     // tout "(non traduit)".
     char premier = 0;
     SafeRead((void*)cle, &premier, 1);
     uintptr_t sansArobase = premier == '@' ? cle + 1 : cle;
-    uintptr_t res = AppelerTraduire((TraduireCle_t)(Base() + 0xFEB760), mgr, (uintptr_t)&sansArobase, Base() + 0x2A25A30);
+    uintptr_t res = AppelerTraduire((TraduireCle_t)(Base() + Adr(0xFEB760)), mgr, (uintptr_t)&sansArobase, Base() + Adr(0x2A25A30));
     uintptr_t chars = 0;
     if (res <= 0x10000 || !SafeRead((void*)res, &chars, 8) || chars <= 0x10000) { strcpy_s(out, taille, "(non traduit)"); return; }
     int o = 0;
@@ -844,7 +844,7 @@ void Releve()
     // 3) Liens depuis les effets des lois (FrostpunkSocietyConfig base +
     //    0x4070460, +0xB0 lois ; loi +0x18 nom, +0xE0 effets).
     uintptr_t lois = 0; int nl = 0;
-    if (LireTableau(Base() + 0x4070460 + 0xB0, lois, nl))
+    if (LireTableau(Base() + Adr(0x4070460) + 0xB0, lois, nl))
         for (int i = 0; i < nl; ++i) {
             uintptr_t loi = 0;
             if (!SafeRead((void*)(lois + (uintptr_t)i * 8), &loi, 8) || loi <= 0x10000) continue;
@@ -868,7 +868,7 @@ void Releve()
     //    FUN_1416e8570), +0x78 effets, +0x90 resultats.
     {
         uintptr_t reps = 0; int nr = 0;
-        bool ok = LireTableau(Base() + 0x4069880 + 0x130, reps, nr) && nr > 0;
+        bool ok = LireTableau(Base() + Adr(0x4069880) + 0x130, reps, nr) && nr > 0;
         printf("[QUETE] dilemmes : config +4069880, %d repertoire(s)%s\n", nr, ok ? "" : " (ILLISIBLE)");
         static char nomRepDil[80], nomDil[128];
         for (int r = 0; ok && r < nr; ++r) {
@@ -933,7 +933,7 @@ void Releve()
 // FUN_1413abc00). Chaque demarrage est journalise avec l'evenement en cours
 // et, pour les 40 premiers, la pile d'appels (adresses Ghidra) : on voit ainsi
 // les lancements que les donnees ne montrent pas (sequences, code).
-constexpr uintptr_t OFF_DEMARRER_QUETE = 0x16E8570;
+static const uintptr_t OFF_DEMARRER_QUETE = Adr(0x16E8570);
 typedef uintptr_t (*Fonction4_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
 Fonction4_t oDemarrerQuete = nullptr;
 volatile LONG g_nDemarrages = 0;
@@ -944,7 +944,7 @@ volatile LONG g_nDemarrages = 0;
 // effets de loi, et par la file des effets temporises (FUN_14169d890 :
 // "Executing scheduled timed effect...", tableau = TimedEffect + 0x40). Trace
 // du 2026-11-01 : 005 LONDONERS est lancee depuis cette file.
-constexpr uintptr_t OFF_EXECUTER_EFFETS = 0x169AEE0;
+static const uintptr_t OFF_EXECUTER_EFFETS = Adr(0x169AEE0);
 typedef uintptr_t (*Fonction6_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t);
 Fonction6_t oExecuterEffets = nullptr;
 thread_local uintptr_t t_tableaux[16];
@@ -1057,7 +1057,7 @@ void ChercherProprietaire(uintptr_t tab)
     }
     g_ouCherche = "les effets de la loi";
     uintptr_t lois = 0; int nl = 0;
-    if (LireTableau(Base() + 0x4070460 + 0xB0, lois, nl))
+    if (LireTableau(Base() + Adr(0x4070460) + 0xB0, lois, nl))
         for (int i = 0; i < nl && g_nTrouvailles < 6; ++i) {
             uintptr_t loi = 0; char nomLoi[128];
             if (!SafeRead((void*)(lois + (uintptr_t)i * 8), &loi, 8) || loi <= 0x10000) continue;
@@ -1140,8 +1140,8 @@ uintptr_t hkDemarrerQuete(uintptr_t sys, uintptr_t quete, uintptr_t ctx, uintptr
 // Sauvegarde locale mods\ap_quetes_<GameId>.txt (une ligne "Q <GUID>" par
 // check envoye, cumulative) : une quete refaite apres rechargement d'une
 // sauvegarde plus ancienne n'envoie pas deux fois son check.
-constexpr uintptr_t OFF_TERMINER_QUETE  = 0x16D22A0;
-constexpr uintptr_t OFF_INDICE_INSTANCE = 0x16C5EC0;
+static const uintptr_t OFF_TERMINER_QUETE  = Adr(0x16D22A0);
+static const uintptr_t OFF_INDICE_INSTANCE = Adr(0x16C5EC0);
 constexpr int SYS_INSTANCES  = 0x1C0;
 constexpr int INST_PAS       = 0x90;
 constexpr int INST_QUETE     = 0x10;
@@ -1275,6 +1275,8 @@ void ChecksQuetesSautees(const char* nom, const char* scenario)
     }
 }
 
+volatile bool g_revelerRefugies = false;   // fin de 006 : reveler les points de City3
+
 void QueteTerminee(uintptr_t quete, bool succes)
 {
     char nom[128] = "?", scenario[64] = "?";
@@ -1296,6 +1298,11 @@ void QueteTerminee(uintptr_t quete, bool succes)
     // Les quetes sautees d'abord : leurs checks precedent celui de 004.
     ChecksQuetesSautees(info->nom, scenario);
     EnvoyerCheckQuete(info, g, scenario);
+    // Fin de 006 REFUGEES (A New Home, idee de l'auteur du 2026-11-07) : les
+    // points de la carte de "U: Refugees in the City3" sont reveles ici (les
+    // convois AP ne lancent plus cet evenement). Invocation par QuetesPompe.
+    if (strcmp(scenario, "DEFAULT") == 0 && strcmp(info->nom, "[Main Narrative Line] 006 REFUGEES") == 0)
+        g_revelerRefugies = true;
 }
 
 uintptr_t hkTerminerQuete(uintptr_t sys, uintptr_t id, uintptr_t succes, uintptr_t p4)
@@ -1333,8 +1340,165 @@ void QuetesDemanderReleve()
     printf("[QUETE] releve demande : il s'execute sur le thread du jeu (jeu hors pause)\n");
 }
 
+// --- Quetes a objectif "Rescue survivors" d'un site AP (2026-11-04) --------------
+// Un site AP ne contient que son check : ses survivants sont retires
+// (SurveillerSites, scooting.cpp). Une quete dont un objectif
+// FrostpunkRescueSurvivorsQuestObjective (reflexion FUN_1414a88b0 : +0x8C
+// Survivor count, +0x93 Expedition site) vise un tel site ne pourrait plus
+// finir : ex. A New Home, 003 RESCUE SURVIVORS (« Rescue survivors of our
+// Lost Expedition »), dont 004 FIND OTHER CITIES (goulot) depend. Decision de
+// l'auteur : l'objectif est valide sans survivants. La quete est terminee
+// avec succes des que le site est explore et qu'elle est active, par la
+// fonction de FinishQuestEffect (FUN_14168e090) : FUN_1416d2710(systeme des
+// quetes = *(base + 0x408F0E8), quete, succes) ne finit que si la quete est
+// active, et passe par FUN_1416d22a0 (hkTerminerQuete : check envoye).
+// Une quete est terminee quand TOUS ses sites sont explores ; "a|b" = l'un
+// ou l'autre (paires exclusives de Refugees, variante "-dead" incluse).
+// Tables relevees le 2026-11-04 (quetes_par_scenario.xlsx, objectifs
+// RescueSurvivorsQuestObjective ; survivants des sites : sites_contenu.tsv).
+struct QueteSansSurvivants { const char* scenario; const char* quete; const char* sites[3]; };
+const QueteSansSurvivants QUETES_SANS_SURVIVANTS[] = {
+    { "DEFAULT", "[Main Narrative Line] 003 RESCUE SURVIVORS",
+      { "Site_001_Lost_Expedition", nullptr, nullptr } },
+    { "DEFAULT", "[ENDGAME] 002b_Prepare for the storm SURVIVORS",               // Ice Crevasse, Snow Burrows, Deep Hollow
+      { "Site_049_A0", "Site_053_B0", "Site_057_C0" } },
+    { "REFUGEES", "[Refugees] 001 SAVE YOUR PEOPLE",
+      { "[ref]Trail_Bend|[ref]Trail_Bend-dead", "[ref]White_Pass|[ref]White_Pass-dead",
+        "[ref]Black_Spire|[ref]Black_Spire-dead" } },
+};
+
+// Un des sites de 'alternatives' ("a|b") est-il explore ?
+static bool SiteExplore(const char* alternatives)
+{
+    char tmp[128];
+    strcpy_s(tmp, alternatives);
+    char* ctx = nullptr;
+    for (char* s = strtok_s(tmp, "|", &ctx); s; s = strtok_s(nullptr, "|", &ctx))
+        if (ScootingEtatSite(s) > 0) return true;
+    return false;
+}
+static const uintptr_t OFF_SYSTEME_QUETES = Adr(0x408F0E8);   // DAT_14408f0e8
+static const uintptr_t OFF_FINIR_QUETE    = Adr(0x16D2710);   // FUN_1416d2710
+
+static uintptr_t AppelerFinirQuete(uintptr_t sys, uintptr_t quete, bool& ok)
+{
+    ok = true;
+    __try { return ((Fonction4_t)(Base() + OFF_FINIR_QUETE))(sys, quete, 1, 0); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; return 0; }
+}
+
+// Thread du jeu (QuetesPompe), au plus une fois par seconde.
+static void TerminerQuetesSansSurvivants()
+{
+    static DWORD prochain = 0;
+    if (GetTickCount() < prochain) return;
+    prochain = GetTickCount() + 1000;
+    if (!PartiePrete()) return;
+
+    uint64_t gid[2] = {};
+    uintptr_t scnSys = SystemeParId(IdSysteme::Scenario), objScn = 0;
+    if (!scnSys || !SafeRead((void*)(scnSys + 0x110), gid, sizeof(gid)) || (!gid[0] && !gid[1])) return;
+    char scenario[64] = "";
+    if (SafeRead((void*)(scnSys + 0x68), &objScn, 8) && objScn > 0x10000) LireTexte(objScn, scenario, sizeof(scenario));
+
+    // Quetes deja terminees par nous dans cette partie : on n'y revient pas.
+    static uint64_t partie[2] = {};
+    static bool faites[sizeof(QUETES_SANS_SURVIVANTS) / sizeof(QUETES_SANS_SURVIVANTS[0])] = {};
+    if (gid[0] != partie[0] || gid[1] != partie[1]) {
+        partie[0] = gid[0];
+        partie[1] = gid[1];
+        memset(faites, 0, sizeof(faites));
+    }
+
+    uintptr_t sys = 0;
+    if (!SafeRead((void*)(Base() + OFF_SYSTEME_QUETES), &sys, 8) || sys <= 0x10000) return;
+    if (g_nQuetes == 0) RecenserQuetes();
+
+    for (int k = 0; k < (int)(sizeof(QUETES_SANS_SURVIVANTS) / sizeof(QUETES_SANS_SURVIVANTS[0])); ++k) {
+        const QueteSansSurvivants& q = QUETES_SANS_SURVIVANTS[k];
+        if (faites[k] || strcmp(q.scenario, scenario) != 0) continue;
+        bool tous = true;                                       // tous les sites explores ?
+        for (const char* s : q.sites) if (s && !SiteExplore(s)) tous = false;
+        if (!tous) continue;
+        uintptr_t quete = 0;
+        for (int i = 0; i < g_nQuetes; ++i)
+            if (strcmp(g_quetes[i].nom, q.quete) == 0) { quete = g_quetes[i].adr; break; }
+        if (!quete) {
+            printf("[QUETEAP] quete \"%s\" introuvable : objectif sans survivants non valide\n", q.quete);
+            faites[k] = true;
+            continue;
+        }
+        bool ok = false;
+        uintptr_t res = AppelerFinirQuete(sys, quete, ok);
+        if (!ok) {
+            printf("[QUETEAP] EXCEPTION en terminant \"%s\"\n", q.quete);
+            faites[k] = true;
+            continue;
+        }
+        if (res & 0xFF) {
+            faites[k] = true;
+            printf("[QUETEAP] \"%s\" terminee avec succes : site(s) \"%s\" explore(s) (survivants retires)\n",
+                q.quete, q.sites[0]);
+        }
+        // Sinon la quete n'est pas (encore) active : nouvel essai a la seconde suivante.
+    }
+}
+
+static volatile bool g_finQueteDemandee = false;
+static char g_finQueteNom[128] = "";            // vide : premiere quete d'histoire active
+
+void QuetesDemanderFinQueteEnCours() { g_finQueteNom[0] = 0; g_finQueteDemandee = true; }
+
+void QuetesDemanderFinQuete(const char* nom)
+{
+    strncpy_s(g_finQueteNom, nom ? nom : "", _TRUNCATE);
+    g_finQueteDemandee = true;
+}
+
+// Debug F11 : premiere quete d'histoire active du scenario courant terminee
+// avec succes (FUN_1416d2710 ne finit qu'une quete active). Thread du jeu.
+static void TerminerQueteEnCours()
+{
+    g_finQueteDemandee = false;
+    uintptr_t sys = 0, scnSys = SystemeParId(IdSysteme::Scenario), objScn = 0;
+    char scenario[64] = "";
+    if (scnSys && SafeRead((void*)(scnSys + 0x68), &objScn, 8) && objScn > 0x10000) LireTexte(objScn, scenario, sizeof(scenario));
+    if (!SafeRead((void*)(Base() + OFF_SYSTEME_QUETES), &sys, 8) || sys <= 0x10000 || !scenario[0]) {
+        printf("[QUETEAP] F11 : systeme des quetes ou scenario illisible\n");
+        return;
+    }
+    if (g_nQuetes == 0) RecenserQuetes();
+    for (int i = 0; i < g_nQuetes; ++i) {
+        if (g_finQueteNom[0] ? strcmp(g_quetes[i].nom, g_finQueteNom) != 0 : !QueteHistoire(g_quetes[i].guid, scenario))
+            continue;
+        bool ok = false;
+        uintptr_t res = AppelerFinirQuete(sys, g_quetes[i].adr, ok);
+        if (ok && (res & 0xFF)) {
+            printf("[QUETEAP] fin demandee : \"%s\" terminee avec succes\n", g_quetes[i].nom);
+            return;
+        }
+    }
+    printf("[QUETEAP] fin demandee : %s non active dans \"%s\"\n",
+        g_finQueteNom[0] ? g_finQueteNom : "aucune quete d'histoire", scenario);
+}
+
 void QuetesPompe()
 {
+    if (g_finQueteDemandee) TerminerQueteEnCours();
+    if (g_revelerRefugies) {
+        g_revelerRefugies = false;
+        EvenementsInvoquerParNom("U: Refugees in the City3");
+    }
+    TerminerQuetesSansSurvivants();
+    // Releve unique des dilemmes de refugies (2026-11-04, refugies de
+    // l'apres-005 d'A New Home a remplacer par un check) : journal [REFUG].
+#ifndef AP_RELEASE
+    static bool refugiesReleves = false;
+    if (!refugiesReleves && PartiePrete()) {
+        refugiesReleves = true;
+        ReleverDilemmesParNom("Refugee");
+    }
+#endif
     if (!g_releveDemande) return;
     g_releveDemande = false;
     Releve();

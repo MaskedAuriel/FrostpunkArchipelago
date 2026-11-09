@@ -17,9 +17,9 @@
 
 namespace {
 
-constexpr uintptr_t OFF_ECRIRE_SAUVEGARDE = 0x12892F0;   // FUN_1412892f0
-constexpr uintptr_t OFF_LISTER_FICHIERS   = 0x1CDEE60;   // FUN_141cdee60
-constexpr uintptr_t OFF_LIBERER_CHAINE    = 0xE1D180;    // FUN_140e1d180(&chaine)
+static const uintptr_t OFF_ECRIRE_SAUVEGARDE = Adr(0x12892F0);   // FUN_1412892f0
+static const uintptr_t OFF_LISTER_FICHIERS   = Adr(0x1CDEE60);   // FUN_141cdee60
+static const uintptr_t OFF_LIBERER_CHAINE    = Adr(0xE1D180);    // FUN_140e1d180(&chaine)
 constexpr int       MAX_NOM               = 260;
 constexpr int       MAX_LISTE             = 4096;        // garde-fou du tableau
 const char*         FICHIER               = "ap_sauvegardes.txt";

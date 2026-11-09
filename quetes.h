@@ -14,6 +14,14 @@ void QuetesDemanderReleve();
 // Fait aussi le releve des sites d'exploration (ScootingReleverSites).
 void QuetesPompe();
 
+// Debug F11 (2026-11-06) : la prochaine QuetesPompe termine avec succes une
+// quete d'histoire active du scenario courant (known_quests.h). Tout thread.
+void QuetesDemanderFinQueteEnCours();
+
+// La prochaine QuetesPompe termine avec succes la quete 'nom' (nom interne)
+// si elle est active. Tout thread.
+void QuetesDemanderFinQuete(const char* nom);
+
 // Thread du jeu : traduit la cle portee par le qword en 'adrCle' dans la
 // langue du jeu (UTF-8 sur une ligne, non-ASCII en \uXXXX), "-" si vide.
 void TraduireCleJeu(uintptr_t adrCle, char* out, int taille);

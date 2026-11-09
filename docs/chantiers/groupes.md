@@ -792,3 +792,50 @@
   initiale / plafond (150 / 900), `+0x28` `@Resources/Names/Coal`. Le GUID
   était lu 8 octets trop tôt. `EntreeRessource` prend désormais `def + 8`
   (vérifié : GUID + clé `@`). Non testé.
+
+### 2026-11-04 — Groupes AP : malades, pas gravement malades
+
+- **Problème remonté (test grandeur nature)** : les groupes AP arrivent
+  **gravement malades**. Leurs statistiques initiales sont copiées d'un site
+  de la carte (`SitesEntreeSurvivants`, sites_contenu.cpp), ici celles des
+  survivants de Deep Hollow / Ice Crevasse.
+- **Ghidra** : `FrostpunkCitizenInitialStatisticsEntry` (0xA8, réflexion
+  `FUN_141446850`) : `+0x18` Male probability, `+0x50` Families per citizen,
+  `+0x54` Temperature level average, `+0x58` Work safety level average,
+  `+0x7C` **Health level** (lien `FrostpunkCitizenHealthLevel`, défaut
+  « (Max) »), `+0x8C` / `+0x94` Min / Max hope, `+0x9C` Set discontent to
+  average.
+- **Correctif (compilé, déployé, non testé)** : `StatsMalade` choisit dans
+  la collection globale des statistiques (`base + 0x4072140`) une entrée
+  dont le nom contient « sick » / « ill » sans marque de gravité (grav,
+  serious, sever, critic…), de préférence préfixée par la classe ; sinon les
+  statistiques du site restent. Les noms des entrées étant inconnus, la
+  1re fois toutes sont journalisées : `[SCONT] stats <i> "<nom>" : niveau de
+  sante <lien>`, puis `[SCONT] classe "…" : statistiques "…" (malade)
+  retenues` ou `aucune statistique "malade" trouvee`.
+- **Doublons** : aucun dans une même partie. Le journal montre Deep Hollow
+  et Ice Crevasse livrés une fois par partie (GameId `5ABBDF3B…`,
+  `06039B02…`, `BC7B1DE5…`) : un contenu de site est livré dans **chaque
+  partie** de son scénario (option B, 2026-11-03). Les deux groupes se
+  ressemblent : 12 ouvriers + 7 enfants contre 11 ouvriers + 7 enfants.
+- **Relevé (même jour, 17 entrées)** : `Default`, `[Builders] Convicts`,
+  `[Reconquest] Ex-Convicts`, `[Reconquest] Ex-Convicts sick`,
+  `DefaultBuilders`, `Disabled-70%`, `Disabled-10%`, `Winterhome`,
+  `Survivors`, `SurvivorsMaleOnly`, `AutomatonFormForstLand`,
+  **`SurvivorsIll`** (santé `7D9B74C7…`), `SurvivorsGravelyIll` (santé
+  `A942714D…`), `[Reconquest] Eruption`, `LordCraven`, `Effie`, `Phasmid`.
+  Le 1er essai a retenu `[Reconquest] Ex-Convicts sick`, dont la santé est
+  **la même** que `SurvivorsGravelyIll` : faux. Corrigé : `SurvivorsIll`
+  retenue par son nom (compilé, déployé 19:32, non testé). Les groupes déjà
+  partis gardent les statistiques avec lesquelles ils ont été créés.
+- **2026-11-06 (auteur)** : avec `SurvivorsIll` pour tous, **tout** le groupe
+  arrivait malade. Voulu : seuls les gravement malades deviennent malades,
+  les autres gardent leur état. Correctif (compilé, déployé 20:31, non
+  testé) : `StatsSansGravite` ne remplace les statistiques que si leur
+  niveau de santé (`+0x7C`) est celui de `SurvivorsGravelyIll` ; et
+  `SitesEntreeSurvivants(classe, entrée, site)` cherche d'abord le **site
+  d'origine** de l'item (nouvelle table `AP_ITEMS_SITES` de
+  `known_ap_ids.h`, générée ; `GroupeAP::site`) : composant `+0xA8` jusqu'à
+  sa capacité, trésor `+0x70`, aléatoires `+0xD8`. Limite : une entrée par
+  classe (si un site mélange des ouvriers sains et gravement malades, la
+  1re entrée trouvée décide).

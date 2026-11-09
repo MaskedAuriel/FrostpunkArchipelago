@@ -6,14 +6,20 @@
 
 
 
-struct SubDecl { unsigned long off; const wchar_t* fichier; const char* libelle; };
+// Atlas substitues. Reperes par le HASH DE NOM de textures-s3.idx (u32 en
+// tete d'entree, MurmurHash2 du nom en .texture), stable d'une version du jeu
+// a l'autre ; les numeros d'entree (Epic 2680 / 3037 / 1179 / 2350) ne le
+// sont pas (Steam : 2692 / 3055 / 1186 / 2361). Le fichier est choisi par
+// FichierAtlasVersion (Steam : ap_buildings_steam.gz, atlas des batiments
+// different ; les trois autres blobs sont identiques). 2026-11-07.
+struct SubDecl { uint32_t hashNom; unsigned long entreeEpic; const wchar_t* fichier; const char* libelle; };
 static const SubDecl SUBSTITUTIONS[] = {
-    { 2680, L"ap_icons_ressources.gz", "atlas icones ressources" },
-    { 3037, L"ap_buildings.gz", "atlas Batiments recherche" },
-    { 1179, L"ap_icons_recherche.gz", "atlas icones de recherches" },
+    { 0xA26CE979, 2680, L"ap_icons_ressources.gz", "atlas icones ressources" },
+    { 0xB97BA46D, 3037, L"ap_buildings.gz", "atlas Batiments recherche" },
+    { 0x476DCA10, 1179, L"ap_icons_recherche.gz", "atlas icones de recherches" },
     // ui/tiles/icons.texture (UI\Tiles\Icons.dds) : atlas des bulles de
     // dilemme, DXT5 2048 x 2048, 16 x 16 cases de 128 px (2026-10-28).
-    { 2350, L"ap_icons_bulles.gz", "atlas icones des bulles" },
+    { 0x8F231C35, 2350, L"ap_icons_bulles.gz", "atlas icones des bulles" },
 };
 
 struct TechIcons {

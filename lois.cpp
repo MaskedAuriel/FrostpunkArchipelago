@@ -25,9 +25,9 @@
 
 namespace {
 
-constexpr uintptr_t OFF_SOCIETY_CONFIG   = 0x4070460;
-constexpr uintptr_t OFF_SCENARIOS_CONFIG = 0x2C34490;
-constexpr uintptr_t OFF_SYSTEME_LOIS     = 0x408FBD0;
+static const uintptr_t OFF_SOCIETY_CONFIG   = Adr(0x4070460);
+static const uintptr_t OFF_SCENARIOS_CONFIG = Adr(0x2C34490);
+static const uintptr_t OFF_SYSTEME_LOIS     = Adr(0x408FBD0);
 
 constexpr int CFG_CATEGORIES = 0x78;
 constexpr int CFG_LOIS       = 0xB0;
@@ -54,7 +54,7 @@ constexpr int REQ_LIEN       = 0x30;
 constexpr int COMPOSITE_OP   = 0x30;
 constexpr int COMPOSITE_LISTE= 0x38;
 
-constexpr uintptr_t OFF_UNLOCKS_PROPMAN = 0x4082EC0;
+static const uintptr_t OFF_UNLOCKS_PROPMAN = Adr(0x4082EC0);
 constexpr int CFG_UNLOCKS    = 0x78;
 constexpr int UNLOCK_NOM     = 0x00;
 constexpr int UNLOCK_GUID    = 0x08;
@@ -67,7 +67,7 @@ constexpr int LOI_AFFICHAGE  = 0x50;   // "Show requirements" (FrostpunkProgress
 constexpr int SYS_UNLOCKS_ACTIFS = 0x68;
 // Reglage de lois du scenario courant : *( *(base + 0x4062870) + 0xE0 )
 // (cf. FUN_1416ffbe0).
-constexpr uintptr_t OFF_REGLAGE_COURANT = 0x4062870;
+static const uintptr_t OFF_REGLAGE_COURANT = Adr(0x4062870);
 constexpr int REGLAGE_COURANT = 0xE0;
 
 constexpr int SCN_NOM        = 0x00;
@@ -706,8 +706,8 @@ bool LoisNomAffiche(uintptr_t loi, char* out, int taille)
 //     repertoires), +0x248 = reglages d'unlocks (FrostpunkScenarioUnlocksSetup
 //     Entry : +0x08 GUID, +0x18 liens "Starting unlocks").
 namespace {
-constexpr uintptr_t OFF_REPERTOIRES_EVT   = 0x406DDA8;
-constexpr uintptr_t OFF_COLL_DILEMMES     = 0x4069970;
+static const uintptr_t OFF_REPERTOIRES_EVT   = Adr(0x406DDA8);
+static const uintptr_t OFF_COLL_DILEMMES     = Adr(0x4069970);
 constexpr int REP_EVENEMENTS = 0x18;
 constexpr int EVT_EFFETS     = 0x58;
 constexpr int UNLOCKEFFET_LIEN = 0x18;
@@ -1000,7 +1000,7 @@ void DiagUnlocks()
     // (*(base + 0x40935C8)) +0x2128, lu comme un tableau de pointeurs de
     // repertoires (format suppose : verifie par le nom de chaque element).
     uintptr_t sysEvt = 0;
-    SafeRead((void*)(base + 0x40935C8), &sysEvt, 8);
+    SafeRead((void*)(base + Adr(0x40935C8)), &sysEvt, 8);
     uintptr_t actifs = 0; int nActifs = 0;
     if (sysEvt > 0x10000 && LireTableau(sysEvt + 0x2128, actifs, nActifs)) {
         char liste[4096] = {};
@@ -1082,7 +1082,7 @@ void DiagUnlocks()
 //     +0x30 Technology set (lien)
 //   FrostpunkScenarioEntry +0x138 : Technology setups (liens de 0x10, compte +8)
 // Lignes a format fixe, relues par outils\technos_table.py.
-constexpr uintptr_t OFF_TECH_CONFIG = 0x4074430;
+static const uintptr_t OFF_TECH_CONFIG = Adr(0x4074430);
 constexpr int TCFG_CATEGORIES = 0x78;
 constexpr int TCFG_TECHNOS    = 0xB0;
 constexpr int TCFG_ENSEMBLES  = 0x100;

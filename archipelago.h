@@ -97,6 +97,11 @@ int ApSitesLocations(ApSiteLoc* out, int max);
 // 'effectPending' : l'effet de la loi attend l'item de l'arbre.
 void SendLawCheck(const char* tree, int rank, const char* lawName, bool effectPending);
 
+// Refugies de l'apres-005 (A New Home, 2026-11-05) : le groupe 'groupe'
+// (1..3) arrive a la porte (dilemme "[Refugees] Refugees at the door k") :
+// check "A New Home - Refugees Arrival k". Thread du jeu.
+void SendRefugeesCheck(int groupe);
+
 // Rang(s) FIXE(s) du check de la loi 'loi' (nom interne) de l'arbre 'arbre',
 // dans le scenario en cours (AP_LOIS_RANGS de known_ap_ids.h, d'apres
 // outils\lois_table.tsv). Seules les lois exclusives partagent un rang ; une

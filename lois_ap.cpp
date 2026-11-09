@@ -39,13 +39,13 @@
 
 namespace {
 
-constexpr uintptr_t OFF_SIGNER         = 0x16FD350;
-constexpr uintptr_t OFF_EFFETS         = 0x16FDBC0;
-constexpr uintptr_t OFF_SOCIETY_CONFIG = 0x4070460;
-constexpr uintptr_t OFF_SYSTEME_LOIS   = 0x408FBD0;
-constexpr uintptr_t OFF_HORLOGE        = 0x2C32A40;   // *(...) +0xB0 = date courante
+static const uintptr_t OFF_SIGNER         = Adr(0x16FD350);
+static const uintptr_t OFF_EFFETS         = Adr(0x16FDBC0);
+static const uintptr_t OFF_SOCIETY_CONFIG = Adr(0x4070460);
+static const uintptr_t OFF_SYSTEME_LOIS   = Adr(0x408FBD0);
+static const uintptr_t OFF_HORLOGE        = Adr(0x2C32A40);   // *(...) +0xB0 = date courante
 constexpr int       HORLOGE_DATE       = 0xB0;
-constexpr uintptr_t OFF_DATE_DEPART    = 0x293FDE8;   // date des lois du reglage de depart
+static const uintptr_t OFF_DATE_DEPART    = Adr(0x293FDE8);   // date des lois du reglage de depart
 
 constexpr int CFG_LOIS        = 0xB0;
 constexpr int LOI_NOM         = 0x18;
@@ -126,7 +126,7 @@ thread_local bool      t_differe = false;  // ses effets ont ete retenus
 
 typedef uintptr_t(*Fonction4_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
 Fonction4_t oSigner = nullptr, oEffets = nullptr, oEvaluer = nullptr;
-constexpr uintptr_t OFF_EVALUER_PREREQUIS = 0x16A71F0;
+static const uintptr_t OFF_EVALUER_PREREQUIS = Adr(0x16A71F0);
 
 uintptr_t Base() { return (uintptr_t)GetModuleHandleW(NULL); }
 
@@ -432,8 +432,13 @@ int Rang(int i, const Etats& e)
 
 // TEMPORAIRE : type du check (arbre, rang) en attendant le serveur
 // (equivalent de ApChargerTechnosDeTest). Stable d'une session a l'autre.
+// Release (AP_RELEASE, 2026-11-07) : logo Archipelago, sans type invente.
 const char* IconeDuCheckDeTest(const char* arbre, int rang)
 {
+#ifdef AP_RELEASE
+    (void)arbre; (void)rang;
+    return "icon_vanilla";
+#endif
     static const char* const types[] = {
         "icon_vanilla", "icon_filler", "icon_important", "icon_progressive", "icon_trap" };
     uint32_t h = 2166136261u;
@@ -787,11 +792,14 @@ int EnvoyerChecks(int i, const Etats& e, bool differe)
         printf("[LOIAP]   \"%s\" absente de la table des rangs : rang d'apres les signatures (%d)\n", nom, r);
         for (int k = r; k < r + Poids(i) && nr < 4; ++k) rangs[nr++] = k;
     }
+    // Plus de saut sur le bit local (a.checks, ap_lois_<GameId>) : bug du
+    // 2026-11-04, "Poor Soup Law 1" note envoye localement mais jamais recu
+    // par le serveur. SendLawCheck ne renvoie rien si la session reseau a
+    // deja cette location (DejaFaite) ; sinon le check (re)part.
     int n = 0;
     for (int x = 0; x < nr; ++x) {
         int k = rangs[x];
         if (k < 1 || k > MAX_RANG) continue;
-        if (a.checks >> k & 1) { printf("[LOIAP]   check %s #%d deja envoye\n", a.nom, k); continue; }
         a.checks |= 1ull << k;
         SendLawCheck(a.nom, k, nom, differe);
         ++n;
@@ -982,7 +990,7 @@ uintptr_t hkEvaluerPrerequis(uintptr_t req, uintptr_t ctx, uintptr_t sortie, uin
 // livre : nom, classe, visibilite, alpha, et texture / case de chaque image.
 // Livre (FUN_141bbc320, this) : noeuds en +0x1B0 (compte +0x1B8, pas 0x80) :
 // +0x00 GUID de la loi, +0x10 poignee de l'element du noeud (*poignee).
-constexpr uintptr_t OFF_CONSTRUIRE_LIVRE = 0x1BBC320;
+static const uintptr_t OFF_CONSTRUIRE_LIVRE = Adr(0x1BBC320);
 constexpr int LIVRE_NOEUDS = 0x1B0, NOEUD_PAS = 0x80, NOEUD_POIGNEE = 0x10;
 constexpr int ELEM_NOM = 0x1D8, ELEM_ENFANT = 0x220, ELEM_FRERE = 0x240;
 constexpr int ELEM_COULEUR = 0x120, ELEM_DRAPEAUX = 0x270;
@@ -1055,15 +1063,15 @@ typedef uintptr_t(*PoserTuileEnfant_t)(uintptr_t, uintptr_t, uintptr_t, uint32_t
 typedef void(*Montrer_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
 typedef void(*PoserCouleur_t)(uintptr_t, const float*);
 typedef void(*PoserTaille_t)(uintptr_t, float, float);   // FUN_14102b170 : +0x210 / +0x214
-constexpr uintptr_t OFF_POSER_TAILLE = 0x102B170;
+static const uintptr_t OFF_POSER_TAILLE = Adr(0x102B170);
 typedef void(*PoserPosition_t)(uintptr_t, const float*);   // FUN_14102a3e0 : translation (x, y, z, w), en file
-constexpr uintptr_t OFF_POSER_POSITION = 0x102A3E0;
+static const uintptr_t OFF_POSER_POSITION = Adr(0x102A3E0);
 constexpr int ELEM_TAILLE = 0x210, ELEM_TRANSLATION = 0x80;
 constexpr float ICONE_REDUCTION = 3.f;
 // 4e test : -4 trop haut (0 etait un chouilla trop bas).
 constexpr float ICONE_DECALAGE_Y = -2.f;   // unites d'interface ; negatif = vers le haut
-constexpr uintptr_t OFF_NOM_CONSTRUIRE = 0xE4FA20, OFF_NOM_DETRUIRE = 0xE4EAB0;
-constexpr uintptr_t OFF_POSER_TUILE_ENFANT = 0x10260C0, OFF_MONTRER = 0x105AC90, OFF_POSER_COULEUR = 0x10297F0;
+static const uintptr_t OFF_NOM_CONSTRUIRE = Adr(0xE4FA20), OFF_NOM_DETRUIRE = Adr(0xE4EAB0);
+static const uintptr_t OFF_POSER_TUILE_ENFANT = Adr(0x10260C0), OFF_MONTRER = Adr(0x105AC90), OFF_POSER_COULEUR = Adr(0x10297F0);
 const char* const IMAGE_NOEUD = "circle_inside";
 
 // Geometrie d'origine d'une image de noeud, relevee sur la 1re rencontree
@@ -1079,15 +1087,15 @@ uintptr_t g_modeleInside[2] = {};   // recette (+0x1E8), ressource (+0x1F0) de "
 
 typedef uintptr_t(*Instancier_t)(uintptr_t recette, uintptr_t ressource, uint32_t drapeaux, uintptr_t ctx);
 typedef void(*AjouterEnfant_t)(uintptr_t parent, uintptr_t enfant);
-constexpr uintptr_t OFF_INSTANCIER = 0x110C780, OFF_CTX_INSTANCIER = 0x2BE0438, OFF_AJOUTER_ENFANT = 0x1023D70;
+static const uintptr_t OFF_INSTANCIER = Adr(0x110C780), OFF_CTX_INSTANCIER = Adr(0x2BE0438), OFF_AJOUTER_ENFANT = Adr(0x1023D70);
 constexpr int ELEM_RECETTE = 0x1E8, ELEM_RESSOURCE = 0x1F0;
 // Pose directe d'une tuile sur une image (corps de FUN_1410260c0, sans la
 // recherche par nom) : FUN_141107140(image, texture, 0, 0) puis
 // FUN_141107360(image, x, y, nx, ny, &DAT_142929200, &DAT_142a12d90, &octet nul).
 typedef void(*PoserTexture_t)(uintptr_t, uintptr_t, uintptr_t, uint32_t);
 typedef void(*PoserCase_t)(uintptr_t, uint32_t, uint32_t, uint32_t, uint32_t, uintptr_t, uintptr_t, uint8_t*);
-constexpr uintptr_t OFF_POSER_TEXTURE = 0x1107140, OFF_POSER_CASE = 0x1107360;
-constexpr uintptr_t OFF_CASE_ARG6 = 0x2929200, OFF_CASE_ARG7 = 0x2A12D90;
+static const uintptr_t OFF_POSER_TEXTURE = Adr(0x1107140), OFF_POSER_CASE = Adr(0x1107360);
+static const uintptr_t OFF_CASE_ARG6 = Adr(0x2929200), OFF_CASE_ARG7 = Adr(0x2A12D90);
 
 void PoserTuileSur(uintptr_t image, const TechIcons* ic)
 {
@@ -1357,7 +1365,7 @@ const TechIcons* IconeDePaire(int i, const Etats& e)
 // demi-ronds d'une paire. Pose en texte brut (FUN_14111bef0) sur l'enfant
 // "TECH_NAME" du noeud, apres la construction du livre.
 typedef void(*PoserTexteBrut_t)(uintptr_t texte, const wchar_t* chaine, uintptr_t cfg, uintptr_t p4);
-constexpr uintptr_t OFF_POSER_TEXTE_BRUT = 0x111BEF0, OFF_FORMAT_TEXTE_BRUT = 0x2BFD628;
+static const uintptr_t OFF_POSER_TEXTE_BRUT = Adr(0x111BEF0), OFF_FORMAT_TEXTE_BRUT = Adr(0x2BFD628);
 
 // Reseau (bug du 2026-11-04) : le nom du check = l'item place sur la location
 // (scout, ApScoutLoi) de SON rang fixe (RangAffiche, 2026-11-04 : signee ou
@@ -1444,7 +1452,7 @@ void EffacerNomLoi(uintptr_t elem)
 // texte `loi +0x68`) sur TECH_NAME_TEXT (poignee livre +0x130) par
 // FUN_14111bef0. Apres l'original, meme nom que sur le noeud : le check, si
 // la loi est encore accessible.
-constexpr uintptr_t OFF_INFO_LOI = 0x1BC1440;
+static const uintptr_t OFF_INFO_LOI = Adr(0x1BC1440);
 constexpr int LIVRE_SELECTION = 0x1C8, LIVRE_NOM_INFO = 0x130;
 Fonction4_t oInfoLoi = nullptr;
 

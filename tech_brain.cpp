@@ -4,6 +4,7 @@
 #include "known_techs.h"
 #include "scenario.h"
 #include "archipelago.h"
+#include "hooks_research.h"   // TechAppliquerEffets
 #include <cstdlib>
 
 bool g_showApInfo = true;
@@ -72,12 +73,22 @@ void OnResearchComplete(uint64_t hash)
     AP_SendCheck(hash);
 }
 
+// Reception d'une techno (thread du jeu, ApItemsPompe). Bug du 2026-11-04 :
+// l'etat 2 ecrit directement debloquait les batiments mais pas les effets
+// (ex. ScoutsLimit recue : pas de 2e equipe d'eclaireurs). Une techno pas
+// encore recherchee recoit donc ses effets par AddResearchedTechnology
+// (TechAppliquerEffets) ; deja recherchee, ses effets ont ete appliques par
+// la recherche : seul l'etat 2 est pose.
 void OnItemReceived(uint64_t hash)
 {
     TechRuntime* r = RT_Get(hash);
     if (!r) return;
     r->received = true;
-    SyncGameState(r);          // -> etat 2, effet applique
+    if (!r->researched && TechAppliquerEffets(hash)) {
+        printf("[AP] techno %s recue : effets appliques\n", NameOfHash(hash));
+        return;
+    }
+    SyncGameState(r);          // -> etat 2
 }
 
 void ReceiveAll()

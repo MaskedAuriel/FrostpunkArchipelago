@@ -25,6 +25,7 @@
 #include "resources.h"   // Res_Definition (cases de l'inventaire)
 #include "scooting.h"    // ScootingExpeditionAffichee (infobulle de l'item AP)
 #include "sites_contenu.h"  // SitesEntreeSurvivants (survivants par classe)
+#include "quetes.h"         // QuetesDemanderFinQuete (refugies de 006)
 #include <cmath>
 #include <cstring>
 
@@ -33,8 +34,8 @@ namespace {
 typedef uintptr_t(*CreerEntite_t)(uintptr_t gestionnaire, uintptr_t tpl,
     uintptr_t parent, const void* transform, uint32_t drapeaux);
 
-constexpr uintptr_t OFF_CREER_ENTITE   = 0x1016250;
-constexpr uintptr_t OFF_GESTIONNAIRE   = 0x2B2DE98;
+static const uintptr_t OFF_CREER_ENTITE   = Adr(0x1016250);
+static const uintptr_t OFF_GESTIONNAIRE   = Adr(0x2B2DE98);
 constexpr int       ENT_TEMPLATE       = 0x28;
 constexpr int       ENT_PARENT         = 0x40;
 constexpr int       ENT_NOM            = 0x48;
@@ -57,9 +58,9 @@ volatile long g_creationsDemandees = 0;
 typedef uintptr_t(*ChercherStub_t)(uintptr_t pool, const char* chemin, uintptr_t p3);
 typedef uintptr_t(*ObtenirTemplate_t)(uintptr_t stub, uintptr_t p2);
 
-constexpr uintptr_t OFF_POOL_TEMPLATES   = 0x2B2E710;
-constexpr uintptr_t OFF_CHERCHER_STUB    = 0x1035DD0;
-constexpr uintptr_t OFF_OBTENIR_TEMPLATE = 0x111D100;
+static const uintptr_t OFF_POOL_TEMPLATES   = Adr(0x2B2E710);
+static const uintptr_t OFF_CHERCHER_STUB    = Adr(0x1035DD0);
+static const uintptr_t OFF_OBTENIR_TEMPLATE = Adr(0x111D100);
 constexpr int       POOL_RACINE          = 0x28;
 constexpr int       REP_SOUSREPS         = 0x10;
 constexpr int       REP_STUBS            = 0x28;
@@ -315,11 +316,11 @@ uintptr_t AppelerCreer(uintptr_t gestionnaire, uintptr_t tpl, uintptr_t parent, 
 typedef void(*ComposantAjoute_t)(uintptr_t sys, uintptr_t entite, uintptr_t comp, uintptr_t p4);
 typedef uintptr_t(*MouvementDe_t)(uintptr_t sysMouvement, uintptr_t entite);
 
-constexpr uintptr_t OFF_COMPOSANT_AJOUTE   = 0x18B1CC0;
-constexpr uintptr_t OFF_MOUVEMENT_DE       = 0x1884960;
-constexpr uintptr_t OFF_SYS_MOUVEMENT      = 0x409AC18;
-constexpr uintptr_t OFF_HORLOGE            = 0x2C32A40;
-constexpr uintptr_t OFF_SECONDES_PAR_HEURE = 0x2C38FF0;
+static const uintptr_t OFF_COMPOSANT_AJOUTE   = Adr(0x18B1CC0);
+static const uintptr_t OFF_MOUVEMENT_DE       = Adr(0x1884960);
+static const uintptr_t OFF_SYS_MOUVEMENT      = Adr(0x409AC18);
+static const uintptr_t OFF_HORLOGE            = Adr(0x2C32A40);
+static const uintptr_t OFF_SECONDES_PAR_HEURE = Adr(0x2C38FF0);
 constexpr int       HORLOGE_DATE           = 0xB0;
 constexpr double    TICKS_PAR_SECONDE      = 2147483648.0;
 constexpr int       TAILLE_TPL_GROUPE      = 0x140;
@@ -343,7 +344,7 @@ constexpr int       TPL_ICONE              = 0x70;    // Icon : 2 variantes de U
 constexpr int       TPL_IMAGE              = 0xA0;
 constexpr int       TAILLE_TUILE_GRP       = 0x18;
 constexpr int       TPL_SURVIVANTS         = 0x28;    // Dynarray<SurvivorsEntry> : ptr, +8 compte, +0xC capacite
-constexpr uintptr_t OFF_GROUPE_ARRIVE      = 0x18B2870;
+static const uintptr_t OFF_GROUPE_ARRIVE      = Adr(0x18B2870);
 constexpr int       CT_ELEMENTS            = 0x120;   // CompoundTemplate : elements, compte +0x128, pas 0xA0
 constexpr int       CT_PAS_ELEMENT         = 0xA0;
 
@@ -668,12 +669,12 @@ typedef uintptr_t  (*IconeDuGroupe_t)(uintptr_t comp);
 typedef int        (*TypeComposantCarte_t)();
 typedef void       (*ChaineRef_t)(uintptr_t* chaine);
 typedef void       (*CopierNomTexture_t)(uintptr_t dest, uintptr_t src);
-constexpr uintptr_t OFF_NOM_DU_GROUPE     = 0x1A0F1C0;
-constexpr uintptr_t OFF_ICONE_DU_GROUPE   = 0x1A0F2A0;
-constexpr uintptr_t OFF_TYPE_CARTE        = 0x12EC200;
-constexpr uintptr_t OFF_CHAINE_PLUS       = 0x0E1CE20;
-constexpr uintptr_t OFF_CHAINE_MOINS      = 0x0E1D180;
-constexpr uintptr_t OFF_COPIER_TEXTURE    = 0x0E4F9A0;
+static const uintptr_t OFF_NOM_DU_GROUPE     = Adr(0x1A0F1C0);
+static const uintptr_t OFF_ICONE_DU_GROUPE   = Adr(0x1A0F2A0);
+static const uintptr_t OFF_TYPE_CARTE        = Adr(0x12EC200);
+static const uintptr_t OFF_CHAINE_PLUS       = Adr(0x0E1CE20);
+static const uintptr_t OFF_CHAINE_MOINS      = Adr(0x0E1D180);
+static const uintptr_t OFF_COPIER_TEXTURE    = Adr(0x0E4F9A0);
 constexpr int       ENT_COMPOSANTS        = 0x2A0;
 constexpr int       CARTE_NOM             = 0x30;
 constexpr int       CARTE_ICONE           = 0x40;
@@ -785,6 +786,50 @@ void hkGroupeArrive(uintptr_t sys, uintptr_t entite, uintptr_t p3, uintptr_t p4)
     int slot = -1;
     for (int i = 0; i < MAX_GROUPES_AP && slot < 0; ++i)
         if (g_groupes[i].actif && !g_groupes[i].arrive && g_groupes[i].entite == entite) slot = i;
+    // Releve (2026-11-05, refugies de l'apres-005) : composition d'un groupe
+    // DU JEU qui arrive, avant que l'original ne vide son contenu (comp +0x48 :
+    // SurvivorsEntry de 0x24, +0 Count, +4 classe sociale ; compte +0x50).
+    int vagueRefugies = 0;                   // 1..3 : groupe StoryModeRefugeesK
+    if (slot < 0) {
+        char ctx[256] = "";
+        DecrireEntiteContexte(entite, ctx, sizeof(ctx));
+        printf("[GRP] groupe du jeu arrive en ville : %s\n", ctx);
+        const char* sm = strstr(ctx, "StoryModeRefugees");
+        if (sm && sm[17] >= '1' && sm[17] <= '3') vagueRefugies = sm[17] - '0';
+        uintptr_t comp = 0;
+        static uintptr_t comps[64];
+        int n = ComposantsDuSysteme(0x6D /* SurvivorGroup (CLAUDE.md, section 8) */,
+                                    "FrostpunkSurvivorGroupComponent", comps, 64);
+        for (int i = 0; i < n && !comp; ++i) {
+            uintptr_t e = 0;                                   // composant +0x18 = entite proprietaire
+            if (SafeRead((void*)(comps[i] + 0x18), &e, 8) && e == entite) comp = comps[i];
+        }
+        uintptr_t tab = 0;
+        int32_t nb = 0;
+        if (comp && SafeRead((void*)(comp + COMP_CONTENU), &tab, 8) && SafeRead((void*)(comp + COMP_CONTENU + 8), &nb, 4) &&
+            tab > 0x10000 && nb > 0 && nb <= 16) {
+            for (int i = 0; i < nb; ++i) {
+                int32_t compte = 0;
+                uint8_t cls[16] = {};
+                SafeRead((void*)(tab + (uintptr_t)i * ENTREE_SURVIVANTS), &compte, 4);
+                SafeRead((void*)(tab + (uintptr_t)i * ENTREE_SURVIVANTS + 4), cls, 16);
+                printf("[GRP]   entree %d : %d survivant(s), classe sociale", i, compte);
+                for (int b = 0; b < 16; ++b) printf(" %02X", cls[b]);
+                printf("\n");
+            }
+        }
+        else printf("[GRP]   contenu illisible (composant 0x%llX, %d entree(s))\n", (unsigned long long)comp, nb);
+        // Refugies de l'apres-005 (2026-11-07, demande de l'auteur) : leurs gens
+        // sont des items AP ("Refugees (Group k)") ; le groupe du jeu arrive
+        // VIDE (compte du contenu a 0 : l'original ne cree aucun citoyen).
+        if (vagueRefugies && comp) {
+            int32_t zero = 0;
+            SafeWrite((void*)(comp + COMP_CONTENU + 8), &zero, 4);
+            printf("[GRP]   refugies du groupe %d retires (items AP)\n", vagueRefugies);
+            EvenementsBullePorteCreee(true);
+        }
+    }
+    if (slot >= 0) EvenementsArriveeConvoiAP(true);
     if (slot >= 0) {
         JournalImmediat("[GRP] groupe Archipelago slot %d : arrivee en ville ...\n", slot);
         // La bulle de l'arrivee est un evenement du jeu dont le contexte est
@@ -813,6 +858,17 @@ void hkGroupeArrive(uintptr_t sys, uintptr_t entite, uintptr_t p3, uintptr_t p4)
             (unsigned long long)orig, (unsigned long long)dilemme);
     }
     g_origGroupeArrive(sys, entite, p3, p4);
+    if (slot >= 0) EvenementsArriveeConvoiAP(false);
+    // Groupe de refugies vide : si le jeu n'a pas ouvert la bulle de la porte
+    // (elle porte le check et fait avancer 006), filet : check envoye ici et,
+    // au 3e groupe, 006 terminee si elle est encore active.
+    if (vagueRefugies) {
+        if (!EvenementsBullePorteCreee(true)) {
+            printf("[GRP]   pas de bulle de la porte pour le groupe %d : check envoye directement\n", vagueRefugies);
+            SendRefugeesCheck(vagueRefugies);
+            if (vagueRefugies == 3) QuetesDemanderFinQuete("[Main Narrative Line] 006 REFUGEES");
+        }
+    }
     if (slot < 0) return;
 
     GroupeSuivi& s = g_groupes[slot];
@@ -911,7 +967,7 @@ bool PreparerSurvivants(const GroupeAP& g)
         for (int i = 0; i < MAX_CLASSES_AP && g.classes[i].classe; ++i) {
             uint8_t* e = tab + n * ENTREE_SURVIVANTS;
             if (g.classes[i].nombre <= 0) continue;
-            if (!SitesEntreeSurvivants(g.classes[i].classe, e)) {
+            if (!SitesEntreeSurvivants(g.classes[i].classe, e, g.site)) {
                 printf("[GRP] classe \"%s\" introuvable : %d survivant(s) reportes\n", g.classes[i].classe, g.classes[i].nombre);
                 orphelins += g.classes[i].nombre;
                 continue;
@@ -1386,8 +1442,8 @@ void RapprocherPremierGroupe()
 typedef void(*DeverrouillerCarte_t)(uintptr_t sys);
 typedef void(*RafraichirCarte_t)(uintptr_t sys, uintptr_t etat);
 
-constexpr uintptr_t OFF_DEVERROUILLER_CARTE = 0x1332CD0;
-constexpr uintptr_t OFF_RAFRAICHIR_CARTE    = 0x1331940;
+static const uintptr_t OFF_DEVERROUILLER_CARTE = Adr(0x1332CD0);
+static const uintptr_t OFF_RAFRAICHIR_CARTE    = Adr(0x1331940);
 constexpr int       CARTE_COMPTEUR_EVT      = 0x21D0;
 constexpr int       CARTE_DEVERROUILLEE     = 0x2281;
 constexpr int       CARTE_NB_BATIMENTS      = 0x2284;
@@ -1433,16 +1489,16 @@ void ForcerAccesCarte(uintptr_t sys, bool deverrouiller, bool releverCompte)
 // fonction que les scouts, juste avant la suppression des restes (nos cases
 // du rafraichissement precedent sont alors reutilisees), ou, s'il n'y a pas
 // de reste, juste avant la finalisation du layout.
-constexpr uintptr_t OFF_UI_CARGAISON       = 0x1C2B6E0;
-constexpr uintptr_t OFF_UI_AJOUTER_CASE    = 0x16B7350;
-constexpr uintptr_t OFF_UI_SUPPRIMER_RESTE = 0x1A31660;
-constexpr uintptr_t OFF_UI_FINALISER       = 0x1A316B0;
-constexpr uintptr_t OFF_UI_PREMIERE_CASE   = 0x1025CC0;
-constexpr uintptr_t OFF_UI_SUPPORT         = 0x408EC18;   // DAT_14408ec18 (valeur)
-constexpr uintptr_t OFF_UI_NOM_CASE        = 0x40AF6F0;   // DAT_1440af6f0 (adresse)
-constexpr uintptr_t OFF_UI_PRESET_CASE     = 0x2A22E20;   // DAT_142a22e20 (adresse)
-constexpr uintptr_t OFF_TEXTE_DEPUIS_CLE   = 0x1CE67F0;
-constexpr uintptr_t OFF_TEXTE_LIBERER      = 0x0E1D180;
+static const uintptr_t OFF_UI_CARGAISON       = Adr(0x1C2B6E0);
+static const uintptr_t OFF_UI_AJOUTER_CASE    = Adr(0x16B7350);
+static const uintptr_t OFF_UI_SUPPRIMER_RESTE = Adr(0x1A31660);
+static const uintptr_t OFF_UI_FINALISER       = Adr(0x1A316B0);
+static const uintptr_t OFF_UI_PREMIERE_CASE   = Adr(0x1025CC0);
+static const uintptr_t OFF_UI_SUPPORT         = Adr(0x408EC18);   // DAT_14408ec18 (valeur)
+static const uintptr_t OFF_UI_NOM_CASE        = Adr(0x40AF6F0);   // DAT_1440af6f0 (adresse)
+static const uintptr_t OFF_UI_PRESET_CASE     = Adr(0x2A22E20);   // DAT_142a22e20 (adresse)
+static const uintptr_t OFF_TEXTE_DEPUIS_CLE   = Adr(0x1CE67F0);
+static const uintptr_t OFF_TEXTE_LIBERER      = Adr(0x0E1D180);
 constexpr int       CTRL_EXPEDITION        = 0x290;   // poignee de l'expedition (scout)
 constexpr int       CTRL_GROUPE            = 0x2A8;
 constexpr int       CTRL_LAYOUTS           = 0x310;
@@ -1483,7 +1539,7 @@ struct RafraichissementAP {
 // resout l'entree par son GUID dans la collection des ressources
 // (FUN_1413ebe70 = &DAT_14406ad18, methode +0x88(collection, &guid)).
 // Verifie : cle du nom commencant par '@'. 0 sinon.
-constexpr uintptr_t OFF_COLLECTION_RESSOURCES = 0x406AD18;
+static const uintptr_t OFF_COLLECTION_RESSOURCES = Adr(0x406AD18);
 typedef uintptr_t(*EntreeParGuid_t)(uintptr_t collection, const void* guid);
 
 // Vraie entree : meme GUID en +0x08 et cle du nom (+0x28) commencant par '@'.

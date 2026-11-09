@@ -1135,3 +1135,124 @@ d'ouverture de l'arbre**, condition des lois. Lignes finales `# exclues`.
   journal « aucune location AP », ni envoi ni message. Compilé, déployé.
 - Tests (0.6.8) : banc 5 × 5 et 70 générations solo OK ; `frostpunk.apworld`
   reconstruit.
+
+### 2026-11-04 — Retours du test grandeur nature à plusieurs (1re série)
+
+Liste de l'auteur, état après cette série (compilé, déployé 23:08, non
+testé ; apworld régénéré, testé 0.6.8, `frostpunk.apworld` reconstruit) :
+- **Inventaire du scout limité à 8** : le 9e check (Tesla City) était
+  **perdu** (`exp 0 : file pleine`). `MAX_EN_ATTENTE` = 64 (scooting.cpp).
+  Crash à la sélection de ce scout après rechargement : peut-être lié, à
+  revoir s'il se reproduit.
+- **Livraisons dans le désordre** (« le premier check de ressource reçu est
+  envoyé en dernier si je relance une partie ») : `ApItemsPompe` livrait
+  dans l'ordre de `AP_ITEMS`. Désormais dans l'**ordre des réceptions**
+  (`g_ordreRecus`, lignes de `ap_items_recus.txt`).
+- **Noms des checks de quête** (« A New Home - Food » pas clair) :
+  `<Scénario> - Quest: <nom>` ; sous-quêtes de la tempête nommées
+  `Prepare For The Storm - Food / Survivors / Outposts / Cold`
+  (`NOMS_QUETES`, `titre_quete` : plus de « Children'S »). Ids inchangés.
+  Constat : la quête FOOD a **échoué** (`FIN … : echec`) ; seul un succès
+  envoie le check.
+- **Technos / lois faites dans une partie précédente** : icône « fait »
+  (`ApIconeDuCheck` → `icon_done` si `ReseauLocationFaite`), toujours
+  recherchables / signables, sans renvoi ni message (`DejaFaite` dans
+  `SendResearchCheck`, `SendLocationCheck`, `SendLawCheck`). La session
+  réseau connaît aussi les locations cochées du serveur (`Connected`,
+  `RoomUpdate`).
+- **« Poor Soup Law 1 » jamais reçue** : bloquée par le bit local
+  `ap_lois_<GameId>` (`check … deja envoye`) sans que le serveur l'ait.
+  `EnvoyerChecks` ne saute plus sur ce bit : la session réseau décide.
+- Déjà faits : quêtes « Rescue survivors », groupes malades (`SurvivorsIll`
+  pour **tout** le groupe : c'est voulu, une entrée par classe).
+- **Restent** : réfugiés de l'après-005 remplacés par un check (relevé du
+  mécanisme à faire), popups de check en double, plusieurs équipes
+  d'éclaireurs, événement visuel du premier groupe, cérémonie funéraire
+  sans cimetière.
+
+### 2026-11-04 — Réfugiés de l'après-005 (A New Home) : relevé du mécanisme
+
+- **Demande de l'auteur** : remplacer l'arrivée des réfugiés de l'après-005
+  par un check, et mettre ces réfugiés dans le pool d'items.
+- **Journal du test** : la quête `[Main Narrative Line] 006 REFUGEES`
+  (objectif `CustomQuestObjective` « Resolve the situation with the
+  incoming refugees ») démarre après `[Refugees] S: First info` ; les
+  vagues sont des **dilemmes** `[Refugees] Refugees at the door 1`, `2`,
+  `3` (bulles du jeu), puis 006 réussit. Vu aussi : à chaque arrivée d'un
+  convoi AP (`SurvivorsFromExpeditionSite`), le jeu lance `U: Refugees in the
+  City1/2/3` (dilemmes, révélation de points de la carte),
+  `S: Survivors - main scenario first group`, `S: Survivors - universal`,
+  `S: Heal Incomers (if Cold Resistance)`.
+- **Relevé ajouté (compilé, déployé 23:28)** : `ReleverDilemmesParNom`
+  (evenements.cpp), appelé une fois par `QuetesPompe` dès qu'une partie est
+  prête : chaque dilemme dont le nom contient « Refugee » (textes, choix,
+  effets initiaux / si ignoré / de chaque choix, dwords bruts des effets
+  pour les nombres), journal `[REFUG]`.
+- **Relevé `[REFUG]` (2026-11-05, 11 dilemmes)** : `[Refugees] S: First
+  info` (choix Help / Caution → `StartQuestEffect`) ; `[Refugees] Refugees
+  at the door 1/2/3` (choix « Welcome them », « Only healthy ones », « Go
+  away ») : contexte = **survivants secourus** (`RescuedSurvivorsSelector`),
+  c'est-à-dire un **groupe de réfugiés arrivé en ville** ; chaque choix fait
+  progresser l'objectif personnalisé « Refugees » de 006
+  (`ProgressCustomQuestObjectiveEffect`) ; « Only healthy ones » et « Go
+  away » renvoient une partie / tout le groupe (`SelectEffect` sur les
+  survivants). `[Refugees]M: Haven't saved enough` = défaite
+  (`EndGameEffect`). Les dilemmes de la porte sont lancés par les événements
+  `U: Refugees in the City1/2/3` à l'arrivée d'un groupe
+  `SurvivorsFromExpeditionSite` (ceux-là mêmes qui partent aussi à
+  l'arrivée de nos convois AP). Effectifs des groupes : pas dans les
+  dilemmes (groupes créés ailleurs).
+- **Conception validée par l'auteur (2026-11-05) et 1re étape (compilé,
+  déployé 19:55, apworld testé 0.6.8 et reconstruit, non testé en jeu)** :
+  - apworld : `REFUGIES` (generer.py) → 3 locations `A New Home - Refugees
+    Arrival 1..3` (plage 6, ids 7747600001..3, genre `refugies`, région 2 =
+    celle de 006) et 3 items `A New Home - Refugees (Group 1..3)` (contenu de
+    site, `useful`, livrés par convoi). **Contenu provisoire** (10 ouvriers +
+    4 enfants chacun) : le mod lit la composition dans `known_ap_ids.h`, une
+    régénération suffira une fois les vrais effectifs relevés.
+    `ApLocGenre::Refugies` ajouté. 865 locations, 409 items.
+  - mod : `hkCreerDilemme` → `SendRefugeesCheck(k)` à la création de
+    `[Refugees] Refugees at the door k` (= arrivée du groupe k).
+  - relevé : `hkGroupeArrive` journalise la composition de tout groupe **du
+    jeu** qui arrive (`[GRP] groupe du jeu arrive en ville : …`, une ligne
+    par entrée : nombre, GUID de classe).
+  - **Reste** : retirer les réfugiés du jeu (vider le contenu du groupe à
+    son arrivée), une fois vérifié en jeu que la bulle — et donc 006 — part
+    encore avec un groupe vide ; fixer les effectifs des items ; empêcher
+    que nos convois déclenchent `U: Refugees in the City` et le 1er groupe.
+- **Relevé des 3 groupes (2026-11-07, journal `[GRP] groupe du jeu`)** :
+  `StoryModeRefugees1` = 27 ouvriers, 21 spécialistes (classe `61F13397`,
+  présumée), 22 enfants (6 entrées : plusieurs états de santé par classe) ;
+  `StoryModeRefugees2` = 42 ouvriers, 28 enfants ; `StoryModeRefugees3` = 38
+  ouvriers, 22 spécialistes. Checks `Refugees Arrival 1..3` bien envoyés à
+  chaque bulle de la porte, puis 006 réussie.
+- **2e étape (compilé, déployé 09:32 / 09:34, non testé)** :
+  - `REFUGIES` = effectifs réels (`known_ap_ids.h` régénéré, ids inchangés).
+  - groupe `StoryModeRefugeesK` du jeu : contenu vidé à l'arrivée (aucun
+    citoyen), check envoyé ; bulle de la porte **résolue aussitôt** (choix
+    0 « Welcome them », file `DilemmesResoudreEnAttente` dans
+    `DilemmesPompe`) : seul l'objectif de 006 avance. Filet : sans bulle,
+    check envoyé quand même et, au 3e groupe, 006 terminée
+    (`QuetesDemanderFinQuete`).
+  - convoi AP : événements `U: Refugees in the City1/2/3` et `S: Survivors -
+    main scenario first group` ignorés ; toute bulle du jeu créée pendant
+    l'arrivée d'un convoi AP refusée (ex. `[Automatons]S: First Automaton`
+    du convoi de Bridge to Winterhome).
+  - nom du convoi (carte, message « Item received ») = son **contenu**
+    (« 12 workers, 7 children »), plus le nom du site.
+- **Corrigé le même jour** : le saut de `U: Refugees in the City1/2/3` pour
+  les convois AP est **annulé** (City3 révèle des points de la carte ; les
+  sites AP n'envoyant plus de survivants, ce sont les convois qui les
+  déclenchent : sans eux, des sites — donc des checks — pourraient ne jamais
+  apparaître). Seuls leurs bulles (refusées pendant l'arrivée d'un convoi) et
+  `S: Survivors - main scenario first group` restent supprimés. Déployé
+  09:36.
+- **Idée de l'auteur (même jour), appliquée (compilé, déployé 09:52, non
+  testé)** : les points de `U: Refugees in the City3` sont révélés à la
+  **fin de 006 REFUGEES** : `QueteTerminee` (quetes.cpp) → `QuetesPompe` →
+  `EvenementsInvoquerParNom("U: Refugees in the City3")` (evenements.cpp :
+  recherche dans les répertoires d'événements `base + 0x406DDA8`, invocation
+  par l'original avec le contexte par défaut, journal `[EVT] "…" invoque par
+  le mod`). Les convois AP ne lancent de nouveau plus `U: Refugees in the
+  City1/2/3`. Cohérent avec l'apworld : les sites « après 006 REFUGEES » sont
+  dans la région qui suit ce goulot.

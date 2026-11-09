@@ -56,11 +56,11 @@
 
 namespace {
 
-constexpr uintptr_t OFF_ENV_CONFIG       = 0x406B4D0;
-constexpr uintptr_t OFF_SCENARIOS_CONFIG = 0x2C34490;
-constexpr uintptr_t OFF_SYSTEME_METEO    = 0x4062D48;
-constexpr uintptr_t OFF_HORLOGE          = 0x2C32A40;   // *(...) + 0xB0 = date courante
-constexpr uintptr_t OFF_SECONDES_HEURE   = 0x2C38FF0;   // int : secondes par heure de jeu
+static const uintptr_t OFF_ENV_CONFIG       = Adr(0x406B4D0);
+static const uintptr_t OFF_SCENARIOS_CONFIG = Adr(0x2C34490);
+static const uintptr_t OFF_SYSTEME_METEO    = Adr(0x4062D48);
+static const uintptr_t OFF_HORLOGE          = Adr(0x2C32A40);   // *(...) + 0xB0 = date courante
+static const uintptr_t OFF_SECONDES_HEURE   = Adr(0x2C38FF0);   // int : secondes par heure de jeu
 
 constexpr int TAILLE_CFG_SCENARIOS = 0x540;
 
@@ -572,7 +572,7 @@ void ReleverPartie()
 }
 
 // --- 7) Montees de temperature Archipelago ------------------------------------
-constexpr uintptr_t OFF_RECALCUL_TEMPERATURE = 0x1812C10;
+static const uintptr_t OFF_RECALCUL_TEMPERATURE = Adr(0x1812C10);
 constexpr int SYS_TEMP_COURANTE    = 0x21A0;
 constexpr int SYS_DATE_CHANGEMENT  = 0x160;    // systeme meteo : LastWeatherChangeTime
 constexpr int MAX_RETIREES         = 256;
@@ -594,6 +594,13 @@ uintptr_t g_sysTemp = 0;
 volatile LONG g_niveauxEnAttente = 0;  // items recus hors thread du jeu
 bool      t_recalculForce = false;     // recalcul demande par le mod (pas un changement de meteo)
 unsigned  g_generationVue = 0;
+// Meteo VANILLA (2026-11-06, demande de l'auteur : "le temps change" a l'ecran
+// lors d'une montee retiree). Une montee retiree n'est plus appliquee du tout
+// au systeme meteo (hkPoserMeteo) : la meteo affichee reste la plus froide, et
+// la meteo que le jeu voulait est gardee ici (et dans la sauvegarde locale,
+// ligne "V"). La temperature = decalage de la meteo vanilla - montees
+// retirees + niveaux recus (hkRecalcul).
+uintptr_t g_meteoVanilla = 0;
 
 uint64_t Maintenant()
 {
@@ -615,8 +622,9 @@ bool CheminSauvegarde(char* out, size_t taille)
     return true;
 }
 
-// mods\ap_temperature_<GameId>.txt : "A <niveaux recus>" et une ligne
-// "M <date hex> <niveaux>" par montee retiree. Reecrit en entier.
+// mods\ap_temperature_<GameId>.txt : "A <niveaux recus>", une ligne
+// "M <date hex> <niveaux>" par montee retiree, et "V <guid a> <guid b>" =
+// meteo vanilla (si elle differe de la meteo affichee). Reecrit en entier.
 void Sauver()
 {
     char chemin[MAX_PATH];
@@ -629,6 +637,9 @@ void Sauver()
     fprintf(f, "A %d\n", g_recus);
     for (int i = 0; i < g_nRetirees; ++i)
         fprintf(f, "M %llX %d\n", (unsigned long long)g_retirees[i].date, g_retirees[i].niveaux);
+    Guid g{};
+    if (g_meteoVanilla > 0x10000 && LireGuid(g_meteoVanilla + 0x08, g))
+        fprintf(f, "V %llX %llX\n", (unsigned long long)g.a, (unsigned long long)g.b);
     fclose(f);
 }
 
@@ -636,17 +647,20 @@ void Charger()
 {
     g_nRetirees = 0;
     g_recus = 0;
+    g_meteoVanilla = 0;
     char chemin[MAX_PATH];
     if (!CheminSauvegarde(chemin, sizeof(chemin))) return;
     FILE* f = nullptr;
     if (fopen_s(&f, chemin, "r") != 0 || !f) return;
     char ligne[128];
     while (fgets(ligne, sizeof(ligne), f)) {
-        unsigned long long d = 0; int n = 0;
+        unsigned long long d = 0, e = 0; int n = 0;
         if (ligne[0] == 'A') sscanf_s(ligne + 1, "%d", &g_recus);
         else if (ligne[0] == 'M' && g_nRetirees < MAX_RETIREES &&
                  sscanf_s(ligne + 1, "%llX %d", &d, &n) == 2)
             g_retirees[g_nRetirees++] = { (uint64_t)d, n };
+        else if (ligne[0] == 'V' && sscanf_s(ligne + 1, "%llX %llX", &d, &e) == 2)
+            g_meteoVanilla = MeteoParGuid(Guid{ (uint64_t)d, (uint64_t)e });
     }
     fclose(f);
 }
@@ -713,8 +727,8 @@ bool MonteeRetiree(uintptr_t avant, uintptr_t apres)
 // temperature (TEMPERATURE_UP / TEMPERATURE_DOWN / STORM, ecart nul : rien),
 // ecouteur 0x141bcb540. Le message "WeatherChangeApproaching" (0x1B) n'est
 // programme (FUN_141680800) que vers une meteo plus froide : rien a faire.
-constexpr uintptr_t OFF_ICONE_FRISE   = 0x1559730;
-constexpr uintptr_t OFF_ICONE_PANNEAU = 0x1BCC1A0;
+static const uintptr_t OFF_ICONE_FRISE   = Adr(0x1559730);
+static const uintptr_t OFF_ICONE_PANNEAU = Adr(0x1BCC1A0);
 typedef uintptr_t (*Fonction5_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t);
 Fonction5_t oIconeFrise = nullptr;
 Fonction4_t oIconePanneau = nullptr;
@@ -754,14 +768,11 @@ uintptr_t hkIconePanneau(uintptr_t panneau, uintptr_t aVenir, uintptr_t p3, uint
     return oIconePanneau(panneau, aVenir, p3, p4);
 }
 
-// Changement de meteo vu par le recalcul : si c'est une montee, elle est
-// retiree (une seule fois par date de changement).
-void NoterChangement(uintptr_t ws)
+// Changement de meteo VANILLA de 'prec' a 'cour' (hkPoserMeteo, 2026-11-06 ;
+// avant : vu par le recalcul sur la meteo du systeme) : si c'est une montee,
+// elle est retiree (une seule fois par date de changement).
+void NoterChangement(uintptr_t prec, uintptr_t cour, uint64_t date)
 {
-    uintptr_t cour = 0, prec = 0; uint64_t date = 0;
-    SafeRead((void*)(ws + SYS_METEO_COURANTE), &cour, 8);
-    SafeRead((void*)(ws + SYS_METEO_PRECEDENTE), &prec, 8);
-    SafeRead((void*)(ws + SYS_DATE_CHANGEMENT), &date, 8);
     if (!cour || !prec) return;                          // meteo de depart
     int32_t dc = 0, dp = 0;
     SafeRead((void*)(cour + MET_DECALAGE), &dc, 4);
@@ -804,9 +815,16 @@ uintptr_t hkRecalcul(uintptr_t sys, uintptr_t p2, uintptr_t p3, uintptr_t p4)
     SafeRead((void*)(Base() + OFF_SYSTEME_METEO), &ws, 8);
     if (ws > 0x10000) SafeRead((void*)(ws + SYS_METEO_COURANTE), &cour, 8);
     if (!AssurerPartie() || !cour) return oRecalcul(sys, p2, p3, p4);
-    if (!t_recalculForce) NoterChangement(ws);
+    // Les montees sont notees par hkPoserMeteo (meteo vanilla). Ici : la
+    // meteo affichee peut etre plus froide que la vanilla (montee non
+    // appliquee) -> l'ecart de leurs decalages est ajoute.
+    if (!g_meteoVanilla) g_meteoVanilla = cour;
 
     int dec = Decalage();
+    int32_t decVanilla = 0, decAffiche = 0;
+    if (g_meteoVanilla != cour && SafeRead((void*)(g_meteoVanilla + MET_DECALAGE), &decVanilla, 4) &&
+        SafeRead((void*)(cour + MET_DECALAGE), &decAffiche, 4))
+        dec += decVanilla - decAffiche;
     int32_t avant = 0, origine = 0;
     SafeRead((void*)(sys + SYS_TEMP_COURANTE), &avant, 4);
     SafeRead((void*)(cour + MET_DECALAGE), &origine, 4);
@@ -847,6 +865,41 @@ void RecalculForce(const char* raison)
     t_recalculForce = false;
 }
 
+// --- Pose de la meteo (decompile du 2026-11-06) --------------------------------
+// FUN_14132f260(systeme meteo, meteo) : si differente de la courante (+0x150),
+// retire les effets visuels (calques SFX) de l'ancienne, pose +0x158 =
+// ancienne, +0x150 = nouvelle, +0x160 = date, applique les visuels de la
+// nouvelle (FUN_14132b790, globaux de rendu) et diffuse "meteo changee"
+// (ecouteurs +0x48 : dont le recalcul de la temperature).
+// Une montee retiree n'est plus posee : on note la meteo vanilla, la montee
+// (NoterChangement), et on force le recalcul ; l'ecran garde la meteo froide.
+// Pendant un chargement (partie pas prete) : laisse au jeu (meteo restauree).
+static const uintptr_t OFF_POSER_METEO = Adr(0x132F260);
+Fonction4_t oPoserMeteo = nullptr;
+
+uintptr_t hkPoserMeteo(uintptr_t ws, uintptr_t nouvelle, uintptr_t p3, uintptr_t p4)
+{
+    uintptr_t affichee = 0;
+    SafeRead((void*)(ws + SYS_METEO_COURANTE), &affichee, 8);
+    if (!nouvelle || nouvelle == affichee || !PartiePrete() || !AssurerPartie())
+        return oPoserMeteo(ws, nouvelle, p3, p4);
+
+    uintptr_t vanillaPrec = g_meteoVanilla ? g_meteoVanilla : affichee;
+    g_meteoVanilla = nouvelle;
+    NoterChangement(vanillaPrec, nouvelle, Maintenant());   // montee vanilla -> retiree
+    Sauver();
+
+    if (affichee && MonteeRetiree(affichee, nouvelle)) {
+        char ma[160], mn[160];
+        DecrireMeteo(affichee, ma, sizeof(ma));
+        DecrireMeteo(nouvelle, mn, sizeof(mn));
+        printf("[TEMPAP] meteo %s non posee (montee retiree) : l'ecran garde %s\n", mn, ma);
+        RecalculForce("meteo vanilla changee");
+        return 0;
+    }
+    return oPoserMeteo(ws, nouvelle, p3, p4);
+}
+
 } // namespace
 
 void InstallHooksTemperature(uintptr_t modBase)
@@ -855,6 +908,7 @@ void InstallHooksTemperature(uintptr_t modBase)
         { OFF_RECALCUL_TEMPERATURE, (void*)&hkRecalcul,     (void**)&oRecalcul,     "recalcul de la temperature" },
         { OFF_ICONE_FRISE,          (void*)&hkIconeFrise,   (void**)&oIconeFrise,   "icone de la frise meteo" },
         { OFF_ICONE_PANNEAU,        (void*)&hkIconePanneau, (void**)&oIconePanneau, "icone du panneau de temperature" },
+        { OFF_POSER_METEO,          (void*)&hkPoserMeteo,   (void**)&oPoserMeteo,   "pose de la meteo (visuels)" },
     };
     for (auto& x : h) {
         void* p = (void*)(modBase + x.off);
@@ -911,6 +965,28 @@ void TemperaturePompe()
     // d'avant des items recus depuis (le fichier local est cumulatif).
     if (g_generationVue != PartieGeneration()) {
         g_generationVue = PartieGeneration();
+        // Meteo vanilla de la partie chargee (la sauvegarde du jeu porte la
+        // meteo AFFICHEE) : derniere entree de la chronologie calculee
+        // (systeme meteo +0x118, {date, meteo} au pas de 0x10) deja passee.
+        uintptr_t ws = 0, tab = 0;
+        int n = 0;
+        SafeRead((void*)(Base() + OFF_SYSTEME_METEO), &ws, 8);
+        if (ws > 0x10000 && LireTableau(ws + SYS_CHRONOLOGIE, tab, n)) {
+            uint64_t t = Maintenant();
+            uintptr_t v = 0;
+            for (int i = 0; i < n; ++i) {
+                uint64_t d = 0; uintptr_t m = 0;
+                if (!SafeRead((void*)(tab + (uintptr_t)i * 0x10), &d, 8) || !SafeRead((void*)(tab + (uintptr_t)i * 0x10 + 8), &m, 8)) break;
+                if (d > t) break;
+                v = m;
+            }
+            if (v > 0x10000) {
+                g_meteoVanilla = v;
+                char mv[160];
+                DecrireMeteo(v, mv, sizeof(mv));
+                printf("[TEMPAP] partie chargee : meteo vanilla %s (chronologie)\n", mv);
+            }
+        }
         RecalculForce("partie chargee");
     }
 

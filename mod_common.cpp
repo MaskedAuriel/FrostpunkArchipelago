@@ -115,8 +115,8 @@ void FindStaticPointersTo(uintptr_t value)
     printf("[PTR] %d emplacement(s)\n", found);
 }
 
-static const uintptr_t TECH_SELF_GLOBALS[] = { 0x2C30A20, 0x4062BA8 };
-static const uintptr_t RES_SELF_GLOBALS[] = { 0x40916D0, 0x2C309E0 };
+static const uintptr_t TECH_SELF_GLOBALS[] = { Adr(0x2C30A20), Adr(0x4062BA8) };
+static const uintptr_t RES_SELF_GLOBALS[] = { Adr(0x40916D0), Adr(0x2C309E0) };
 
 
 
@@ -324,7 +324,7 @@ void DumpVTable(uintptr_t obj, int count)
 void DumpPropertyManager(const char* filtre, int maxEntries)
 {
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL), pm = 0;
-    if (!SafeRead((void*)(base + 0x408B740), &pm, 8) || pm <= 0x10000) {
+    if (!SafeRead((void*)(base + Adr(0x408B740)), &pm, 8) || pm <= 0x10000) {
         printf("[PM] PropertyManager introuvable\n"); return;
     }
 
@@ -362,7 +362,7 @@ void DumpPropertyManager(const char* filtre, int maxEntries)
 void DumpClassProps(const char* className, int lenBytes)
 {
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL), pm = 0;
-    if (!SafeRead((void*)(base + 0x408B740), &pm, 8) || pm <= 0x10000) {
+    if (!SafeRead((void*)(base + Adr(0x408B740)), &pm, 8) || pm <= 0x10000) {
         printf("[PM] PropertyManager introuvable\n"); return;
     }
 
@@ -1193,8 +1193,14 @@ static Substitution* SubPour(unsigned long long pos, size_t* dedans)
 }
 
 
-static unsigned long long OffsetDuBlob(int index)
+// Decalage dans textures-s3.dat du blob dont le hash de nom (u32 en tete
+// d'entree de l'index : en-tete 11 octets, entrees de 29 octets triees par
+// hash, decalage en +20) vaut 'hashNom'. Independant de la version du jeu
+// (2026-11-07 : les numeros d'entree different entre Epic et Steam).
+// 'entree' recoit le numero d'entree trouve (journal). 0 si absent.
+static unsigned long long OffsetDuBlob(uint32_t hashNom, int* entree)
 {
+    *entree = -1;
     wchar_t chemin[MAX_PATH];
     GetModuleFileNameW(NULL, chemin, MAX_PATH);
     for (int i = (int)wcslen(chemin) - 1; i >= 0; --i)
@@ -1204,13 +1210,24 @@ static unsigned long long OffsetDuBlob(int index)
     HANDLE h = CreateFileW(chemin, GENERIC_READ, FILE_SHARE_READ, nullptr,
         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (h == INVALID_HANDLE_VALUE) return 0;
-
-    LARGE_INTEGER pos; pos.QuadPart = 11 + (long long)index * 29 + 20;
-    SetFilePointerEx(h, pos, nullptr, FILE_BEGIN);
-    unsigned long long off = 0; DWORD lus = 0;
-    ReadFile(h, &off, 8, &lus, nullptr);
+    LARGE_INTEGER taille = {};
+    GetFileSizeEx(h, &taille);
+    if (taille.QuadPart < 11 || taille.QuadPart > (64 << 20)) { CloseHandle(h); return 0; }
+    unsigned char* idx = (unsigned char*)malloc((size_t)taille.QuadPart);
+    DWORD lus = 0;
+    BOOL lu = idx && ReadFile(h, idx, (DWORD)taille.QuadPart, &lus, nullptr);
     CloseHandle(h);
-    return (lus == 8) ? off : 0;
+    if (!lu || lus != (DWORD)taille.QuadPart) { free(idx); return 0; }
+
+    unsigned long long off = 0;
+    int n = (int)((lus - 11) / 29);
+    for (int i = 0; i < n; ++i) {
+        const unsigned char* e = idx + 11 + (size_t)i * 29;
+        uint32_t hs; memcpy(&hs, e, 4);
+        if (hs == hashNom) { memcpy(&off, e + 20, 8); *entree = i; break; }
+    }
+    free(idx);
+    return off;
 }
 
 void ChargerSubstitutions()
@@ -1224,9 +1241,20 @@ void ChargerSubstitutions()
 
     int ok = 0;
     for (const auto& s : SUBSTITUTIONS) {
+        int entree = -1;
+        unsigned long long off = OffsetDuBlob(s.hashNom, &entree);
+        if (!off) {
+            printf("[SUB] %s : hash 0x%08X absent de textures-s3.idx (Epic : entree %lu) -- non charge\n",
+                s.libelle, s.hashNom, s.entreeEpic);
+            continue;
+        }
+        const wchar_t* fichier = FichierAtlasVersion(s.fichier);
         wchar_t chemin[MAX_PATH];
-        swprintf_s(chemin, MAX_PATH, L"%smods\\%s", base, s.fichier);
-        if (AjouterSubstitution(OffsetDuBlob(s.off), chemin)) { g_subs[g_nSubs - 1].libelle = s.libelle; ok++; }
+        swprintf_s(chemin, MAX_PATH, L"%smods\\%s", base, fichier);
+        if (AjouterSubstitution(off, chemin)) {
+            g_subs[g_nSubs - 1].libelle = s.libelle; ok++;
+            wprintf(L"[SUB]   entree %d (hash 0x%08X) <- %s\n", entree, s.hashNom, fichier);
+        }
         else printf("[SUB] %s : non charge\n", s.libelle);
     }
     printf("[SUB] %d/%d substitution(s) active(s)\n", ok, (int)(sizeof(SUBSTITUTIONS) / sizeof(SUBSTITUTIONS[0])));
@@ -1411,7 +1439,7 @@ static uintptr_t hkChercherDansArchive(uintptr_t lecteur, uintptr_t sortie, uint
 
 void InstallTraceArchives(uintptr_t modBase)
 {
-    void* c = (void*)(modBase + 0xE51FA0);
+    void* c = (void*)(modBase + Adr(0xE51FA0));
     bool ok = MH_CreateHook(c, (void*)&hkChercherDansArchive, (void**)&oChercherDansArchive) == MH_OK &&
               MH_EnableHook(c) == MH_OK;
     printf("[ARCH] hook recherche dans les archives (+E51FA0) %s\n", ok ? "OK" : "KO");
@@ -1481,9 +1509,9 @@ static uintptr_t hkApresChargementTemps(uintptr_t sys, uintptr_t p2, uintptr_t p
 void InstallTraceChargement(uintptr_t modBase)
 {
     struct { uintptr_t off; void* hk; Fonction4_t* orig; const char* nom; } h[] = {
-        { 0x1265DF0, (void*)&hkLoadGame,             &oLoadGame,             "LoadGame" },
-        { 0x1286840, (void*)&hkLectureSauvegarde,    &oLectureSauvegarde,    "lecture de la sauvegarde" },
-        { 0x126C9F0, (void*)&hkApresChargementTemps, &oApresChargementTemps, "verification apres chargement" },
+        { Adr(0x1265DF0), (void*)&hkLoadGame,             &oLoadGame,             "LoadGame" },
+        { Adr(0x1286840), (void*)&hkLectureSauvegarde,    &oLectureSauvegarde,    "lecture de la sauvegarde" },
+        { Adr(0x126C9F0), (void*)&hkApresChargementTemps, &oApresChargementTemps, "verification apres chargement" },
     };
     for (auto& x : h) {
         void* p = (void*)(modBase + x.off);
@@ -1501,7 +1529,7 @@ bool PartieRechargee()
     static uintptr_t derniereEco = 0, derniereTech = 0;
     uintptr_t modBase = reinterpret_cast<uintptr_t>(GetModuleHandleW(NULL));
     uintptr_t eco = 0, tech = 0;
-    if (!SafeRead((void*)(modBase + 0x40916D0), &eco, 8)) return false;
+    if (!SafeRead((void*)(modBase + Adr(0x40916D0)), &eco, 8)) return false;
     if (eco <= 0x10000) return false;                 // pas encore en partie
     tech = SystemeParId(IdSysteme::Technology);
     if (!tech) return false;                          // chargement en cours
@@ -1982,7 +2010,7 @@ void TrouverDebutFonction(uintptr_t adresse)
 
 void InitAllocateur(uintptr_t modBase)
 {
-    MoteurAlloc = (Alloc_t)(modBase + 0xE27BF0);
+    MoteurAlloc = (Alloc_t)(modBase + Adr(0xE27BF0));
     printf("[ALLOC] allocateur du moteur a Frostpunk.exe+E27BF0\n");
 }
 
@@ -2038,7 +2066,7 @@ uintptr_t PartieSelection()  { return g_partieSelection; }
 bool EconomiePresente()
 {
     uintptr_t base = (uintptr_t)GetModuleHandleW(NULL), eco = 0;
-    if (!SafeRead((void*)(base + 0x40916D0), &eco, 8)) return false;
+    if (!SafeRead((void*)(base + Adr(0x40916D0)), &eco, 8)) return false;
     return eco > 0x10000;
 }
 
@@ -2686,8 +2714,8 @@ static uintptr_t hkCtorGroupe(uintptr_t a, uintptr_t b, uintptr_t c, uintptr_t d
 
 void InstallTraceCreationEntites(uintptr_t modBase)
 {
-    void* p1 = (void*)(modBase + 0x19E9560);
-    void* p2 = (void*)(modBase + 0x1A0EB70);
+    void* p1 = (void*)(modBase + Adr(0x19E9560));
+    void* p2 = (void*)(modBase + Adr(0x1A0EB70));
     if (MH_CreateHook(p1, (void*)&hkCtorExpedition, (void**)&oCtorExpedition) == MH_OK &&
         MH_EnableHook(p1) == MH_OK) printf("[TRACE] hook +19E9560 (expedition) OK\n");
     else printf("[TRACE] hook +19E9560 (expedition) KO\n");

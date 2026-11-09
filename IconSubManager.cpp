@@ -218,8 +218,24 @@ void ApAjouterTechno(uint64_t hash, const char* nomIcone, const char* batiment)
 }
 
 // TEMPORAIRE : quelques technos en dur pour valider la chaine.
+// Release (AP_RELEASE, 2026-11-07) : pas d'icones de test, toutes les technos
+// connues sont inscrites avec le logo Archipelago ("icon_vanilla") comme
+// repli quand le serveur n'a pas (encore) donne de scout.
 void ApChargerTechnosDeTest()
 {
+#ifdef AP_RELEASE
+    for (int g = 0; g < KNOWN_TECH_GROUP_COUNT; ++g) {
+        const TechGroup& grp = KNOWN_TECH_GROUPS[g];
+        for (int i = 0; i < grp.count; ++i) {
+            bool connue = false;
+            for (int k = 0; k < g_nTechnosAP; ++k)
+                if (g_technosAP[k].hash == grp.items[i].hash) { connue = true; break; }
+            if (!connue) ApAjouterTechno(grp.items[i].hash, "icon_vanilla");
+        }
+    }
+    printf("[ICON] %d techno(s) Archipelago chargee(s) (repli : icon_vanilla)\n", g_nTechnosAP);
+    return;
+#endif
     ApAjouterTechno(0x8BC47F368138DA92ULL, "icon_trap");         // Gathering Upgrade
     ApAjouterTechno(0xB69B51DB31F4B001ULL, "icon_vanilla");      // Gathering Insulation
     ApAjouterTechno(0x851032DABCC703AEULL, "icon_progressive");  // Gathering Insulation 2
@@ -288,7 +304,7 @@ static uintptr_t hkCtorGabarit(uintptr_t a, uintptr_t b, uintptr_t c, uintptr_t 
 
 void InstallCaptureGabarits(uintptr_t modBase)
 {
-    void* p = (void*)(modBase + 0x1916F90);
+    void* p = (void*)(modBase + Adr(0x1916F90));
     if (MH_CreateHook(p, (void*)&hkCtorGabarit, (void**)&oCtorGabarit) == MH_OK &&
         MH_EnableHook(p) == MH_OK) printf("[CAPGAB] hook +1916F90 OK\n");
     else printf("[CAPGAB] hook +1916F90 KO\n");
@@ -534,9 +550,9 @@ static PoserCaseUi_t oPoserCaseUi = nullptr;
 static Fonction4Ui_t oBatimentsDebloques = nullptr;
 static thread_local const TechIcons* t_iconeUi = nullptr;
 static thread_local uintptr_t t_techUi = 0;
-constexpr uintptr_t OFF_NOEUD_TECHNO = 0x1BC5810, OFF_RECHERCHE_EN_COURS = 0x1BE67F0,
-                    OFF_PANNEAU_TECHNO = 0x1BB2B60, OFF_POSER_CASE_UI = 0x1BB2D30,
-                    OFF_BATIMENTS_DEBLOQUES = 0x16A83B0, OFF_SYSTEME_TECHNOS_BIS = 0x4062BA8;
+static const uintptr_t OFF_NOEUD_TECHNO = Adr(0x1BC5810), OFF_RECHERCHE_EN_COURS = Adr(0x1BE67F0),
+                    OFF_PANNEAU_TECHNO = Adr(0x1BB2B60), OFF_POSER_CASE_UI = Adr(0x1BB2D30),
+                    OFF_BATIMENTS_DEBLOQUES = Adr(0x16A83B0), OFF_SYSTEME_TECHNOS_BIS = Adr(0x4062BA8);
 
 static uint64_t CasePackee(int32_t col, int32_t lig) { return (uint32_t)col | ((uint64_t)(uint32_t)lig << 32); }
 
@@ -630,9 +646,9 @@ static uintptr_t hkNoeudTechno(uintptr_t panneau, uintptr_t tech, uintptr_t sort
 // [Researched] par hkTranslate). Thread du jeu (fin de recherche).
 typedef void(*PoserTextureUi_t)(uintptr_t, uintptr_t, uintptr_t, uint32_t);
 typedef void(*PoserTexteCle_t)(uintptr_t, uintptr_t, uintptr_t);
-constexpr uintptr_t OFF_POSER_TEXTURE_UI = 0x1107140, OFF_TEXTURE_ARBRE = 0x4074548,
-                    OFF_CASES_ARBRE = 0x4074550, OFF_POSER_TEXTE_CLE = 0x111BD70,
-                    OFF_FORMAT_TEXTE = 0x2BFD628;
+static const uintptr_t OFF_POSER_TEXTURE_UI = Adr(0x1107140), OFF_TEXTURE_ARBRE = Adr(0x4074548),
+                    OFF_CASES_ARBRE = Adr(0x4074550), OFF_POSER_TEXTE_CLE = Adr(0x111BD70),
+                    OFF_FORMAT_TEXTE = Adr(0x2BFD628);
 
 void IconesTechnoRafraichirNoeud(uintptr_t tech)
 {

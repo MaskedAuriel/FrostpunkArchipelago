@@ -32,6 +32,10 @@ void ReseauEnvoyerLocation(int64_t locationId);
 // tant que ApGoalAtteint() est vrai. Tout thread.
 void ReseauEnvoyerGoal();
 
+// Location deja cochee dans la session (envoyee ici, ou cochee sur le serveur,
+// par exemple dans une partie precedente). Tout thread.
+bool ReseauLocationFaite(int64_t locationId);
+
 // Scouts : contenu des locations du slot (LocationScouts / LocationInfo a
 // chaque connexion, garde dans scouts.txt de la session). Transmis au jeu
 // par ApNoterScout (archipelago.h) : a la relecture de la session puis a

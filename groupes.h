@@ -60,6 +60,9 @@ struct GroupeAP {
     // Joueur Archipelago qui envoie le contenu (popups de l'arrivee :
     // "(from <joueur>)") ; nullptr -> le nom du groupe. Copie.
     const char* expediteur;
+    // Site d'origine du contenu (nom interne) : classe et sante des survivants
+    // prises dans son gabarit (2026-11-06) ; nullptr -> premier site trouve.
+    const char* site;
 };
 
 // Thread du jeu uniquement (pompe). Renvoie le slot du groupe (0..15) ou -1.

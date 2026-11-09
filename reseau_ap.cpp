@@ -153,6 +153,7 @@ public:
     void Connecter(const std::string& serveur, const std::string& slot, const std::string& mdp);
     void EnvoyerLocation(int64_t id);
     void EnvoyerGoal();
+    bool LocationFaite(int64_t id);
 
 private:
     // --- Scouts (thread reseau ; transmis au jeu par ApNoterScout)
@@ -310,6 +311,16 @@ void ReseauAP::EnvoyerLocation(int64_t id)
     ReleaseSRWLockExclusive(&m_verrouChecks);
     printf("[AP NET] location %lld %s\n", (long long)id, nouveau ? "en file d'envoi" : "deja cochee");
     if (m_reveil) SetEvent(m_reveil);
+}
+
+// Location deja cochee : envoyee dans cette session (checks.txt) ou connue
+// du serveur (checked_locations de Connected / RoomUpdate).
+bool ReseauAP::LocationFaite(int64_t id)
+{
+    AcquireSRWLockShared(&m_verrouChecks);
+    bool faite = m_checks.count(id) != 0;
+    ReleaseSRWLockShared(&m_verrouChecks);
+    return faite;
 }
 
 void ReseauAP::EnvoyerGoal()
@@ -853,6 +864,11 @@ void ReseauAP::Paquet(const json& p)
     else if (cmd == "PrintJSON") SurPrintJSON(p);
     else if (cmd == "LocationInfo") SurLocationInfo(p);
     else if (cmd == "RoomUpdate") {
+        if (p.contains("checked_locations")) {
+            AcquireSRWLockExclusive(&m_verrouChecks);
+            for (const json& j : p["checked_locations"]) m_checks.insert(j.get<int64_t>());
+            ReleaseSRWLockExclusive(&m_verrouChecks);
+        }
         if (p.contains("players"))
             for (const json& j : p["players"]) m_alias[j.value("slot", 0)] = j.value("alias", std::string());
     }
@@ -978,6 +994,9 @@ void ReseauAP::SurConnected(const json& p)
     AcquireSRWLockExclusive(&m_verrouChecks);
     m_aEnvoyer.clear();
     for (int64_t id : m_checks) if (!serveur.count(id)) m_aEnvoyer.push_back(id);
+    // Cochees ailleurs (autre machine, sauvegarde precedente...) : connues
+    // aussi, pour l'affichage "deja fait" (ReseauLocationFaite).
+    for (int64_t id : serveur) m_checks.insert(id);
     if (ApGoalAtteint()) m_goalAEnvoyer = true;
     ReleaseSRWLockExclusive(&m_verrouChecks);
 
@@ -1062,19 +1081,12 @@ void ReseauAP::SurPrintJSON(const json& p)
     std::string type = p.value("type", std::string());
     printf("[AP MSG] %s%s\n", type.empty() ? "" : ("(" + Ascii(type) + ") ").c_str(), Ascii(texte).c_str());
 
-    if (type != "ItemSend" || !p.contains("item")) return;
-    const json& it = p["item"];
-    int recoit = p.value("receiving", 0);
-    int trouveur = it.value("player", 0);
-    std::string item = NomItem(it.value("item", (int64_t)0), recoit);
-    if (recoit == m_slot && trouveur != m_slot) {
-        std::string t = Latin1(item) + " from " + Latin1(NomJoueur(trouveur));
-        ApMessageReseau("Item received", t.c_str());
-    }
-    else if (trouveur == m_slot && recoit != m_slot) {
-        std::string t = Latin1(item) + " to " + Latin1(NomJoueur(recoit));
-        ApMessageReseau("Item sent", t.c_str());
-    }
+    // Plus de message en jeu pour ItemSend (bug du 2026-11-04 : messages en
+    // DOUBLE). Item trouve ici pour un autre joueur : deja dit par "Check
+    // sent" (<check> -> <joueur> - <item>, d'apres le scout). Item recu d'un
+    // autre joueur : deja dit par le message de son application ("Technology
+    // received ... from", convoi "Item received", loi, temperature, piege).
+    // Le journal [AP MSG] ci-dessus garde tout.
 }
 
 // LocationInfo : contenu des locations scoutees. Gardees en memoire (lues
@@ -1320,3 +1332,5 @@ void ReseauConnecter(const char* serveur, const char* slot, const char* motDePas
 void ReseauEnvoyerLocation(int64_t locationId) { g_reseau.EnvoyerLocation(locationId); }
 
 void ReseauEnvoyerGoal() { g_reseau.EnvoyerGoal(); }
+
+bool ReseauLocationFaite(int64_t locationId) { return g_reseau.LocationFaite(locationId); }

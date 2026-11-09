@@ -18,6 +18,57 @@ static ResearchStart_t    oResearchStart    = nullptr;
 static ResearchComplete_t oResearchComplete = nullptr;
 static Cancel_t           oCancel           = nullptr;
 
+// --- AddResearchedTechnology (FUN_141325e40, decompile le 2026-11-04) -------
+// (systeme, techno, p3) : si l'etat n'est pas deja 2, etat = 2, effets de la
+// techno (FUN_141326650 : modificateurs...) puis ecouteurs de l'evenement
+// "techno recherchee" (systeme +0x2108, compteur +0x2120). ResearchComplete
+// (FUN_141327120) remet l'etat a 0 puis l'appelle.
+// Bug du 2026-11-04 (ScoutsLimit recue, pas recherchee : pas de 2e equipe) :
+// le mod ecrivait l'etat 2 a la reception, ce qui debloque les batiments
+// (lus sur l'etat) mais n'applique NI les effets NI les ecouteurs. Desormais
+// la reception passe par cette fonction (TechAppliquerEffets), et une
+// recherche terminee d'une techno deja recue ne la rappelle pas (effets
+// appliques une seule fois).
+typedef uintptr_t (*AjouterRecherchee_t)(uintptr_t self, uintptr_t tech, uintptr_t p3, uintptr_t p4);
+static AjouterRecherchee_t oAjouterRecherchee = nullptr;
+static const uintptr_t OFF_AJOUTER_RECHERCHEE = Adr(0x1325E40);
+static thread_local uintptr_t t_completionTech = 0;   // techno de la ResearchComplete en cours
+
+static uintptr_t hkAjouterRecherchee(uintptr_t self, uintptr_t tech, uintptr_t p3, uintptr_t p4)
+{
+    if (tech && tech == t_completionTech) {
+        uint64_t h = HashOfTechPtr(tech);
+        TechRuntime* r = h ? RT_Get(h) : nullptr;
+        if (r && r->received && TechEstUnCheck(h)) {
+            // Effets deja appliques a la reception : pas une 2e fois. L'etat
+            // final (2) est pose par OnResearchComplete (SyncGameState).
+            printf("[AP] recherche d'une techno deja recue : effets non reappliques\n");
+            return 1;                  // "AddResearchedTechnology should succeed"
+        }
+        // Recherche d'une techno AP pas encore recue (2026-11-07, auteur) : le
+        // menu des batiments ne doit PAS passer au bleu a la recherche, mais a
+        // la reception -> notification (3e argument) coupee ici.
+        if (r && TechEstUnCheck(h)) return oAjouterRecherchee(self, tech, 0, p4);
+    }
+    return oAjouterRecherchee(self, tech, p3, p4);
+}
+
+bool TechAppliquerEffets(uint64_t hash)
+{
+    uintptr_t self = g_selfTech, tech = FindTechPtrByHash(hash);
+    if (!self || !tech || !oAjouterRecherchee) return false;
+    if (TechStateByPtr(self, tech) == 2) return true;     // deja faite (sauvegarde)
+    bool ok = true;
+    // 3e argument : transmis aux ecouteurs "techno recherchee"
+    // (ResearchComplete passe 1). 2026-11-06 : essai a 0 -> plus de bleu du
+    // tout. Voulu par l'auteur (2026-11-07) : bleu a la RECEPTION, pas a la
+    // recherche -> 1 ici, 0 pour la recherche (hkAjouterRecherchee).
+    __try { oAjouterRecherchee(self, tech, 1, 0); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; }
+    if (!ok) printf("[AP] EXCEPTION en appliquant les effets de la techno %016llX\n", (unsigned long long)hash);
+    return ok && TechStateByPtr(self, tech) == 2;
+}
+
 // ---------------------------------------------------------------------------
 // CanResearch : decide si le clic sur une techno est accepte.
 //
@@ -90,7 +141,9 @@ static void hkResearchComplete(uintptr_t self)
     if (SafeRead((void*)(self + TECH_ACTIVE_OFF), &tech, 8))
         hash = HashOfTechPtr(tech);
 
+    t_completionTech = tech;            // lu par hkAjouterRecherchee
     oResearchComplete(self);
+    t_completionTech = 0;
 
     // Icone "icon_done" et [Researched] : posees sur le noeud de l'arbre deja
     // construit (sinon seulement a sa prochaine reconstruction).
@@ -127,6 +180,7 @@ void InstallResearchHooks(uintptr_t modBase)
         { GameOffsets::ResearchStart,    (void*)&hkResearchStart,    (void**)&oResearchStart,    "ResearchStart" },
         { GameOffsets::ResearchComplete, (void*)&hkResearchComplete, (void**)&oResearchComplete, "ResearchComplete" },
         { GameOffsets::CancelResearch,   (void*)&hkCancel,           (void**)&oCancel,           "CancelResearch" },
+        { OFF_AJOUTER_RECHERCHEE,        (void*)&hkAjouterRecherchee, (void**)&oAjouterRecherchee, "AddResearchedTechnology" },
     };
     for (auto& h : H) {
         void* target = (void*)(modBase + h.off);

@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
+#include "versions_jeu.h"   // Adr() : adresses Epic traduites pour l'exe en cours
 #include "scooting.h"
 #include "known_techs.h"
 #include "IconSubManager.h"
@@ -136,20 +137,20 @@ constexpr int TECH_LOCSHORT_OFF = 0x78;
 // Regroupees ici pour n'avoir qu'un seul endroit a mettre a jour si le jeu
 // est patche.
 namespace GameOffsets {
-    constexpr uintptr_t ModifyResource  = 0x173FE40;  // setter de ressources
-    constexpr uintptr_t ResIdToIndex    = 0x139E930;  // resId -> index
-    constexpr uintptr_t CanResearch     = 0x1326A60;  // clic sur une techno
-    constexpr uintptr_t ResearchStart   = 0x1329610;  // demarrer une recherche
-    constexpr uintptr_t ResearchComplete= 0x1327120;  // completion (location check)
-    constexpr uintptr_t CancelResearch  = 0x1326C80;  // annuler une recherche
-    constexpr uintptr_t Translate       = 0x0FEB340;  // traduire(cle) -> valeur
+    inline const uintptr_t ModifyResource  = Adr(0x173FE40);  // setter de ressources
+    inline const uintptr_t ResIdToIndex    = Adr(0x139E930);  // resId -> index
+    inline const uintptr_t CanResearch     = Adr(0x1326A60);  // clic sur une techno
+    inline const uintptr_t ResearchStart   = Adr(0x1329610);  // demarrer une recherche
+    inline const uintptr_t ResearchComplete= Adr(0x1327120);  // completion (location check)
+    inline const uintptr_t CancelResearch  = Adr(0x1326C80);  // annuler une recherche
+    inline const uintptr_t Translate       = Adr(0x0FEB340);  // traduire(cle) -> valeur
 
     // Chaque systeme du jeu a son global dans l'image : SystemesGlobaux +
     // id * SystemesPas, ou id vient de l'annuaire des types (AnnuaireTypes,
     // entrees {ptr nom, id} au pas de 0x10). Ex. Technology 0x41 -> +0x2C30A20.
-    constexpr uintptr_t SystemesGlobaux = 0x2C30200;
+    inline const uintptr_t SystemesGlobaux = Adr(0x2C30200);
     constexpr uintptr_t SystemesPas     = 0x20;
-    constexpr uintptr_t AnnuaireTypes   = 0x2C31B20;
+    inline const uintptr_t AnnuaireTypes   = Adr(0x2C31B20);
 }
 
 // Ids des systemes dans l'annuaire des types (releves le 2026-10-15).
@@ -213,8 +214,8 @@ void DiagSystemesGroupes();       // F9 : groupes de survivants / refugies sur l
 void InstallTraceCreationEntites(uintptr_t modBase);
 
 namespace SetupOffsets {
-    constexpr uintptr_t SelectScenario = 0x1B2DCC0;  // lit l'index de scenario
-    constexpr uintptr_t ApplyConfig = 0x1B2A9C0;  // applique les difficultes
+    inline const uintptr_t SelectScenario = Adr(0x1B2DCC0);  // lit l'index de scenario
+    inline const uintptr_t ApplyConfig = Adr(0x1B2A9C0);  // applique les difficultes
 
     // Champs de l'objet de configuration (partage par les deux fonctions)
     constexpr int SCN_LIST = 0x198;   // tableau de pointeurs (stride 8)

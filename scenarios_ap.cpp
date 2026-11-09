@@ -82,11 +82,11 @@ typedef uintptr_t (*PrerequisProfil_t)(uintptr_t profil, uintptr_t liste, uintpt
 typedef void      (*CreerBouton_t)(uintptr_t panneau, uintptr_t scn, uintptr_t debloque, uintptr_t indice);
 typedef void      (*PoserTexte_t)(uintptr_t texte, const wchar_t* chaine, uintptr_t cfg, uintptr_t p4);
 
-constexpr uintptr_t OFF_PREREQUIS_PROFIL = 0x1283EA0;   // FUN_141283ea0
-constexpr uintptr_t OFF_CREER_BOUTON     = 0x1B2CB40;   // FUN_141b2cb40
-constexpr uintptr_t OFF_POSER_TEXTE      = 0x111BEF0;   // FUN_14111bef0 : texte brut
-constexpr uintptr_t OFF_CFG_TEXTE        = 0x2BFD628;
-constexpr uintptr_t OFF_SCENARIOS_CONFIG = 0x2C34490;
+static const uintptr_t OFF_PREREQUIS_PROFIL = Adr(0x1283EA0);   // FUN_141283ea0
+static const uintptr_t OFF_CREER_BOUTON     = Adr(0x1B2CB40);   // FUN_141b2cb40
+static const uintptr_t OFF_POSER_TEXTE      = Adr(0x111BEF0);   // FUN_14111bef0 : texte brut
+static const uintptr_t OFF_CFG_TEXTE        = Adr(0x2BFD628);
+static const uintptr_t OFF_SCENARIOS_CONFIG = Adr(0x2C34490);
 constexpr int PAN_COLONNE     = 0xD8;   // poignee de la colonne des boutons
 constexpr int CFG_SCENARIOS   = 0x88;
 constexpr int SCN_DEBLOCAGE   = 0x20;   // "Scenario unlock profile progress"
@@ -319,9 +319,9 @@ typedef void (*Ironman_t)(uintptr_t panneau, uintptr_t ironman, uintptr_t p3, ui
 typedef void (*PoserNiveau_t)(uintptr_t widget, uintptr_t niveau, uintptr_t forcer, uintptr_t p4);
 typedef void (*ActiverElement_t)(uintptr_t element, uintptr_t actif, uintptr_t p3, uintptr_t p4);
 
-constexpr uintptr_t OFF_IRONMAN          = 0x1B2E8C0;   // FUN_141b2e8c0
-constexpr uintptr_t OFF_POSER_NIVEAU     = 0x1518B70;   // FUN_141518b70
-constexpr uintptr_t OFF_ACTIVER_ELEMENT  = 0x105A3A0;   // FUN_14105a3a0
+static const uintptr_t OFF_IRONMAN          = Adr(0x1B2E8C0);   // FUN_141b2e8c0
+static const uintptr_t OFF_POSER_NIVEAU     = Adr(0x1518B70);   // FUN_141518b70
+static const uintptr_t OFF_ACTIVER_ELEMENT  = Adr(0x105A3A0);   // FUN_14105a3a0
 constexpr int PAN_CURSEUR_PRINCIPAL = 0x140;
 constexpr int PAN_SCENARIOS         = 0x198;
 constexpr int PAN_NB_SCENARIOS      = 0x1A0;

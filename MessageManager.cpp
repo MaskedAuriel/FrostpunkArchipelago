@@ -87,22 +87,22 @@ static void hkCreerMessage(uintptr_t systeme, uintptr_t* sortie,
 
 void InstallNotifHooks(uintptr_t modBase)
 {
-    void* p = (void*)(modBase + 0x1685A50);
+    void* p = (void*)(modBase + Adr(0x1685A50));
     if (MH_CreateHook(p, (void*)&hkCreerNotifA, (void**)&oCreerNotifA) == MH_OK &&
         MH_EnableHook(p) == MH_OK) printf("[MSG] hook +1685A50 OK\n");
 
-    void* q = (void*)(modBase + 0x1AA9DF0);
+    void* q = (void*)(modBase + Adr(0x1AA9DF0));
     if (MH_CreateHook(q, (void*)&hkCreerNotifB, (void**)&oCreerNotifB) == MH_OK &&
         MH_EnableHook(q) == MH_OK) printf("[MSG] hook +1AA9DF0 OK\n");
 
-    void* f = (void*)(modBase + 0x167C580);
+    void* f = (void*)(modBase + Adr(0x167C580));
     if (MH_CreateHook(f, (void*)&hkCreerMessage, (void**)&oCreerMessage) == MH_OK &&
         MH_EnableHook(f) == MH_OK) printf("[CREE] hook OK\n");
     else printf("[CREE] hook KO\n");
 
 
-    oPoseTitre = (PoseTexte_t)(modBase + 0x1AA9D70);
-    oPoseTexte = (PoseTexte_t)(modBase + 0x1AA9C00);
+    oPoseTitre = (PoseTexte_t)(modBase + Adr(0x1AA9D70));
+    oPoseTexte = (PoseTexte_t)(modBase + Adr(0x1AA9C00));
     printf("[POSE] poseurs resolus\n");
 }
 
@@ -115,8 +115,8 @@ static uintptr_t    g_fileMessages = 0;
 
 void InitFabriqueMessage(uintptr_t modBase)
 {
-    EmettreMessage = (EmettreMsg_t)(modBase + 0x16896B0);
-    SafeRead((void*)(modBase + 0x408E390), &g_fileMessages, 8);
+    EmettreMessage = (EmettreMsg_t)(modBase + Adr(0x16896B0));
+    SafeRead((void*)(modBase + Adr(0x408E390)), &g_fileMessages, 8);
     printf("[MSG] file de messages = 0x%llX\n", (unsigned long long)g_fileMessages);
 }
 
@@ -275,7 +275,7 @@ void MessageSetReferences(uintptr_t* systemes, int nSys,
     uintptr_t* entrees, int nEnt)
 {
     uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
-    g_msgParamsRef = base + 0x40B1B30;
+    g_msgParamsRef = base + Adr(0x40B1B30);
 
     // Plusieurs producteurs et plusieurs entrees de meme nom coexistent :
     // on affiche tout pour pouvoir choisir sur un critere sur.
@@ -332,7 +332,7 @@ static uintptr_t hkCtorEntree(uintptr_t a, uintptr_t b, uintptr_t c, uintptr_t d
 
 void InstallCaptureEntrees(uintptr_t modBase)
 {
-    void* p = (void*)(modBase + 0x19E68B0);
+    void* p = (void*)(modBase + Adr(0x19E68B0));
     if (MH_CreateHook(p, (void*)&hkCtorEntree, (void**)&oCtorEntree) == MH_OK &&
         MH_EnableHook(p) == MH_OK) printf("[CAPENT] hook +19E68B0 OK\n");
     else printf("[CAPENT] hook +19E68B0 KO\n");
@@ -431,7 +431,7 @@ static void DecrireTuileMsg(const char* libelle, uintptr_t t)
 // message +0x20). Test du 2026-10-28 : notre copie d'entree ne changeait
 // rien a l'affichage.
 typedef void(*AjouterPopup_t)(uintptr_t panneau, uintptr_t notification, uintptr_t p3, uintptr_t p4);
-constexpr uintptr_t UICONFIG_ICONE_DEFAUT = 0x40615C0 + 0x258;   // FrostpunkUIConfig "Default notification icon"
+static const uintptr_t UICONFIG_ICONE_DEFAUT = Adr(0x40615C0) + 0x258;   // FrostpunkUIConfig "Default notification icon"
 static AjouterPopup_t oAjouterPopup = nullptr;
 
 static bool EstNotreEntree(uintptr_t e);
@@ -528,8 +528,8 @@ static void PoserIconeSurControle(uintptr_t ctrl, uintptr_t ent)
         return;
     }
     uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
-    NomConstruire_t construire = (NomConstruire_t)(base + 0xE4FA20);
-    NomDetruire_t detruire = (NomDetruire_t)(base + 0xE4EAB0);
+    NomConstruire_t construire = (NomConstruire_t)(base + Adr(0xE4FA20));
+    NomDetruire_t detruire = (NomDetruire_t)(base + Adr(0xE4EAB0));
     uintptr_t nom = 0;
     uintptr_t r = 0;
     __try {
@@ -629,7 +629,7 @@ static bool CouleurProche(const float* a, const float* b)
 static bool PoserCouleurMoteur(uintptr_t e, const float* lin)
 {
     uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
-    PoserCouleur_t poser = (PoserCouleur_t)(base + 0x10297F0);
+    PoserCouleur_t poser = (PoserCouleur_t)(base + Adr(0x10297F0));
     float gamma[4] = { powf(lin[0], 1.0f / 2.2f), powf(lin[1], 1.0f / 2.2f), powf(lin[2], 1.0f / 2.2f), lin[3] };
     __try { poser(e, gamma); }
     __except (EXCEPTION_EXECUTE_HANDLER) {
@@ -910,13 +910,13 @@ static void hkClicPopup(uintptr_t panneau, uintptr_t evt, uintptr_t p3, uintptr_
 
 void InstallTracePopups(uintptr_t modBase)
 {
-    void* c = (void*)(modBase + 0x1AAB820);
+    void* c = (void*)(modBase + Adr(0x1AAB820));
     bool ok = MH_CreateHook(c, (void*)&hkAjouterPopup, (void**)&oAjouterPopup) == MH_OK && MH_EnableHook(c) == MH_OK;
     printf("[POPUP] hook ajout au panneau des notifications (+1AAB820) %s\n", ok ? "OK" : "KO");
-    void* k = (void*)(modBase + 0x1AAD120);
+    void* k = (void*)(modBase + Adr(0x1AAD120));
     bool okK = MH_CreateHook(k, (void*)&hkClicPopup, (void**)&oClicPopup) == MH_OK && MH_EnableHook(k) == MH_OK;
     printf("[POPUP] hook clic sur une popup (+1AAD120) %s\n", okK ? "OK" : "KO");
-    void* t = (void*)(modBase + 0x10260C0);
+    void* t = (void*)(modBase + Adr(0x10260C0));
     bool okT = MH_CreateHook(t, (void*)&hkPoserTuileEnfant, (void**)&oPoserTuileEnfant) == MH_OK && MH_EnableHook(t) == MH_OK;
     printf("[POPUP] hook pose de tuile sur un enfant (+10260C0) %s\n", okT ? "OK" : "KO");
 }
@@ -983,7 +983,7 @@ static void PoserIconeMessage(uintptr_t message, const char* icone)
     int32_t caseEtNombre[4] = { ic->techCol, ic->techRow, 0, 0 };
     SafeRead((void*)(source + 0x10), &caseEtNombre[2], 8);
     uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
-    CopierNomTexture_t copier = (CopierNomTexture_t)(base + 0xE4E990);
+    CopierNomTexture_t copier = (CopierNomTexture_t)(base + Adr(0xE4E990));
     __try {
         copier(message + MSG_ICONE, source);
     }
@@ -1090,7 +1090,7 @@ static void EmettreNotificationMaintenant(const char* titre, const char* texte, 
 
     uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
     uintptr_t file = 0;
-    SafeRead((void*)(base + 0x408E390), &file, 8);
+    SafeRead((void*)(base + Adr(0x408E390)), &file, 8);
     printf("[MSG] 1. file=%llX\n", (unsigned long long)file); fflush(stdout);
     if (!file) return;
 

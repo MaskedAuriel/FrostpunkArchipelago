@@ -43,9 +43,9 @@ namespace {
 // Regle n. 5 : 4 arguments declares (le jeu en passe 3).
 typedef void (*EndGame_t)(uintptr_t etat, uintptr_t fin, uintptr_t cinematique, uintptr_t p4);
 
-constexpr uintptr_t OFF_END_GAME   = 0x1301490;   // FUN_141301490
-constexpr uintptr_t OFF_ETAT_JEU   = 0x2C30158;   // DAT_142c30158 : FrostpunkGameStateGameplay*
-constexpr uintptr_t OFF_FINS       = 0x2C38E90;   // FrostpunkGameConfig +0xB0 "Game endings"
+static const uintptr_t OFF_END_GAME   = Adr(0x1301490);   // FUN_141301490
+static const uintptr_t OFF_ETAT_JEU   = Adr(0x2C30158);   // DAT_142c30158 : FrostpunkGameStateGameplay*
+static const uintptr_t OFF_FINS       = Adr(0x2C38E90);   // FrostpunkGameConfig +0xB0 "Game endings"
 constexpr int ETAT_PHASE           = 0x50;
 constexpr int ETAT_FIN_EN_ATTENTE  = 0x58;
 constexpr int FIN_VICTOIRE         = 0x18;

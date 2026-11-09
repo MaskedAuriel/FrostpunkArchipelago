@@ -58,3 +58,32 @@ uintptr_t DilemmeParGuid(const uint8_t* guid);
 // remplaces par les cles donnees (nullptr : champ d'origine garde).
 // Memoire du moteur, jamais liberee. 0 en cas d'echec.
 uintptr_t DilemmeCloner(uintptr_t orig, const char* cleTitre, const char* cleDescription, const char* cleChoix);
+
+// Releve unique (journal [REFUG]) des dilemmes du jeu dont le nom contient
+// 'motif' : textes, choix, effets initiaux et effets / resultats de chaque
+// choix. Lecture seule de la configuration, tout thread. Sert a retrouver
+// l'arrivee des refugies de l'apres-005 d'A New Home (2026-11-04).
+void ReleverDilemmesParNom(const char* motif);
+
+// Classe de l'entite et chemin de son CompoundTemplate (journal).
+void DecrireEntiteContexte(uintptr_t entite, char* out, int maxlen);
+
+// Detail d'un dilemme du jeu au journal [REFUG] (textes, choix, effets et
+// resultats de chaque choix). Lecture seule, tout thread.
+void ReleverDilemmeDetail(uintptr_t dilemme);
+
+// Arrivee en ville d'un convoi AP en cours (groupes.cpp) : les bulles du jeu
+// creees pendant ce temps sont refusees (2026-11-07).
+void EvenementsArriveeConvoiAP(bool enCours);
+
+// Resout (choix 0) les bulles de la porte des refugies en attente. Thread du
+// jeu, appele par DilemmesPompe.
+void DilemmesResoudreEnAttente();
+
+// Une bulle de la porte des refugies a-t-elle ete creee (depuis la derniere
+// remise a zero) ?
+bool EvenementsBullePorteCreee(bool remettreAZero);
+
+// Invoque l'evenement du jeu 'nom' (contexte par defaut, force). Thread du
+// jeu. false si introuvable ou systeme des evenements pas encore vu.
+bool EvenementsInvoquerParNom(const char* nom);

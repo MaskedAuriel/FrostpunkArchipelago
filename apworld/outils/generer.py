@@ -137,6 +137,41 @@ QUETES = {
     ],
 }
 
+# Refugies de l'apres-005 (A New Home, decision de l'auteur du 2026-11-05) :
+# chaque groupe qui arrive a la porte ("[Refugees] Refugees at the door k")
+# envoie un check, et ses gens deviennent un item du pool (livre par
+# convoi). Region : celle de 006 REFUGEES (apres 005 LONDONERS).
+# Effectifs releves en jeu le 2026-11-07 (journal [GRP] groupe du jeu :
+# StoryModeRefugees1/2/3 ; classes : 35F253D1 = ouvriers, AFD04DDA =
+# enfants, 61F13397 = specialistes, presume d'apres les autres classes).
+REFUGIES = {
+    "DEFAULT": {"region": 2, "groupes": [
+        [("workers", 27), ("engineers", 21), ("children", 22)],
+        [("workers", 42), ("children", 28)],
+        [("workers", 38), ("engineers", 22)],
+    ]},
+}
+
+# Noms des checks de quete trop vagues avec le seul nom affiche du jeu
+# ("Food", "Survivors"... : sous-quetes de Prepare For The Storm).
+NOMS_QUETES = {
+    ("DEFAULT", "[ENDGAME] 002a_Prepare for the storm FOOD"): "Prepare For The Storm - Food",
+    ("DEFAULT", "[ENDGAME] 002b_Prepare for the storm SURVIVORS"): "Prepare For The Storm - Survivors",
+    ("DEFAULT", "[ENDGAME] 002c_Prepare for the storm OUTPOSTS"): "Prepare For The Storm - Outposts",
+    ("DEFAULT", "[ENDGAME] 002d_Prepare for the storm TEMPERATURE"): "Prepare For The Storm - Cold",
+    ("DEFAULT", "[ENDGAME] 002 Prepare for the storm - main quest"): "Prepare For The Storm",
+    ("TechHaven", "[TechHeaven] 002 FACTORY"): "Factory",
+    ("BUILDERS", "[Builders] 001 BASIC FACILITIES EXTENDED"): "Finish Basic Facilities",
+    ("BUILDERS", "[Builders] 006a Upgrade the Generator"): "(Optional) Upgrade The Generator",
+}
+
+
+def titre_quete(texte):
+    """Majuscule en tete de chaque mot (separateur : espace seulement ;
+    str.title() donnait "Children'S")."""
+    return " ".join(m[:1].upper() + m[1:].lower() for m in texte.split(" "))
+
+
 # Conditions d'affichage des technos -> region (Q4.1).
 CONDITIONS_TECHNO = {
     ("DEFAULT", "unlock StormResearch"): 3,                          # apres 006 REFUGEES
@@ -211,7 +246,7 @@ PIEGES = [
 BASE = 7_747_000_000
 PLAGES = {
     # locations
-    "loc_techno": 1, "loc_loi": 2, "loc_site": 3, "loc_quete": 4, "loc_temp": 5,
+    "loc_techno": 1, "loc_loi": 2, "loc_site": 3, "loc_quete": 4, "loc_temp": 5, "loc_refugies": 6,
     # items
     "item_arbre": 11, "item_loi": 12, "item_temp": 13, "item_scenario": 14,
     "item_site": 15, "item_filler": 16, "item_piege": 17,
@@ -494,13 +529,30 @@ def main():
             for x in groupe:
                 if (scn, x) not in quetes_jeu:
                     erreurs.append("quete inconnue : %s / %s" % (scn, x))
-            nom = unique("%s - %s" % (affiche, quetes_jeu.get((scn, groupe[0]), groupe[0]).title()), noms_loc)
+            # Nom du check (demande de l'auteur, 2026-11-04 : "A New Home - Food"
+            # n'etait pas clair) : "<Scenario> - Quest: <nom affiche>", nom
+            # precise pour les sous-quetes trop vagues (NOMS_QUETES).
+            titre = NOMS_QUETES.get((scn, groupe[0])) or titre_quete(quetes_jeu.get((scn, groupe[0]), groupe[0]))
+            nom = unique("%s - Quest: %s" % (affiche, titre), noms_loc)
             for x in groupe:
                 if x in GOULOTS[scn]:
                     goulots_loc[GOULOTS[scn].index(x)] = nom
             locations.append(dict(id=ids("loc_quete", scn + "|" + groupe[0]), nom=nom, scn=scn, region=region,
                                   genre="quete", tiers=0, eclaireurs=False, exclue_option=False,
                                   cle="|".join(groupe)))
+
+        # --- Refugies (arrivees a la porte) --------------------------------
+        if scn in REFUGIES:
+            ref = REFUGIES[scn]
+            for k, contenu in enumerate(ref["groupes"], 1):
+                nom = unique("%s - Refugees Arrival %d" % (affiche, k), noms_loc)
+                locations.append(dict(id=ids("loc_refugies", "%s|%d" % (scn, k)), nom=nom, scn=scn,
+                                      region=ref["region"], genre="refugies", tiers=0, eclaireurs=False,
+                                      exclue_option=False, cle=str(k)))
+                nomItem = unique("%s - Refugees (Group %d)" % (affiche, k), noms_item)
+                items.append(dict(id=ids("item_site", "%s|refugies_%d" % (scn, k)), nom=nomItem, scn=scn,
+                                  genre="site", classe="useful", nombre=1, cle="refugies_%d" % k,
+                                  ressources=list(contenu)))
 
         # --- Temperature ----------------------------------------------------
         # Plus de LOCATIONS de montee (decision de l'auteur, 2026-11-04 : la
@@ -587,7 +639,7 @@ def ecrire_h(locations, items, lois_rangs):
         f.write("// Les ids sont stables a vie (apworld\\ids.tsv). Noms = noms des\n")
         f.write("// locations / items cote serveur (affiches en jeu, en anglais).\n\n")
         f.write("#pragma once\n#include <cstdint>\n\n")
-        f.write("enum class ApLocGenre : uint8_t { Techno, Loi, Site, Quete, Temperature };\n")
+        f.write("enum class ApLocGenre : uint8_t { Techno, Loi, Site, Quete, Temperature, Refugies };\n")
         f.write("enum class ApItemGenre : uint8_t { Arbre, Loi, Temperature, Scenario, Site, Filler, Piege };\n\n")
         f.write("// cle : techno = hash (hex) ; loi = \"<arbre>|<rang>\" ; site = nom interne\n")
         f.write("// (SITE_PAYLOADS) ; quete = noms internes (\"|\" = paralleles) ; temperature = k.\n")
@@ -595,7 +647,8 @@ def ecrire_h(locations, items, lois_rangs):
         f.write("static const ApLocationInfo AP_LOCATIONS[] = {\n")
         for l in locations:
             f.write('    { %dLL, ApLocGenre::%s, "%s", "%s", "%s" },\n' % (
-                l["id"], {"techno": "Techno", "loi": "Loi", "site": "Site", "quete": "Quete", "temperature": "Temperature"}[l["genre"]],
+                l["id"], {"techno": "Techno", "loi": "Loi", "site": "Site", "quete": "Quete", "temperature": "Temperature",
+                 "refugies": "Refugies"}[l["genre"]],
                 l["scn"], c(l["cle"]), c(l["nom"])))
         f.write("};\n\n")
         f.write("// cle : arbre = numero d'arbre (ReceiveProgressive) ; loi = nom de l'arbre\n")
@@ -616,6 +669,15 @@ def ecrire_h(locations, items, lois_rangs):
         f.write("// ne depend pas de l'ordre des signatures ; seules les lois exclusives\n")
         f.write("// partagent un rang. Une loi de poids 2 a deux lignes (deux checks).\n")
         f.write("struct ApLoiRang { const char* scenario; const char* arbre; const char* loi; int rang; };\n\n")
+        f.write("// Site d'origine des items de contenu de site (nom interne ; \"refugies_k\"\n")
+        f.write("// pour les refugies) : le mod y prend la classe et l'etat de sante des\n")
+        f.write("// survivants livres (2026-11-06).\n")
+        f.write("struct ApItemSite { int64_t id; const char* site; };\n\n")
+        f.write("static const ApItemSite AP_ITEMS_SITES[] = {\n")
+        for i in items:
+            if i["genre"] == "site":
+                f.write('    { %dLL, "%s" },\n' % (i["id"], c(i["cle"])))
+        f.write("};\n\n")
         f.write("static const ApLoiRang AP_LOIS_RANGS[] = {\n")
         for scn, arbre, loi, r in lois_rangs:
             f.write('    { "%s", "%s", "%s", %d },\n' % (scn, c(arbre), c(loi), r))

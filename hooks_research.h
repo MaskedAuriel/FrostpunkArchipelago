@@ -12,3 +12,8 @@
 
 // Cree et active les hooks. MH_Initialize doit avoir ete appele avant.
 void InstallResearchHooks(uintptr_t modBase);
+
+// Techno recue : effets du jeu appliques comme a une recherche terminee
+// (AddResearchedTechnology : etat 2, effets, ecouteurs). THREAD DU JEU.
+// true si la techno est a l'etat 2 apres l'appel (ou l'etait deja).
+bool TechAppliquerEffets(uint64_t hash);

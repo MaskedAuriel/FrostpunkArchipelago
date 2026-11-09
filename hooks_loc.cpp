@@ -484,7 +484,7 @@ void InstallLocHooks(uintptr_t modBase)
         || MH_EnableHook(target) != MH_OK)
         printf("[!] hook Translate KO\n");
 
-    void* t2 = (void*)(modBase + 0x1079AA0);
+    void* t2 = (void*)(modBase + Adr(0x1079AA0));
     if (MH_CreateHook(t2, (void*)&hkHashMapLookup, (void**)&oHashMapLookup) != MH_OK
         || MH_EnableHook(t2) != MH_OK)
         printf("[!] hook HashMapLookup KO\n");
@@ -520,7 +520,11 @@ static bool EndsWith(const char* s, const char* suf)
 static wchar_t* ApDescBuffer(const char* seg, uint64_t hash)
 {
     struct Slot { char key[96]; wchar_t buf[256]; bool used; };
-    static Slot pool[256];
+    // 256 au depart : test grandeur nature du 2026-11-04, "passe un certain
+    // point les textes ne sont plus remplaces" (pool plein, nullptr -> texte
+    // vanilla : Generator efficiency upgrade, Improved Heater 2). Une entree par
+    // cle (nom, description, courte ; tous scenarios confondus) : 2048.
+    static Slot pool[2048];
     static int  poolN = 0;
 
     Slot* s = nullptr;
@@ -530,7 +534,7 @@ static wchar_t* ApDescBuffer(const char* seg, uint64_t hash)
         if (eq) { s = &pool[i]; break; }
     }
     if (!s) {
-        if (poolN >= 256) return nullptr;
+        if (poolN >= 2048) { static bool dit = false; if (!dit) { dit = true; printf("[TECHDESC] pool des descriptions plein (2048)\n"); } return nullptr; }
         s = &pool[poolN++];
         int j = 0; for (; seg[j] && j < 63; ++j) s->key[j] = seg[j]; s->key[j] = 0;
     }

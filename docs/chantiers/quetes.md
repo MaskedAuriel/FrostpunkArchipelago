@@ -361,3 +361,50 @@
   001, 002 (« SECURE FOOD »), 003 (« PEOPLE FROM OUR CONVOY ») → 3 checks.
   **Non-doublon validé** (2026-11-01) : 001 refaite après rechargement →
   `check deja envoye dans cette partie`, pas de 2e check. Chantier validé.
+
+### 2026-11-04 — Quête 003 d'A New Home sans les survivants de Lost Expedition
+
+- **Problème (test grandeur nature)** : depuis que les sites AP ne
+  contiennent plus que leur check (survivants du composant `+0xA8` retirés,
+  `scooting.cpp`), l'objectif « Rescue survivors of our Lost Expedition »
+  (`FrostpunkRescueSurvivorsQuestObjective`) de `[Main Narrative Line] 003
+  RESCUE SURVIVORS` ne peut plus être rempli ; 004 FIND OTHER CITIES
+  (goulot) ne démarre pas.
+- **Ghidra** : objectif (réflexion `FUN_1414a88b0`, 0xA8) : `+0x88` Agent
+  type, `+0x8C` Survivor count, `+0x90` Escorted only, `+0x91` Include
+  already rescued survivors, `+0x92` Count only after reaching the city,
+  `+0x93` Expedition site (GUID). Terminer une quête comme
+  `FinishQuestEffect` (`FUN_14168e090`) : **`FUN_1416d2710(*(base +
+  0x408F0E8), quête, succès)`** (ne finit que si la quête est active, puis
+  `FUN_1416d22a0`, donc `hkTerminerQuete` et le check).
+- **Décision de l'auteur** : objectif validé sans survivants.
+- **Correctif (compilé, déployé, non testé)** : `TerminerQuetesSansSurvivants`
+  (quetes.cpp, appelée par `QuetesPompe`, thread du jeu, 1 fois par
+  seconde) : table `QUETES_SANS_SURVIVANTS` (scénario, quête, site) ; quand
+  le site est exploré (`ScootingEtatSite`, état `+0x34` non nul) et la quête
+  active, elle est terminée avec succès. Journal `[QUETEAP] "…" terminee avec
+  succes : site "…" explore`. La quête entière est terminée (aussi son
+  objectif « Build a Workshop » s'il ne l'est pas).
+- **Risque à trancher** : autres objectifs « Rescue survivors » de site
+  (`[ENDGAME] 002b` : Ice Crevasse, Snow Burrows, Deep Hollow ; Refugees :
+  Trail Bend, White Pass, Black Spire). Ces sites n'ont pas de survivants à
+  la génération ; s'ils en reçoivent plus tard (effet de quête), le retrait
+  continu de `SurveillerSites` les enlèverait aussi.
+- **Étendu (accord de l'auteur, même jour ; compilé, déployé, non testé)** :
+  table `QUETES_SANS_SURVIVANTS` = une quête et jusqu'à 3 sites, terminée
+  quand **tous** ses sites sont explorés (`"a|b"` = l'un ou l'autre) :
+  A New Home 003 (Lost Expedition) ; `[ENDGAME] 002b_Prepare for the storm
+  SURVIVORS` (Ice Crevasse `Site_049_A0`, Snow Burrows `Site_053_B0`, Deep
+  Hollow `Site_057_C0` : 11-12 ouvriers + 7 enfants chacun à la génération,
+  donc retirés) ; `[Refugees] 001 SAVE YOUR PEOPLE` (goulot ; Trail Bend,
+  White Pass, Black Spire, variante `-dead` comprise). La quête entière est
+  terminée : ses autres objectifs aussi (003 : Build a Workshop ; Refugees
+  001 : objectifs 0 à 2).
+
+### 2026-11-06 — Touche de debug F11 : terminer la quête en cours
+
+- Demande de l'auteur (tester 006 et les autres quêtes) : **F11** →
+  `QuetesDemanderFinQueteEnCours` → `QuetesPompe` (thread du jeu) termine
+  avec succès la 1re quête d'histoire **active** du scénario
+  (`QueteHistoire`, `FUN_1416d2710`) ; journal `[QUETEAP] F11 : "…"
+  terminee avec succes`. Le check part comme pour une fin normale.
