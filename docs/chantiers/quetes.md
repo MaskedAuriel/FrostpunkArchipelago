@@ -479,3 +479,21 @@
   de rechercher la Factory sans les plans n'ont été vérifiées.
 - Graine de l'auteur `AP_99291626087738687974` : `Progressive Factory` en
   South Pass (site), SteamCoalThumper et Plantation upgrade (technos).
+
+### 2026-11-10 — The Arks : 009 Supplies for the storm jamais jouée
+
+- Partie `AP_29604819124280008215` : 008 finie (l. 4333), puis 004 finie
+  (l. 4414) et « Tech Haven Ending : VICTOIRE » aussitôt (l. 4448).
+  `009 AUTONOMOUS CITY READY` (« Supplies for the storm », lancée au succès
+  de 004) n'a donc jamais été jouée, et son check est parti seulement avec
+  le collect de la victoire.
+- **Comportement normal du jeu (auteur)** : 004 et 008 se font dans un
+  ordre libre ; terminer 004 quand 008 est finie conclut le scénario.
+  **Décision de l'auteur** : dans ce cas, le check de 009 part avec 004.
+  Si 004 est finie avant 008, 009 se joue normalement.
+- `ChecksFinDesArks` (quetes.cpp), appelée par `QueteTerminee` après le
+  check de 004 : si `ApQueteDejaCochee(008)`, `EnvoyerCheckQuete(009)`.
+  Journal `[QUETEAP]   004 reussie apres 008 (fin du scenario) : check de
+  009 envoye avec elle`. Compilé, déployé Epic + Steam, non testé.
+- Technos de départ non recherchées (reçues par item) : choix du joueur,
+  rien à corriger (auteur).

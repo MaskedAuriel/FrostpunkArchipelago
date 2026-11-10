@@ -1279,6 +1279,26 @@ void ChecksQuetesSautees(const char* nom, const char* scenario)
     }
 }
 
+// The Arks (decision de l'auteur, 2026-11-10) : 004 PREPARE FOR THE STORM et
+// 008 NEW MANCHESTER - COAL se font dans un ordre libre ; terminer 004 quand
+// 008 est deja finie conclut le scenario (journal : "Tech Haven Ending"
+// juste apres la fin de 004), et 009 AUTONOMOUS CITY READY ("Supplies for
+// the storm", lancee au succes de 004) n'est jamais jouee. Son check part
+// donc avec celui de 004 dans ce cas. 004 avant 008 : 009 se joue
+// normalement et envoie son check elle-meme.
+void ChecksFinDesArks(const char* nom, const char* scenario)
+{
+    if (strcmp(scenario, "TechHaven") != 0 || strcmp(nom, "[TechHeaven] 004 PREPARE FOR THE STORM") != 0) return;
+    if (!ApQueteDejaCochee("[TechHeaven] 008 NEW MANCHESTER - COAL")) {
+        printf("[QUETEAP]   004 reussie avant 008 : 009 se jouera normalement\n");
+        return;
+    }
+    const QueteInfo* q = QueteHistoireParNom("[TechHeaven] 009 AUTONOMOUS CITY READY", scenario);
+    if (!q) { printf("[QUETEAP]   009 AUTONOMOUS CITY READY absente de known_quests.h\n"); return; }
+    printf("[QUETEAP]   004 reussie apres 008 (fin du scenario) : check de 009 envoye avec elle\n");
+    EnvoyerCheckQuete(q, Guid{ q->guidA, q->guidB }, scenario);
+}
+
 volatile bool g_revelerRefugies = false;   // fin de 006 : reveler les points de City3
 
 void QueteTerminee(uintptr_t quete, bool succes)
@@ -1302,6 +1322,7 @@ void QueteTerminee(uintptr_t quete, bool succes)
     // Les quetes sautees d'abord : leurs checks precedent celui de 004.
     ChecksQuetesSautees(info->nom, scenario);
     EnvoyerCheckQuete(info, g, scenario);
+    ChecksFinDesArks(info->nom, scenario);
     // Fin de 006 REFUGEES (A New Home, idee de l'auteur du 2026-11-07) : les
     // points de la carte de "U: Refugees in the City3" sont reveles ici (les
     // convois AP ne lancent plus cet evenement). Invocation par QuetesPompe.
