@@ -1094,6 +1094,10 @@ uintptr_t hkDemarrerQuete(uintptr_t sys, uintptr_t quete, uintptr_t ctx, uintptr
     bool succesSteam = strcmp(rep, "Achievements") == 0 || strcmp(rep, "CustomScenarios") == 0;
     printf("[QUETE] DEMARRAGE #%ld \"%s\" (repertoire %s) -> %s ; evenement en cours : %s\n", n, nom, rep,
         (res & 0xFF) ? "lancee" : "refusee", evt);
+    // Crise du charbon forcee au debut de la preparation de la tempete
+    // (2026-11-10, demande de l'auteur ; evenements.cpp).
+    if ((res & 0xFF) && strcmp(nom, "[ENDGAME] 002 Prepare for the storm - main quest") == 0)
+        EvenementsForcerCriseCharbon();
     static LONG nTraces = 0;
     if (!succesSteam && InterlockedIncrement(&nTraces) <= 200) {
         TracerPile("demarrage de quete", quete, n);
@@ -1367,6 +1371,92 @@ const QueteSansSurvivants QUETES_SANS_SURVIVANTS[] = {
         "[ref]Black_Spire|[ref]Black_Spire-dead" } },
 };
 
+// Textes de ces objectifs (demande de l'auteur, 2026-11-10) : l'objectif est
+// rempli par l'exploration du site, pas par des survivants. Cle = nom interne
+// de l'objectif (segment apres "/Objectives/" de sa cle de texte,
+// quetes_par_scenario.xlsx). Textes affiches en jeu : anglais.
+struct TexteObjectifAP { const char* objectif; const char* texte; };
+static const TexteObjectifAP TEXTES_OBJECTIFS_AP[] = {
+    { "RescueSurvivorsQuestObjective882", "Send scouts to the Lost Expedition site" },   // A New Home 003
+    { "RescueSurvivorsQuestObjective706", "Send scouts to the Ice Crevasse" },           // ENDGAME 002b
+    { "RescueSurvivorsQuestObjective293", "Send scouts to the Snow Burrows" },
+    { "RescueSurvivorsQuestObjective826", "Send scouts to the Deep Hollow" },
+    { "RescueSurvivorsQuestObjective182", "Send scouts to the Trail Bend" },             // Refugees 001
+    { "RescueSurvivorsQuestObjective342", "Send scouts to the White Pass" },
+    { "RescueSurvivorsQuestObjective964", "Send scouts to the Black Spire" },
+};
+
+// Cles de texte et de description des objectifs ci-dessus, relevees sur les
+// objets du jeu (RelevererClesObjectifsAP, thread du jeu) ; lues par
+// QuetesTexteObjectifAP depuis hkTranslate (meme thread).
+struct CleObjectifAP { char cle[256]; const char* objectif; const char* texte; };
+static CleObjectifAP g_clesObjectifs[32];
+static int g_nClesObjectifs = 0;
+
+static void NoterCleObjectif(const char* cle, const TexteObjectifAP& t)
+{
+    if (!cle[0] || cle[0] == '-' || cle[0] == '?') return;
+    const char* c = (cle[0] == '@') ? cle + 1 : cle;
+    for (int i = 0; i < g_nClesObjectifs; ++i) if (strcmp(g_clesObjectifs[i].cle, c) == 0) return;
+    if (g_nClesObjectifs >= 32) return;
+    CleObjectifAP& e = g_clesObjectifs[g_nClesObjectifs++];
+    strncpy_s(e.cle, c, _TRUNCATE);
+    e.objectif = t.objectif;
+    e.texte = t.texte;
+    printf("[QUETEAP] texte de l'objectif \"%s\" -> \"%s\" (cle \"%s\")\n", t.objectif, t.texte, e.cle);
+}
+
+// Parcourt les objectifs des quetes de QUETES_SANS_SURVIVANTS (tous
+// scenarios : les gabarits de quetes sont charges ensemble) ; une seule fois
+// par recensement reussi. "Hide progress" (+0x31) leve : le compteur de
+// survivants (0 / 20) n'a plus de sens.
+static void ReleverClesObjectifsAP()
+{
+    static bool fait = false;
+    if (fait || g_nQuetes == 0) return;
+    fait = true;
+    int nObj = 0;
+    for (const QueteSansSurvivants& q : QUETES_SANS_SURVIVANTS) {
+        uintptr_t quete = 0;
+        for (int i = 0; i < g_nQuetes; ++i)
+            if (strcmp(g_quetes[i].nom, q.quete) == 0) { quete = g_quetes[i].adr; break; }
+        if (!quete) continue;
+        uintptr_t tab = 0; int n = 0;
+        if (!LireTableau(quete + QUE_OBJECTIFS, tab, n)) continue;
+        for (int i = 0; i < n && i < 64; ++i) {
+            uintptr_t o = 0;
+            if (!SafeRead((void*)(tab + (uintptr_t)i * 8), &o, 8) || o <= 0x10000) continue;
+            char texte[256], desc[256];
+            LireTexte(o + OBJ_TEXTE, texte, sizeof(texte));
+            LireTexte(o + OBJ_DESCRIPTION, desc, sizeof(desc));
+            const char* p = strstr(texte, "/Objectives/");
+            if (!p) continue;
+            char nomObj[96];
+            strncpy_s(nomObj, p + 12, _TRUNCATE);
+            char* fin = strchr(nomObj, '/');
+            if (fin) *fin = 0;
+            for (const TexteObjectifAP& t : TEXTES_OBJECTIFS_AP) {
+                if (strcmp(t.objectif, nomObj) != 0) continue;
+                NoterCleObjectif(texte, t);
+                NoterCleObjectif(desc, t);
+                uint8_t cacher = 1;
+                SafeWrite((void*)(o + 0x31), &cacher, 1);
+                ++nObj;
+            }
+        }
+    }
+    printf("[QUETEAP] %d objectif(s) \"Rescue survivors\" retexte(s), %d cle(s)\n", nObj, g_nClesObjectifs);
+}
+
+const char* QuetesTexteObjectifAP(const char* cle)
+{
+    if (!cle || g_nClesObjectifs == 0) return nullptr;
+    if (cle[0] == '@') ++cle;
+    for (int i = 0; i < g_nClesObjectifs; ++i)
+        if (strcmp(g_clesObjectifs[i].cle, cle) == 0) return g_clesObjectifs[i].texte;
+    return nullptr;
+}
+
 // Un des sites de 'alternatives' ("a|b") est-il explore ?
 static bool SiteExplore(const char* alternatives)
 {
@@ -1413,6 +1503,7 @@ static void TerminerQuetesSansSurvivants()
     uintptr_t sys = 0;
     if (!SafeRead((void*)(Base() + OFF_SYSTEME_QUETES), &sys, 8) || sys <= 0x10000) return;
     if (g_nQuetes == 0) RecenserQuetes();
+    ReleverClesObjectifsAP();
 
     for (int k = 0; k < (int)(sizeof(QUETES_SANS_SURVIVANTS) / sizeof(QUETES_SANS_SURVIVANTS[0])); ++k) {
         const QueteSansSurvivants& q = QUETES_SANS_SURVIVANTS[k];
@@ -1497,6 +1588,15 @@ void QuetesPompe()
     if (!refugiesReleves && PartiePrete()) {
         refugiesReleves = true;
         ReleverDilemmesParNom("Refugee");
+    }
+    // Releve des dilemmes a choix et des sites de la carte (2026-11-10 :
+    // dilemmes d'exploration dont l'auteur choisira le choix a forcer) : une
+    // fois par partie chargee (generation), pour couvrir chaque scenario.
+    static unsigned generationReleveDil = 0;
+    if (PartiePrete() && PartieGeneration() != generationReleveDil) {
+        generationReleveDil = PartieGeneration();
+        ReleverDilemmesAChoix();
+        SitesContenuReleve();
     }
 #endif
     if (!g_releveDemande) return;

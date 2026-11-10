@@ -30,6 +30,11 @@ struct ExpCache {
     bool      valide;
     const SitePayload* enAttente[MAX_EN_ATTENTE];
     int                nEnAttente;
+    // Checks rapportes au dernier retour en ville (2026-11-10) : la liste du
+    // retour (case AP de l'expedition rentree) doit les lister au survol ; la
+    // cargaison, elle, est deja videe. Oubliee au depart suivant.
+    const SitePayload* retour[MAX_EN_ATTENTE];
+    int                nRetour;
 };
 
 struct SiteCache {
@@ -92,8 +97,6 @@ void ScootingPayloadsInit()
 static wchar_t g_listePortee[512];
 static int     g_nListePortee = 0;
 
-static uint64_t  g_tamponsInj[16][2 * 4];
-static uintptr_t g_proprioInj[16] = {};
 
 // Systeme de selection, resolu une fois a l'init.
 static uintptr_t g_selSys = 0;
@@ -219,16 +222,8 @@ static void ViderCargaison(uintptr_t comp)
         uint32_t zero = 0;
         if (arr > 0x10000 && cnt > 0 && cnt <= 64)
             SafeWrite((void*)(comp + offs[i] + 8), &zero, 4);
-
-        // Si le tableau vient de nous, on le retire completement : le jeu
-        // ne doit jamais detenir notre pointeur quand il libere l'expedition.
-        if (offs[i] == 0x168 &&
-            arr >= (uintptr_t)&g_tamponsInj[0][0] &&
-            arr <  (uintptr_t)&g_tamponsInj[16][0]) {
-            uintptr_t nul = 0;
-            SafeWrite((void*)(comp + 0x168),      &nul,  8);
-            SafeWrite((void*)(comp + 0x168 + 12), &zero, 4);
-        }
+        // (Le tableau fourni par InjecterPorteur est alloue par le moteur
+        // depuis le 2026-11-10 : il reste au jeu, plus rien a retirer.)
     }
 }
 
@@ -398,6 +393,13 @@ static void SurveillerSites()
                     g_exps[e].id, p->locationId);
                 break;
             }
+            // Site deja coche sur le serveur (re-visite, 2026-11-10) : pas
+            // de 2e check porte.
+            if (ApSiteDejaCoche(p->site)) {
+                printf("[SCOUT] exp %d : location %d deja cochee sur le serveur, rien ramasse\n",
+                    g_exps[e].id, p->locationId);
+                break;
+            }
             if (g_exps[e].nEnAttente >= MAX_EN_ATTENTE) {
                 printf("[SCOUT] exp %d : file pleine, location perdue\n", g_exps[e].id);
                 break;
@@ -471,6 +473,15 @@ static const char* NomDuBloc(uintptr_t bloc)
 
 // Remplace toute la cargaison par une seule ressource porteuse.
 // Element de CarriedResources : {pointeur def (8 o), quantite (8 o)}.
+//
+// Correctif du 2026-11-10 (crashs c0000374 sur Steam : rechargement,
+// creation d'un convoi, sauvegarde) : le tableau fourni quand la cargaison
+// n'en avait pas etait un tampon STATIQUE (g_tamponsInj), contre la regle 1.
+// Releve [CRASH] : _aligned_free dans le destructeur du composant
+// d'expedition (FUN_1419e9960, cargaison +0x168 liberee par FUN_140d9f120).
+// Le jeu libere ou agrandit ce tableau comme le sien : il est maintenant
+// alloue par l'allocateur du moteur (MoteurAlloc = _aligned_malloc(n, 16),
+// FUN_140e27bf0), 4 elements de 0x10, comme celui fourni aux sites.
 bool InjecterPorteur(uintptr_t comp, uintptr_t def, int64_t quantite)
 {
     if (def <= 0x10000) return false;
@@ -480,25 +491,19 @@ bool InjecterPorteur(uintptr_t comp, uintptr_t def, int64_t quantite)
     if (!SafeRead((void*)(comp + 0x168 + 8), &cnt, 4)) return false;
     if (!SafeRead((void*)(comp + 0x168 + 12), &cap, 4)) return false;
 
-    // Tableau absent : on fournit le notre. Un par expedition, jamais libere.
-    // Il est retire des que la cargaison est videe, pour que le jeu ne le
-    // detienne jamais au moment ou il pourrait le liberer.
-    
+    // Tableau absent : on en fournit un, alloue par le moteur ; il appartient
+    // ensuite au jeu (libere avec l'expedition).
     if (arr <= 0x10000 || cap < 1) {
-        int slot = -1;
-        for (int i = 0; i < 16; ++i) {
-            if (g_proprioInj[i] == comp) { slot = i; break; }
-            if (g_proprioInj[i] == 0 && slot < 0) slot = i;
-        }
-        if (slot < 0) return false;
-        g_proprioInj[slot] = comp;
-        for (int z = 0; z < 8; ++z) g_tamponsInj[slot][z] = 0;
-
-        arr = (uintptr_t)g_tamponsInj[slot];
+        if (!MoteurAlloc) return false;
+        uintptr_t bloc = MoteurAlloc(4 * 0x10);
+        if (!bloc) return false;
+        uint64_t vide = 0;
+        for (int z = 0; z < 8; ++z) SafeWrite((void*)(bloc + z * 8), &vide, 8);
+        arr = bloc;
         uint32_t quatre = 4;
         if (!SafeWrite((void*)(comp + 0x168), &arr, 8)) return false;
         if (!SafeWrite((void*)(comp + 0x168 + 12), &quatre, 4)) return false;
-        printf("[INJ] tampon fourni a 0x%llX\n", (unsigned long long)arr);
+        printf("[INJ] tableau alloue par le moteur a 0x%llX\n", (unsigned long long)arr);
     }
 
     if (!SafeWrite((void*)(arr + 0), &def, 8))      return false;
@@ -562,7 +567,7 @@ static void RescanExpeditions()
         e.id = -1;
         SafeRead((void*)(objs[i] + 0x30), &e.id, 4);
         e.dernierLieu = 0; e.dernierTarget = 0; e.dernierSite = 0; e.derniereCargo = 0;
-        e.nEnAttente = 0; e.valide = true;
+        e.nEnAttente = 0; e.nRetour = 0; e.valide = true;
 
         for (int j = 0; j < nAnciens; ++j) {
             if (anciens[j].comp != e.comp) continue;
@@ -657,7 +662,7 @@ void ScootingInit()
         e.id = -1;
         SafeRead((void*)(bufExp[i] + 0x30), &e.id, 4);
         e.dernierLieu = 0; e.dernierTarget = 0; e.dernierSite = 0;
-        e.derniereCargo = 0; e.nEnAttente = 0; e.valide = true;
+        e.derniereCargo = 0; e.nEnAttente = 0; e.nRetour = 0; e.valide = true;
         g_nExps++;
     }
     g_compteListeExp = CompteDuSysteme(IdSysteme::Expedition);
@@ -804,7 +809,14 @@ void ScootingTick()
             if (p) {
                 chargementTraite = true;
                 bool empile = false;
-                if (!DejaEnAttente(g_exps[i], p) && g_exps[i].nEnAttente < MAX_EN_ATTENTE) {
+                if (ApSiteDejaCoche(p->site)) {
+                    // Re-visite d'un site deja coche (2026-11-10) : rien a porter.
+                    static int nJournal = 0;
+                    if (nJournal++ < 20)
+                        printf("[SCOUT] exp %d : location %d deja cochee sur le serveur, rien ramasse\n",
+                            g_exps[i].id, p->locationId);
+                }
+                else if (!DejaEnAttente(g_exps[i], p) && g_exps[i].nEnAttente < MAX_EN_ATTENTE) {
                     g_exps[i].enAttente[g_exps[i].nEnAttente++] = p;
                     empile = true;
                     const ApCheck* ac = ApCheckById(p->locationId);
@@ -824,10 +836,16 @@ void ScootingTick()
         }
 
         bool enVille = (loc && g_blocVille && loc == g_blocVille);
+        // Depart de la ville : la liste du dernier retour est oubliee.
+        if (g_exps[i].nRetour > 0 && g_blocVille && g_exps[i].dernierLieu == g_blocVille && loc != g_blocVille)
+            g_exps[i].nRetour = 0;
         if (enVille && g_exps[i].nEnAttente > 0) {
             // Point de sortie unique vers Archipelago : archipelago.cpp.
             for (int k = 0; k < g_exps[i].nEnAttente; ++k)
                 SendLocationCheck(g_exps[i].enAttente[k]->locationId, g_exps[i].enAttente[k]->site);
+            // Liste du retour gardee pour l'infobulle (2026-11-10).
+            for (int k = 0; k < g_exps[i].nEnAttente; ++k) g_exps[i].retour[k] = g_exps[i].enAttente[k];
+            g_exps[i].nRetour = g_exps[i].nEnAttente;
             g_exps[i].nEnAttente = 0;
             g_exps[i].dernierSite = 0;
             ViderCargaison(c);
@@ -870,6 +888,41 @@ int ScootingLocationPourCleSite(const char* cle)
 
     const SitePayload* p = PayloadDuSite(nom);
     return p ? p->locationId : -1;
+}
+
+// La cle est-elle une des 4 DESCRIPTIONS par etat du gabarit d'un site de la
+// carte (0x290, 0x288, 0x298, 0x2A0 : affichee, non visite, explore, epuise) ?
+// Renvoie alors le nom interne du site. Noms et autres textes du site non
+// concernes. (2026-11-10, decision de l'auteur : le nom du check va dans la
+// description du panneau du site ; le nom du site reste vanilla, la boite du
+// nom sur la carte etant trop petite.)
+bool ScootingSitePourCleDescription(const char* cle, char* out, int maxlen)
+{
+    if (!out || maxlen < 2) return false;
+    out[0] = 0;
+    if (!cle || !g_run.valid) return false;
+    char nom[128];
+    if (!NomDeSite(cle, nom, sizeof(nom))) return false;
+    if (cle[0] == '@') ++cle;
+    const int offs[4] = { 0x290, 0x288, 0x298, 0x2A0 };
+    for (int i = 0; i < g_nSites; ++i) {
+        if (strcmp(g_sites[i].nom, nom) != 0) continue;
+        uintptr_t tpl = 0;
+        if (!SafeRead((void*)(g_sites[i].comp + 0x20), &tpl, 8) || tpl <= 0x10000) return false;
+        for (int k = 0; k < 4; ++k) {
+            uintptr_t p = 0;
+            char brut[256] = {};
+            if (!SafeRead((void*)(tpl + offs[k]), &p, 8) || p <= 0x10000) continue;
+            if (!SafeRead((void*)p, brut, sizeof(brut) - 1)) continue;
+            const char* b = (brut[0] == '@') ? brut + 1 : brut;
+            if (strcmp(b, cle) == 0) {
+                strncpy_s(out, maxlen, nom, _TRUNCATE);
+                return true;
+            }
+        }
+        return false;
+    }
+    return false;
 }
 
 // Ecrit le GUID de la ressource porteuse dans le tresor de chaque site
@@ -1201,11 +1254,17 @@ static int ConstruireListePortee(int cible, wchar_t* out, int maxChars)
 
     if (!out || maxChars < 2) return 0;
     out[0] = 0;
-    if (cible < 0 || cible >= g_nExps || !g_exps[cible].valide || g_exps[cible].nEnAttente <= 0) return 0;
+    if (cible < 0 || cible >= g_nExps || !g_exps[cible].valide) return 0;
+    // Checks en route ; a defaut, ceux du dernier retour en ville (liste du
+    // retour : la cargaison est deja videe, 2026-11-10).
+    const SitePayload* const* liste = g_exps[cible].enAttente;
+    int nListe = g_exps[cible].nEnAttente;
+    if (nListe <= 0) { liste = g_exps[cible].retour; nListe = g_exps[cible].nRetour; }
+    if (nListe <= 0) return 0;
 
     int pos = 0, n = 0;
-    for (int k = 0; k < g_exps[cible].nEnAttente; ++k) {
-        const ApCheck* ac = ApCheckById(g_exps[cible].enAttente[k]->locationId);
+    for (int k = 0; k < nListe; ++k) {
+        const ApCheck* ac = ApCheckById(liste[k]->locationId);
         const char* s = ac ? ac->description : "(inconnu)";
 
         if (n > 0)

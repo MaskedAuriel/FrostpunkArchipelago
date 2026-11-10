@@ -68,7 +68,7 @@ const Correspondance VERSION_STEAM[] = {
     { 0x1283EA0, 0x111D2B0 },   // scenarios_ap.cpp:85 -- exact 1.00
     { 0x1286840, 0x111FC50 },   // mod_common.cpp:1485 -- exact 1.00
     { 0x12892F0, 0x11226F0 },   // sauvegardes_ap.cpp:20 -- exact 1.00
-    { 0x12EC200, 0x1186A30 },   // groupes.cpp:674 -- voisinage(3 cand) 1.00
+    { 0x12EC200, 0x1186AC0 },   // groupes.cpp:674 -- getter de type (frostpunkselectioncomponent.h), corrige le 2026-11-10
     { 0x1301490, 0x119BCE0 },   // victoire.cpp:46 -- exact 1.00
     { 0x131DE20, 0x11B8670 },   // scooting.cpp:2243 -- exact 1.00
     { 0x1325E40, 0x11C0690 },   // hooks_research.cpp:34 -- exact 1.00
@@ -77,11 +77,11 @@ const Correspondance VERSION_STEAM[] = {
     { 0x1327120, 0x11C1970 },   // mod_common.h:143 -- exact 1.00
     { 0x1329610, 0x11C3E60 },   // mod_common.h:142 -- exact 1.00
     { 0x132F260, 0x11C9AB0 },   // temperature.cpp:877 -- exact 1.00
-    { 0x132FD90, 0x11CA550 },   // scooting.cpp:253 -- voisinage(2 cand) 1.00
+    { 0x132FD90, 0x11CA5E0 },   // scooting.cpp:253 -- getter de type (frostpunkworldmapentitycomponent.h), corrige le 2026-11-10
     { 0x1331940, 0x11CC190 },   // groupes.cpp:1446 -- exact 1.00
     { 0x1332CD0, 0x11CD520 },   // groupes.cpp:1445 -- exact 1.00
     { 0x139E930, 0x1239180 },   // mod_common.h:140 -- voisinage(2 cand) 1.00
-    { 0x148C130, 0x1326860 },   // scooting.cpp:1837 -- voisinage(18 cand) 1.00
+    { 0x148C130, 0x1326980 },   // scooting.cpp:1837 -- getter de type (frostpunkexpeditionsitecomponent.h), corrige le 2026-11-10
     { 0x1518B70, 0x13B33C0 },   // scenarios_ap.cpp:323 -- exact 1.00
     { 0x1559730, 0x13F4070 },   // temperature.cpp:730 -- exact 1.00
     { 0x167C580, 0x1517520 },   // MessageManager.cpp:98 -- exact 1.00
@@ -98,6 +98,8 @@ const Correspondance VERSION_STEAM[] = {
     { 0x16E8570, 0x1583570 },   // quetes.cpp:936 -- exact 1.00
     { 0x16FD350, 0x1598350 },   // lois_ap.cpp:42 -- exact 1.00
     { 0x16FDBC0, 0x1598BC0 },   // lois_ap.cpp:43 -- exact 1.00
+    { 0x16FECC0, 0x1599CC0 },   // lois_ap.cpp (etat brut d'une loi) -- voisinage, octets identiques hors rip (2026-11-10)
+    { 0x16FF990, 0x159A990 },   // lois_ap.cpp (loi signee ?) -- voisinage, octets identiques hors rip (2026-11-10)
     { 0x173FE40, 0x15DAE40 },   // mod_common.h:139 -- exact 1.00
     { 0x17B9B70, 0x1654B70 },   // evenements.cpp:46 -- exact 1.00
     { 0x17CDE10, 0x1668E10 },   // evenements.cpp:65 -- exact 1.00
@@ -134,9 +136,14 @@ const Correspondance VERSION_STEAM[] = {
     { 0x1B2E8C0, 0x19CD130 },   // scenarios_ap.cpp:322 -- exact 1.00
     { 0x1BB2B60, 0x1A53880 },   // IconSubManager.cpp:554 -- exact 1.00
     { 0x1BB2D30, 0x1A53A50 },   // IconSubManager.cpp:554 -- exact 1.00
+    { 0x1BBB480, 0x1A5C1A0 },   // lois_ap.cpp (donnees d'un noeud du livre) -- voisinage, octets identiques hors rip (2026-11-10)
     { 0x1BBC320, 0x1A5D040 },   // lois_ap.cpp:993 -- voisinage(1 cand) 0.94
     { 0x1BC1440, 0x1A62180 },   // lois_ap.cpp:1455 -- exact 1.00
+    { 0x1BC2020, 0x1A62D60 },   // lois_ap.cpp (visuel d'un noeud du livre) -- voisinage, octets identiques hors rip (2026-11-10)
+    { 0x1BC2640, 0x1A63380 },   // lois_ap.cpp (etat d'un noeud du livre) -- voisinage, octets identiques hors rip (2026-11-10)
+    { 0x1BC5100, 0x1A65E40 },   // hooks_research.cpp (noeud disponible, arbre) -- voisinage, octets identiques hors rip (2026-11-10)
     { 0x1BC5810, 0x1A66550 },   // IconSubManager.cpp:553 -- exact 1.00
+    { 0x1BCA5A0, 0x1A6B2E0 },   // hooks_research.cpp (rafraichissement d'un noeud, arbre) -- voisinage, octets identiques hors rip (2026-11-10)
     { 0x1BCC1A0, 0x1A6CEE0 },   // temperature.cpp:731 -- exact 1.00
     { 0x1BE67F0, 0x1A87530 },   // IconSubManager.cpp:553 -- exact 1.00
     { 0x1C19460, 0x1ABA210 },   // evenements.cpp:942 -- exact 1.00

@@ -241,3 +241,44 @@
 - Limite : après réception des items `Temperature Rise`, la température
   remonte mais l'écran garde la météo plus froide jusqu'au prochain
   changement de météo.
+
+### 2026-11-10 — Frise : baisse annoncée = baisse réelle
+
+Retour de l'auteur : frise « -2 niveaux », baisse appliquée -3 (-10 → -40 °C).
+Vanilla : -40 → montée -30 (retirée, item) → baisse -60. Le recalcul part de
+la météo **vanilla** (-30) : -3, juste (une fois tous les items reçus, la
+température est la vanilla : A New Home 7 niveaux de montées en Medium /
+Hard / Frostbite, 6 en Easy = 7 items). Décompilé `FUN_141559730` : l'icône
+d'un changement = écart entre la météo du changement (`entrée +8`,
+décalage `+0x54`) et celle de `précédente +8` ; pour le 1er changement à
+venir, `précédente` porte la météo **courante**, que le mod laisse à
+l'ancienne valeur après une montée retirée (-40). `FUN_141bcc1a0` (panneau)
+n'affiche qu'une flèche. Correctif (`hkIconeFrise`) : si `précédente` porte
+la météo courante et qu'elle diffère de la vanilla (`g_meteoVanilla`),
+l'original reçoit une copie de `précédente` dont la météo est la vanilla.
+Journal `[TEMPAP] frise : changement N annonce depuis la meteo vanilla …`.
+Compilé, non testé.
+
+### 2026-11-10 — Baisse vers la météo affichée jamais appliquée
+
+Test de l'auteur (Hard, jour 28) : message « The temperature will drop
+significantly (2 levels) », rien au moment venu. Relevé `[TEMPAP] frise :
+changement N a la date …` : changement 9 -70 → -50 (montée retirée, l'écran
+garde -70), changement 10 **-50 → -70** (baisse de 2), changement 11 -70 →
+-60. Au changement 10, la nouvelle météo (-70) est celle que le mod a
+laissée à l'écran : le jeu la juge identique à la courante et ne pose rien
+(`FUN_14132f260`) → `hkPoserMeteo` ne voit rien, `g_meteoVanilla` reste à
+-50, la baisse n'est jamais appliquée. **Correctif** (`TemperaturePompe`,
+une fois par seconde) : météo vanilla suivie d'après la chronologie
+(`MeteoVanillaChronologie`, dernière entrée passée) ; si elle change sans
+pose du jeu → `NoterChangement` (montée retirée / baisse laissée), sauvegarde,
+recalcul. Journal `[TEMPAP] chronologie : meteo vanilla … -> … sans pose par
+le jeu`. Relevé des changements de la frise gardé (diagnostic). Compilé,
+déployé Epic + Steam, non testé.
+- **Suite (même jour)** : frise « baisse de 4 niveaux au jour 30 » après
+  avoir chargé les autres scénarios (relevé des dilemmes) puis A New Home :
+  la frise s'est dessinée avant la relecture de la partie, avec la météo
+  vanilla d'On the Edge restée en mémoire (`annonce depuis la meteo vanilla
+  -20_DLC3 … -> -60`). Correctif : `hkIconeFrise` lit la météo vanilla
+  dans la chronologie de la partie en cours (`MeteoVanillaChronologie`),
+  plus `g_meteoVanilla`. Compilé (18:30), à déployer (jeu ouvert).

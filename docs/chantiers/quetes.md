@@ -408,3 +408,52 @@
   avec succès la 1re quête d'histoire **active** du scénario
   (`QueteHistoire`, `FUN_1416d2710`) ; journal `[QUETEAP] F11 : "…"
   terminee avec succes`. Le check part comme pour une fin normale.
+
+### 2026-11-10 — Texte des objectifs « Rescue survivors » validés par l'exploration
+
+- Retour de l'auteur (A New Home, 003 atteint, Steam) : l'objectif
+  « Rescue survivors of our Lost Expedition » (20 personnes) reste affiché
+  alors qu'il est rempli par l'exploration du site. Demande : texte du type
+  « Send explorer to the Lost Expedition site ».
+- **Fait (compilé, déployé, non testé)** : table `TEXTES_OBJECTIFS_AP`
+  (quetes.cpp), clé = nom interne de l'objectif (segment après
+  `/Objectives/`, `quetes_par_scenario.xlsx`) : 882 → « Send scouts to the
+  Lost Expedition site » ; ENDGAME 002b 706 / 293 / 826 → Ice Crevasse /
+  Snow Burrows / Deep Hollow ; Refugees 001 182 / 342 / 964 → Trail Bend /
+  White Pass / Black Spire. `ReleverClesObjectifsAP` (appelée par
+  `TerminerQuetesSansSurvivants`, thread du jeu, une fois après le
+  recensement) lit les clés de texte (`+0x50`) et de description (`+0x58`)
+  de ces objectifs et lève **Hide progress** (`+0x31`) : plus de compteur
+  0 / 20. `hkTranslate` → `QuetesTexteObjectifAP` → objet de traduction du
+  pool `ApLocSite` (clé = texte). Journal `[QUETEAP] texte de l'objectif …`
+  et `[QUETEAP] N objectif(s) "Rescue survivors" retexte(s)`.
+
+### 2026-11-10 — Fin de partie A New Home : checks de quête manquants
+
+- Partie terminée (victoire). Checks de quête non faits : « Prepare For
+  The Storm » (002 terminée en **échec** : 002a FOOD réussie après le début
+  de 003 Final preparation, règle vanilla), « The Londoners » (005 échouée),
+  « Give Away Wood Supplies » (quête jamais lancée : bois donné tout de
+  suite). **Décision de l'auteur** : checks de quête sur **succès
+  seulement** ; quêtes conditionnelles laissées au joueur.
+- **Émeutes du bois** (demande de l'auteur) : dilemme `M: Wood Riots`
+  (Endgame : « Give away {wood} Wood » / « We will have Wood for
+  everybody » / « Disperse the crowd » / « The city comes first! ») ; son
+  **1er choix** envoie le check `[ENDGAME] Gather wood` (« Give Away Wood
+  Supplies »). `hkResoudreDilemme` lit le nom du dilemme actif avant la
+  résolution (`NomDilemmeActif` : `FUN_1416c5ec0(sys + 0x21A0, &id)`,
+  entrée `+0x10 + i × 0x90`) ; journal `[DIL] "M: Wood Riots" : bois donne
+  (choix 1) -> check …`. Compilé, déployé Epic + Steam, non testé.
+- **Crise du charbon forcée** (demande de l'auteur, même jour) : la quête
+  `[ENDGAME] Build Coal Thumpers` (check) n'est lancée que par la crise du
+  charbon (dilemmes Endgame `[coal crisis] Mines freeze`, `More hands
+  needed`, `Fear over coal supply`, `Coal stealing` ; événements `[coal
+  mines crisis] U: Step N controller`), qui suppose des mines. Conditions
+  exactes non relevées. **Correctif** : au démarrage de `[ENDGAME] 002
+  Prepare for the storm - main quest` (`hkDemarrerQuete`), le dilemme
+  `[coal crisis] Fear over coal supply` (choix 1 « We'll build Coal
+  Thumpers » = démarre la quête) est créé d'office (`DilemmeParNom`,
+  contexte par défaut, dans `DilemmesPompe`), sauf si le check est déjà
+  fait (`ApQueteDejaCochee`). Une fois forcé dans la partie, sa création
+  vanilla est refusée (`hkCreerDilemme`). Journal `[DIL] crise du charbon
+  forcee : … -> id`. Compilé, déployé Epic + Steam, non testé.

@@ -54,6 +54,8 @@
 #include "MinHook.h"
 #include <cstring>
 
+static uintptr_t MeteoVanillaChronologie(uint64_t* date);   // plus bas (TemperaturePompe)
+
 namespace {
 
 static const uintptr_t OFF_ENV_CONFIG       = Adr(0x406B4D0);
@@ -733,12 +735,69 @@ typedef uintptr_t (*Fonction5_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t, uin
 Fonction5_t oIconeFrise = nullptr;
 Fonction4_t oIconePanneau = nullptr;
 
+// Baisse annoncee = baisse REELLE (demande de l'auteur, 2026-11-10 ; frise :
+// -2 annonce, -3 applique). FUN_141559730 dessine l'ecart entre la meteo du
+// changement (entree +8, decalage +0x54) et celle de 'precedente' (+8) ; pour
+// le 1er changement a venir, 'precedente' porte la meteo COURANTE, que le mod
+// laisse a l'ancienne valeur apres une montee retiree (-40 au lieu de -30).
+// Le recalcul, lui, part de la meteo vanilla : on passe donc a l'original une
+// copie de 'precedente' dont la meteo est la vanilla (seul +8 est lu).
 uintptr_t hkIconeFrise(uintptr_t panneau, uintptr_t i, uintptr_t entree, uintptr_t precedente, uintptr_t p5)
 {
     uintptr_t apres = 0, avant = 0;
-    if (entree > 0x10000 && precedente > 0x10000 &&
-        SafeRead((void*)(entree + 8), &apres, 8) && SafeRead((void*)(precedente + 8), &avant, 8) &&
-        MonteeRetiree(avant, apres)) {
+    if (entree > 0x10000 && precedente > 0x10000) {
+        SafeRead((void*)(entree + 8), &apres, 8);
+        SafeRead((void*)(precedente + 8), &avant, 8);
+    }
+    // DIAG (2026-11-10 : message "drop significantly (2 levels)" sans
+    // changement de meteo) : une ligne par changement de la frise (indice,
+    // date de l'entree +0, meteo avant / apres), au 1er dessin et quand il
+    // change ; maintenant = horloge du jeu.
+    {
+        static struct { int i; uintptr_t avant, apres; } vus[32];
+        static int nVus = 0;
+        bool deja = false;
+        for (int k = 0; k < nVus; ++k)
+            if (vus[k].i == (int)i && vus[k].avant == avant && vus[k].apres == apres) deja = true;
+        if (!deja && apres) {
+            if (nVus < 32) vus[nVus++] = { (int)i, avant, apres };
+            uint64_t date = 0;
+            SafeRead((void*)entree, &date, 8);
+            char ma[160] = "-", mp[160] = "-";
+            if (avant) DecrireMeteo(avant, ma, sizeof(ma));
+            DecrireMeteo(apres, mp, sizeof(mp));
+            printf("[TEMPAP] frise : changement %d a la date %llX (maintenant %llX) : %s -> %s\n", (int)i,
+                (unsigned long long)date, (unsigned long long)Maintenant(), ma, mp);
+        }
+    }
+    uintptr_t ws = 0, cour = 0;
+    SafeRead((void*)(Base() + OFF_SYSTEME_METEO), &ws, 8);
+    if (ws > 0x10000) SafeRead((void*)(ws + SYS_METEO_COURANTE), &cour, 8);
+    // Meteo vanilla lue dans la chronologie de la partie EN COURS (correctif
+    // du 2026-11-10 : g_meteoVanilla pouvait encore etre celle de la partie
+    // precedente quand la frise se dessine au chargement -> "-4 niveaux"
+    // annonces depuis la meteo d'On the Edge).
+    uintptr_t vanilla = MeteoVanillaChronologie(nullptr);
+    if (avant && cour && avant == cour && vanilla > 0x10000 && vanilla != cour) {
+        avant = vanilla;
+        uintptr_t faux[4] = {};
+        SafeRead((void*)precedente, faux, sizeof(faux));
+        faux[1] = vanilla;
+        if (!MonteeRetiree(avant, apres)) {
+            static int nJournal = 0;
+            if (nJournal < 10) {
+                ++nJournal;
+                char mv[160], ma[160], mp[160];
+                DecrireMeteo(cour, ma, sizeof(ma));
+                DecrireMeteo(vanilla, mv, sizeof(mv));
+                DecrireMeteo(apres, mp, sizeof(mp));
+                printf("[TEMPAP] frise : changement %d annonce depuis la meteo vanilla %s (affichee %s) -> %s\n",
+                    (int)i, mv, ma, mp);
+            }
+            return oIconeFrise(panneau, i, entree, (uintptr_t)faux, p5);
+        }
+    }
+    if (avant && apres && MonteeRetiree(avant, apres)) {
         static int nJournal = 0;
         if (nJournal < 20) {
             ++nJournal;
@@ -947,6 +1006,27 @@ void TemperatureDemanderReleve()
     printf("[TEMP] releve demande : il s'execute sur le thread du jeu (jeu hors pause)\n");
 }
 
+// Meteo vanilla d'apres la chronologie calculee (systeme meteo +0x118,
+// {date, meteo} au pas de 0x10) : derniere entree deja passee ; sa date dans
+// 'date'. 0 si illisible.
+static uintptr_t MeteoVanillaChronologie(uint64_t* date)
+{
+    uintptr_t ws = 0, tab = 0;
+    int n = 0;
+    SafeRead((void*)(Base() + OFF_SYSTEME_METEO), &ws, 8);
+    if (ws <= 0x10000 || !LireTableau(ws + SYS_CHRONOLOGIE, tab, n)) return 0;
+    uint64_t t = Maintenant();
+    uintptr_t v = 0;
+    for (int i = 0; i < n; ++i) {
+        uint64_t d = 0; uintptr_t m = 0;
+        if (!SafeRead((void*)(tab + (uintptr_t)i * 0x10), &d, 8) || !SafeRead((void*)(tab + (uintptr_t)i * 0x10 + 8), &m, 8)) break;
+        if (d > t) break;
+        v = m;
+        if (date) *date = d;
+    }
+    return v > 0x10000 ? v : 0;
+}
+
 void TemperaturePompe()
 {
     if (g_releveDemande) {
@@ -988,6 +1068,32 @@ void TemperaturePompe()
             }
         }
         RecalculForce("partie chargee");
+    }
+
+    // Changement vanilla que le jeu ne pose pas (correctif du 2026-11-10) :
+    // apres une montee retiree, l'ecran garde l'ancienne meteo (ex. -70 au
+    // lieu de -50) ; si la chronologie revient ensuite a cette meteo (baisse
+    // -50 -> -70, changement 10 du test de l'auteur), le jeu la juge
+    // identique a la courante et ne pose rien : hkPoserMeteo ne voyait rien,
+    // la baisse n'etait jamais appliquee. On suit donc la chronologie (une
+    // fois par seconde) : meteo vanilla changee -> NoterChangement (montee
+    // retiree, baisse laissee) et recalcul.
+    static DWORD prochainSuivi = 0;
+    if (GetTickCount() >= prochainSuivi) {
+        prochainSuivi = GetTickCount() + 1000;
+        uint64_t date = 0;
+        uintptr_t v = MeteoVanillaChronologie(&date);
+        if (v && g_meteoVanilla && v != g_meteoVanilla) {
+            char ma[160], mv[160];
+            DecrireMeteo(g_meteoVanilla, ma, sizeof(ma));
+            DecrireMeteo(v, mv, sizeof(mv));
+            printf("[TEMPAP] chronologie : meteo vanilla %s -> %s sans pose par le jeu\n", ma, mv);
+            uintptr_t prec = g_meteoVanilla;
+            g_meteoVanilla = v;
+            NoterChangement(prec, v, date);
+            Sauver();
+            RecalculForce("meteo vanilla changee (chronologie)");
+        }
     }
 
     LONG n = InterlockedExchange(&g_niveauxEnAttente, 0);

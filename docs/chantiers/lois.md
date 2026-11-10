@@ -914,3 +914,53 @@ d'info** de la loi sélectionnée (`hkInfoLoi`, `TECH_NAME_TEXT`), comme la
 description des technos. `DiagNoeudsLivre` n'appelle plus
 `PoserNomCheckLoi` / `EffacerNomLoi` (gardés, inutilisés) ; recentrage des
 paires (`CentrerNomPaire`) inactif. Icônes inchangées. Non testé.
+
+## 2026-11-10 — Loi signée mais non reçue : pas affichée signée dans le livre
+
+Demande de l'auteur : une loi signée dont l'item n'est pas reçu (effet
+retenu, `LoiAP::retenue`) ne doit pas paraître signée dans le livre.
+
+Décompilés (Ghidra, Epic) :
+- `FUN_141bbc320` (construction) → `FUN_141bc1f70` (rafraîchissement) →
+  pour chaque nœud `FUN_141bc2640(livre, noeud)` puis
+  `FUN_141bc2020(livre, noeud)` ; `FUN_141bc2020` est aussi appelée par la
+  sélection `FUN_141bc02f0`.
+- `FUN_141bc2640` : état du nœud `+0x6C` = **4** si `FUN_1416ff990` (loi
+  signée), sinon **2** si `FUN_1416ffa90(sys, loi, 0)` (signable : `loi
+  +0x94`, `+0x30`, prérequis `+0x38`), sinon 5 / 1 / 0 (prérequis de lois
+  via `FUN_1416ff000`, `FUN_1416ff4a0`).
+- `FUN_141bc2020` : visuel `"ACTIVE"` si `FUN_1416fecc0` (état brut, map
+  `sys +0xD8`) == 2, `"IN_PROGRESS"` si 1, sinon `"AVAILABLE"` (`+0x6C` 2/3)
+  ou `"NOT_AVAILABLE"` (1/5) ; liens `"ACTIVE"` si `+0x6C == 4` ; élément
+  `+0x48` du nœud visible si `FUN_1416ff990`.
+- `FUN_1416ff990(sys, loi)` = état == 2 ; `FUN_1416fecc0(sys, loi)` = état
+  brut.
+
+Mod (`lois_ap.cpp`) : hooks de `FUN_141bc2640` / `FUN_141bc2020` qui posent
+`t_loiMasquee` = loi du nœud si elle est retenue, et de `FUN_1416ff990` /
+`FUN_1416fecc0` qui répondent « non signée » (0) **pour cette loi seulement
+et pendant ces deux fonctions seulement**. Le nœud prend l'aspect
+`"AVAILABLE"` (pas de plume). Le reste du jeu voit la loi signée :
+signature, prérequis des lois enfants, panneau d'info, et la construction
+(`FUN_141bbc320`). Pour une paire exclusive, le nœud reste donc simple
+(`TECH_ENTRY`, la loi choisie), mais sans l'aspect signé.
+Dès que l'item arrive (`retenue` faux), le nœud reprend l'aspect signé au
+rafraîchissement suivant du livre (réouverture ou sélection).
+Steam : `0x16FECC0 → 0x1599CC0`, `0x16FF990 → 0x159A990`,
+`0x1BC2020 → 0x1A62D60`, `0x1BC2640 → 0x1A63380` (décalage des voisines
+appariées, octets identiques hors déplacements RIP), dans `VERSION_STEAM`.
+Compilé, déployé sur Epic (08:29). **Non testé.**
+
+### 2026-11-10 — Correctif : nœud d'une loi retenue invisible
+
+Test de l'auteur (Steam, Adaptation) : le nœud de Child Labour (loi
+retenue) n'apparaît plus. Décompilé `FUN_141bc2640` : masquée, la loi n'est
+ni signée ni signable → état `+0x6C` = 0 (ou 1 / 5) ; et `FUN_141bc2020`
+cache l'élément du nœud si l'état vaut 0 (`FUN_14105ac90(élément, état !=
+0)`). L'état est dans les **données du nœud** `FUN_141bbb480(livre +
+0x1B0, nœud)`, pas dans le nœud. Correctif : `hkEtatNoeud` ne masque plus,
+il laisse calculer l'état 4 puis pose **3** dans les données du nœud
+(visible, `"ENABLED"`, `"AVAILABLE"` pour 2 / 3, liens non `"ACTIVE"` car
+≠ 4) ; `hkVisuelNoeud` garde le masque de l'état brut et de « signée »
+(pas de plume). Steam : `0x1BBB480 → 0x1A5C1A0` (voisinage, octets
+identiques hors RIP). Compilé, non testé.

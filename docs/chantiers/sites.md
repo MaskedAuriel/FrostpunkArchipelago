@@ -380,3 +380,74 @@
   Refugees 7, Winterhome 3, Last Autumn 2, On the Edge 3 ; avec noyaux
   (contenu direct) 10 / 10 / 9 / 6 / 3 / 0 : seules les quantités bougeaient.
   **Table VALIDÉE par l'auteur le 2026-11-03.**
+
+## 2026-11-10 — Steam : icônes et noms AP des sites absents (getters de type mal appariés)
+
+Retour de l'auteur (partie Steam) : icônes des marqueurs et noms des sites
+d'exploration redevenus vanilla. Journal : hook `[SITEUI]` posé mais
+aucune ligne d'icône ; `IconeMarqueurSite` sortait en silence, faute de
+composant de site.
+
+Cause : les getters de type de composant (`FUN_14148c130` et ses
+semblables, init de statique de thread + `FUN_14109a700`) sont des
+centaines de fonctions identiques à l'octet près ; l'appariement Steam
+« par voisinage » en avait décalé trois d'un cran (0x90). Vérification
+par la chaîne d'appels jusqu'à la chaîne du `.h` de la classe
+(`frostpunk…component.h`, citée par l'assert du PropertyManager), sur
+toute la table `VERSION_STEAM` :
+
+| Epic | Steam (faux) | Steam (corrigé) | Classe |
+|---|---|---|---|
+| `0x12EC200` | `0x1186A30` (building) | `0x1186AC0` | SelectionComponent (`groupes.cpp`, `OFF_TYPE_CARTE`) |
+| `0x132FD90` | `0x11CA550` (expedition sending) | `0x11CA5E0` | WorldMapEntityComponent (`scooting.cpp`, `OFF_TYPE_ENTITE_CARTE`) |
+| `0x148C130` | `0x1326860` (canteen) | `0x1326980` | ExpeditionSiteComponent (`scooting.cpp`, marqueurs et noms) |
+
+Les autres getters de ce motif dans la table étaient justes. Non testé en
+jeu.
+
+## 2026-11-10 — Nom du site sur la carte = nom du check
+
+Demande de l'auteur : le nom d'un site sur la carte doit être le nom du
+check qu'il contient. `hkTranslate` (hooks_loc.cpp) : si la clé est l'un
+des 4 noms par état du gabarit d'un site de la carte (`0x270`, `0x268`,
+`0x278`, `0x280`, comparés à la clé traduite :
+`ScootingSitePourCleNom`, scooting.cpp) et que le site a un scout
+(`ApNomDuCheckSite`, archipelago.cpp), on renvoie notre propre objet de
+traduction (`ApLocSite`, un par site, 128 au plus) avec
+`"<joueur> - <item>"` (`ApNomDuScout`, donc contenu exact pour les
+Supplies). Descriptions inchangées ; sans scout : nom vanilla. Le même
+nom sert partout où le jeu traduit ces clés (panneau du site compris).
+Log `[SITE] nom sur la carte : "<site>" -> "<check>"`. Non testé en jeu.
+
+### 2026-11-10 — Boîte du nom sur la carte trop petite
+
+Capture de l'auteur : le nom du check est coupé (1re et dernière lignes
+manquantes). Relevé de l'arbre du marqueur (preset de site) :
+
+```
+site_name_container (tr -129, 0)
+  background_under_text 104 x 122 (bandeau : left/center/right_bg_underTXT)
+  "" (tr -9, 0)
+    name_mask    UIPicture  tr (179, 71)   0 x 77   (masque, largeur animee)
+      NAME       UITextBox  tr (-142, -19) 289 x 105 (tracker +0x80)
+```
+
+Le masque (77 de haut) coupe le texte. `AgrandirNomMarqueur`
+(scooting.cpp, à chaque mise à jour du tracker) : NAME 420 x 160 en
+(-207,5, 0), masque 160 de haut en y = 24,5 (centres conservés), largeur
+du masque laissée à l'animation (journalisée : `largeur du masque du
+nom`). Seulement sur la géométrie du relevé. Poseurs exportés de
+lois_ap.cpp : `ElementPoserTaille` (`FUN_14102b170`),
+`ElementPoserPosition` (`FUN_14102a3e0`). Le bandeau de fond n'est pas
+retouché. Non testé en jeu.
+
+### 2026-11-10 — Décision de l'auteur : nom du check dans la description
+
+Test de l'agrandissement : le texte n'apparaissait que brièvement au survol
+(l'animation du masque reprend la main). L'auteur change d'avis : **le nom
+du site reste vanilla** (carte et panneau), **le nom du check remplace la
+description** du panneau du site sélectionné. `AgrandirNomMarqueur` et les
+poseurs exportés retirés ; `ScootingSitePourCleNom` devient
+`ScootingSitePourCleDescription` (4 descriptions par état du gabarit :
+`0x290`, `0x288`, `0x298`, `0x2A0`). Log `[SITE] description du site :
+"<site>" -> "<check>"`. Non testé en jeu.

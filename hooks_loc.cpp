@@ -10,6 +10,8 @@
 #include "ap_data.h"
 #include "groupes.h"
 #include "evenements.h"
+#include "quetes.h"        // QuetesTexteObjectifAP (objectifs valides par exploration)
+#include "archipelago.h"   // ApNomDuCheckSite (nom des sites sur la carte)
 
 
 static volatile bool     g_logAll = false;
@@ -34,11 +36,33 @@ volatile bool g_apTexteActif = true;
 // --- Cache : un buffer "<nom> [Researched]" par segment de cle ---------------
 struct NameCache {
     char    key[96];
+    uint8_t entete[0x14];   // en-tete de chaine du moteur (regles 2 et 3), juste avant buf
     wchar_t buf[128];
     bool    used;
 };
 static NameCache g_cache[256];
 static int       g_cacheCount = 0;
+
+// Regles 2 et 3 (correctif du 2026-11-10, crashs c0000374) : un texte que le
+// jeu va detenir (pointeur ecrit dans SON objet de traduction) doit etre une
+// chaine du moteur : en-tete de 0x14 octets avant les caracteres, self en
+// -0x0C, compteur en -0x04. Sans lui, le jeu comptait sur les 4 octets
+// precedant le texte (nuls) et, a 0, liberait notre tampon STATIQUE
+// (_aligned_free) : tas corrompu (releve [CRASH] : rafraichissement d'un
+// noeud de l'arbre des technos). En-tete copie d'une chaine valide, self
+// pose, compteur fige a 0x40000000 : jamais liberee.
+static bool PoserEnteteFigee(uint8_t* entete, uintptr_t modele)
+{
+    if (modele <= 0x10000) return false;
+    uintptr_t self = 0;
+    if (!SafeRead((void*)(modele - 0x0C), &self, 8) || self != modele - 0x14) return false;
+    if (!SafeRead((void*)(modele - 0x14), entete, 0x14)) return false;
+    uintptr_t debut = (uintptr_t)entete;
+    memcpy(entete + 0x08, &debut, 8);
+    uint32_t refs = 0x40000000;
+    memcpy(entete + 0x10, &refs, 4);
+    return true;
+}
 
 struct KeyOverride { const char* key; const char* text; };
 
@@ -50,7 +74,8 @@ static const int g_overrideCount =
 (int)(sizeof(g_overrides) / sizeof(g_overrides[0]));
 
 static const int OV_MAX = 32;
-static wchar_t g_ovBuf[OV_MAX][256];
+struct OvBloc { uint8_t entete[0x14]; wchar_t buf[256]; };   // en-tete juste avant buf
+static OvBloc  g_ovBlocs[OV_MAX];
 static bool    g_ovBuilt[OV_MAX];
 
 static bool KeyEq(const char* a, const char* b)
@@ -66,14 +91,16 @@ static bool ApplyOverride(const char* k, uintptr_t ret)
         if (!KeyEq(k, g_overrides[i].key)) continue;
 
         if (!g_ovBuilt[i]) {                       // conversion ASCII -> UTF-16
+            uintptr_t chars = 0;
+            if (!SafeRead((void*)ret, &chars, 8) || !PoserEnteteFigee(g_ovBlocs[i].entete, chars)) return false;
             const char* s = g_overrides[i].text;
             int j = 0;
-            for (; s[j] && j < 255; ++j) g_ovBuf[i][j] = (wchar_t)(unsigned char)s[j];
-            g_ovBuf[i][j] = 0;
+            for (; s[j] && j < 255; ++j) g_ovBlocs[i].buf[j] = (wchar_t)(unsigned char)s[j];
+            g_ovBlocs[i].buf[j] = 0;
             g_ovBuilt[i] = true;
         }
 
-        uintptr_t p = (uintptr_t)g_ovBuf[i];
+        uintptr_t p = (uintptr_t)g_ovBlocs[i].buf;
         if (SafeWrite((void*)ret, &p, 8)) {
             printf("[OVERRIDE] %s -> \"%s\"\n", k, g_overrides[i].text);
             return true;
@@ -91,7 +118,9 @@ static wchar_t* GetResearchedName(const char* seg, uintptr_t origChars)
         if (g_cache[i].used && StrEq(g_cache[i].key, seg)) return g_cache[i].buf;
 
     if (g_cacheCount >= 256) return nullptr;
-    NameCache* c = &g_cache[g_cacheCount++];
+    NameCache* c = &g_cache[g_cacheCount];
+    if (!PoserEnteteFigee(c->entete, origChars)) return nullptr;   // pas d'en-tete valide : texte du jeu
+    ++g_cacheCount;
 
     int s = 0; for (; seg[s] && s < 95; ++s) c->key[s] = seg[s]; c->key[s] = 0;
 
@@ -325,6 +354,27 @@ static void JournalDescTechno(const char* k, uint64_t th, int slot)
         (slot != 0 && !g_showApInfo) ? " (g_showApInfo faux : description vanilla)" : "");
 }
 
+// Objet de traduction de l'item AP d'un groupe de refugies (vague 1..3) :
+// nom du check porte ("Refugees Arrival k", scout du serveur), chaine propre
+// au groupe (l'infobulle garde la chaine) ; 0 si vague hors 1..3 (2026-11-10).
+wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot);
+static uintptr_t ApLocRefugies(int vague)
+{
+    if (vague < 1 || vague > 3 || !g_apLocPret || !g_modeleChars) return 0;
+    char nom[200];
+    if (!ApNomDuCheckLocation(7747600000LL + vague, nom, sizeof(nom)))
+        _snprintf_s(nom, sizeof(nom), _TRUNCATE, "Refugees Arrival %d", vague);
+    static wchar_t large[256];
+    int j = 0;
+    for (; nom[j] && j < 255; ++j) large[j] = (wchar_t)(unsigned char)nom[j];
+    large[j] = 0;
+    wchar_t* chaine = ApChaine(large, g_modeleChars, 4 + 16 + (vague - 1));
+    if (!chaine) return 0;
+    uintptr_t p = (uintptr_t)chaine;
+    memcpy(g_apLoc, &p, 8);
+    return (uintptr_t)g_apLoc;
+}
+
 static uintptr_t hkTranslate(uintptr_t loc, const char* key,
     uintptr_t p3, uintptr_t p4)
 {
@@ -357,6 +407,12 @@ static uintptr_t hkTranslate(uintptr_t loc, const char* key,
         }
     }
 
+    // --- Choix unique des dilemmes d'exploration : "AP/Prevail" (2026-11-10,
+    //     dilemmes_exploration.cpp). Objet a nous, jamais celui du jeu.
+    if (strcmp(kp, "AP/Prevail") == 0) {
+        uintptr_t o = ApLocPrevail();
+        return o ? o : ret;
+    }
     // --- Cles de nos dilemmes pieges : "AP/Dil/<slot>/T", "/X", "/C<i>", "/S"
     //     (7 objets de traduction par slot : titre, texte, 4 choix, sous-titre).
     {
@@ -403,6 +459,14 @@ static uintptr_t hkTranslate(uintptr_t loc, const char* key,
     if (StrEqLoc(kp, "Resources/Names/AP_Item")) {
         if (!g_apLocPret || !g_modeleChars) return ret;
 
+        // Groupe de refugies de l'apres-005 (2026-11-10) : sa case montre le
+        // check qu'il porte ("Refugees Arrival k", scout du serveur), dans une
+        // chaine propre a chaque groupe (l'infobulle garde la chaine).
+        {
+            uintptr_t o = ApLocRefugies(GroupesVagueRefugiesAffichee());
+            if (o) return o;
+        }
+
         // Pendant le remplissage de la liste de droite, la liste est celle
         // de l'expedition affichee, dans une chaine propre a cette expedition :
         // l'infobulle de la case garde la chaine (+1 ref.), une chaine partagee
@@ -413,6 +477,10 @@ static uintptr_t hkTranslate(uintptr_t loc, const char* key,
         const wchar_t* t = nullptr;
 
         if (nItems > 0) t = liste;
+        if (nItems <= 0) {
+            uintptr_t o = ApLocRefugies(GroupesVagueRefugiesVisee());
+            if (o) return o;
+        }
         if (!t && g_locationAffichee >= 0) {
             const wchar_t* d = ApDescriptionW(g_locationAffichee);
             if (d && d[0]) t = d;
@@ -444,6 +512,29 @@ static uintptr_t hkTranslate(uintptr_t loc, const char* key,
     if (ApplyOverride(k, ret)) return ret;
     if (TexteExpedition(k, ret)) return ret;
 
+    // --- Objectifs "Rescue survivors" valides par l'exploration du site :
+    //     texte remplace (demande de l'auteur, 2026-11-10 ; quetes.cpp).
+    //     Objet de traduction du pool des sites, cle = texte de remplacement.
+    {
+        const char* t = QuetesTexteObjectifAP(kp);
+        if (t) {
+            uintptr_t o = ApLocSite(t, t);
+            if (o) return o;
+        }
+    }
+    // --- Description d'un site de la carte : nom du check qu'il contient --
+    //     ("<joueur> - <item>", scout du serveur ; demande de l'auteur du
+    //     2026-11-10). Les 4 descriptions par etat du gabarit ; le nom du site
+    //     reste vanilla. Sans scout : vanilla.
+    {
+        char site[128], check[200];
+        if (ScootingSitePourCleDescription(kp, site, sizeof(site)) &&
+            ApNomDuCheckSite(site, check, sizeof(check))) {
+            uintptr_t o = ApLocSite(site, check);
+            if (o) return o;
+        }
+    }
+
     uint64_t th = 0; int slot = -1;
     if (LookupLocKey(k, &th, &slot)) {
         JournalDescTechno(k, th, slot);
@@ -458,7 +549,7 @@ static uintptr_t hkTranslate(uintptr_t loc, const char* key,
             }
         }
         else if (g_showApInfo) {
-            wchar_t* nb = ApDescBuffer(k, th);
+            wchar_t* nb = ApDescBuffer(k, th, origChars);
             if (nb) { uintptr_t p = (uintptr_t)nb; SafeWrite((void*)ret, &p, 8); }
         }
         return ret;
@@ -517,9 +608,9 @@ static bool EndsWith(const char* s, const char* suf)
 
 // Buffer persistant par segment, REECRIT a chaque appel : le contenu depend de
 // l'etat Archipelago et du reglage on/off, donc on ne peut pas le figer.
-static wchar_t* ApDescBuffer(const char* seg, uint64_t hash)
+static wchar_t* ApDescBuffer(const char* seg, uint64_t hash, uintptr_t origChars)
 {
-    struct Slot { char key[96]; wchar_t buf[256]; bool used; };
+    struct Slot { char key[96]; uint8_t entete[0x14]; wchar_t buf[256]; bool used; };   // en-tete juste avant buf
     // 256 au depart : test grandeur nature du 2026-11-04, "passe un certain
     // point les textes ne sont plus remplaces" (pool plein, nullptr -> texte
     // vanilla : Generator efficiency upgrade, Improved Heater 2). Une entree par
@@ -535,6 +626,7 @@ static wchar_t* ApDescBuffer(const char* seg, uint64_t hash)
     }
     if (!s) {
         if (poolN >= 2048) { static bool dit = false; if (!dit) { dit = true; printf("[TECHDESC] pool des descriptions plein (2048)\n"); } return nullptr; }
+        if (!PoserEnteteFigee(pool[poolN].entete, origChars)) return nullptr;   // regles 2 et 3 (2026-11-10)
         s = &pool[poolN++];
         int j = 0; for (; seg[j] && j < 63; ++j) s->key[j] = seg[j]; s->key[j] = 0;
     }
@@ -634,7 +726,7 @@ void DumpClesDilemme(const char* k, uintptr_t ret)
 }
 
 
-static const int AP_SLOTS = 4 + 16;   // 0..3 usages fixes, 4..19 item AP par expedition
+static const int AP_SLOTS = 4 + 16 + 3;   // 0..3 usages fixes, 4..19 item AP par expedition, 20..22 refugies (2026-11-10)
 
 wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot)
 {
@@ -754,4 +846,73 @@ uintptr_t ApLocDilemme(int slot, const char* texte)
     uintptr_t p = (uintptr_t)w;
     memcpy(g_dilemmeLoc[slot], &p, 8);
     return (uintptr_t)g_dilemmeLoc[slot];
+}
+
+// Objet de traduction du choix unique "Archipelago Prevail" des dilemmes
+// d'exploration (2026-11-10, dilemmes_exploration.cpp).
+static uint8_t g_prevailLoc[0x40];
+static uint8_t g_prevailChaine[0x14 + 64 * 2];
+
+uintptr_t ApLocPrevail()
+{
+    if (!g_apLocPret || !g_modeleChars) return 0;
+
+    uint8_t* bloc = g_prevailChaine;
+    if (!SafeRead((void*)(g_modeleChars - 0x14), bloc, 0x14)) return 0;
+    uintptr_t debut = (uintptr_t)bloc;
+    memcpy(bloc + 0x08, &debut, 8);
+    uint32_t refs = 0x40000000;
+    memcpy(bloc + 0x10, &refs, 4);
+
+    const char* texte = "Archipelago Prevail";
+    wchar_t* w = (wchar_t*)(bloc + 0x14);
+    int i = 0; for (; texte[i] && i < 63; ++i) w[i] = (wchar_t)(unsigned char)texte[i];
+    w[i] = 0;
+
+    memcpy(g_prevailLoc, g_apLoc, 0x40);
+    uintptr_t p = (uintptr_t)w;
+    memcpy(g_prevailLoc, &p, 8);
+    return (uintptr_t)g_prevailLoc;
+}
+// Objets de traduction des descriptions de sites de la carte (2026-11-10) : un par
+// site (cle = nom interne), jamais reutilise pour un autre site ; le texte
+// est recopie a chaque appel (le scout peut arriver apres le 1er affichage).
+static const int AP_SITES_NOMS = 128;
+static char    g_siteNom[AP_SITES_NOMS][128];
+static uint8_t g_siteLoc[AP_SITES_NOMS][0x40];
+static uint8_t g_siteChaine[AP_SITES_NOMS][0x14 + 256 * 2];
+static int     g_nSitesNoms = 0;
+
+uintptr_t ApLocSite(const char* site, const char* texte)
+{
+    if (!site || !texte || !g_apLocPret || !g_modeleChars) return 0;
+    int slot = -1;
+    for (int i = 0; i < g_nSitesNoms; ++i)
+        if (strcmp(g_siteNom[i], site) == 0) { slot = i; break; }
+    if (slot < 0) {
+        if (g_nSitesNoms >= AP_SITES_NOMS) {
+            static bool dit = false;
+            if (!dit) { dit = true; printf("[SITE] plus de %d sites : descriptions vanilla au-dela\n", AP_SITES_NOMS); }
+            return 0;
+        }
+        slot = g_nSitesNoms++;
+        strncpy_s(g_siteNom[slot], site, _TRUNCATE);
+        printf("[SITE] description du site : \"%s\" -> \"%s\"\n", site, texte);
+    }
+
+    uint8_t* bloc = g_siteChaine[slot];
+    if (!SafeRead((void*)(g_modeleChars - 0x14), bloc, 0x14)) return 0;
+    uintptr_t debut = (uintptr_t)bloc;
+    memcpy(bloc + 0x08, &debut, 8);
+    uint32_t refs = 0x40000000;
+    memcpy(bloc + 0x10, &refs, 4);
+
+    wchar_t* w = (wchar_t*)(bloc + 0x14);
+    int i = 0; for (; texte[i] && i < 255; ++i) w[i] = (wchar_t)(unsigned char)texte[i];
+    w[i] = 0;
+
+    memcpy(g_siteLoc[slot], g_apLoc, 0x40);
+    uintptr_t p = (uintptr_t)w;
+    memcpy(g_siteLoc[slot], &p, 8);
+    return (uintptr_t)g_siteLoc[slot];
 }

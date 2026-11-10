@@ -1165,6 +1165,9 @@ void Construire(uintptr_t panneau)
     float tailleColonne[2] = {};
     SafeRead((void*)(parent + EL_TAILLE), tailleColonne, sizeof(tailleColonne));
     float decalage = (tailleColonne[0] > 264.0f ? tailleColonne[0] : 264.0f) + 60.0f;
+    // Steam : colonne a GAUCHE de MENU_LAYOUT (demande de l'auteur,
+    // 2026-11-10), meme ecart ; Epic : a droite, comme avant.
+    if (VersionDuJeu() == VersionJeu::Steam) decalage = -decalage;
     printf("[MENU] taille de MENU_LAYOUT : %.1f x %.1f\n", tailleColonne[0], tailleColonne[1]);
     uintptr_t cible = CreerColonne(parent, decalage);
     uintptr_t avant = 0;

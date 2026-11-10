@@ -194,7 +194,12 @@ bool ApScoutTechno(uint64_t hash, ApScoutInfo* out);
 // Nom affiche d'un check (noeuds des arbres) : "<joueur> - <item>", le
 // destinataire en tete, meme pour ce slot (auteur, 2026-11-04 ; '|' coupe
 // le texte en jeu). Latin-1.
+// Item de site / filler Frostpunk : contenu exact a la place du nom
+// ("Simon - 20 Coal, 2 Engineers", 2026-11-10).
 void ApNomDuScout(const ApScoutInfo& s, char* out, size_t taille);
+// Contenu "wood 144;workers 22" -> "144 Wood, 22 Workers" (ressources puis
+// survivants, "technology" omise). false si rien a afficher.
+bool ApTexteContenu(const char* cle, char* out, size_t taille);
 
 // Etat de la connexion, texte court en anglais (Latin-1) pour le libelle du
 // menu principal : "Not connected", "Connecting...", "Connected",
@@ -222,3 +227,16 @@ const char* ApIconeDuCheck(const char* genre, const char* cle);
 // Nom du check d'une location AP par son id (scout) : "<joueur> - <item>"
 // (ApNomDuScout). false si pas encore scoutee. Tout thread.
 bool ApNomDuCheckLocation(int64_t locationId, char* out, size_t taille);
+// Livraisons et sauvegardes (2026-11-10), thread du jeu : instantane des
+// livraisons a l'ecriture d'une sauvegarde (hook d'ecriture,
+// sauvegardes_ap.cpp), repris a la sortie de LoadGame (mod_common.cpp).
+void ApItemsAvantSauvegarde();
+void ApItemsApresChargement();
+// Nom du check ("<joueur> - <item>") du site de nom interne `site` (scout du
+// serveur) ; false sans location AP ou sans scout. Nom du site sur la carte.
+bool ApNomDuCheckSite(const char* site, char* out, size_t taille);
+// La location AP du site (nom interne) est-elle deja cochee sur le serveur ?
+// Un eclaireur ne ramasse plus son check (2026-11-10).
+bool ApSiteDejaCoche(const char* site);
+// La location AP de la quete (nom interne) est-elle deja cochee sur le serveur ?
+bool ApQueteDejaCochee(const char* quete);

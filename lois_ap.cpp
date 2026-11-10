@@ -1482,6 +1482,90 @@ uintptr_t hkInfoLoi(uintptr_t livre, uintptr_t p2, uintptr_t p3, uintptr_t p4)
     return r;
 }
 
+// --- Loi signee, effet retenu : affichee NON signee dans le livre -----------------
+// Demande de l'auteur (2026-11-10) : tant que l'item n'est pas recu, la loi
+// ne doit pas paraitre signee dans le livre. Decompiles (2026-11-10) :
+//  - FUN_141bc2640(livre, noeud) : etat du noeud (+0x6C) : 4 signee
+//    (FUN_1416ff990), 2 signable (FUN_1416ffa90), sinon 0 / 1 / 5 ;
+//  - FUN_141bc2020(livre, noeud) : visuel du noeud : "ACTIVE" si
+//    FUN_1416fecc0 == 2 (etat brut de la loi), "IN_PROGRESS" si 1, puis
+//    selon +0x6C ("AVAILABLE" pour 2 / 3) ; liens actifs si +0x6C == 4 ;
+//    element noeud +0x48 visible si FUN_1416ff990 ;
+//  - FUN_1416ff990(sys, loi) = etat == 2 (signee) ; FUN_1416fecc0(sys, loi)
+//    = etat brut (map sys +0xD8).
+// Pendant ces deux fonctions SEULEMENT, et pour la loi du noeud SEULEMENT
+// (t_loiMasquee), les deux lectures repondent "non signee" : le noeud prend
+// l'aspect "AVAILABLE". Le reste du jeu (signature, prerequis des lois
+// enfants, construction des paires par FUN_141bbc320, panneau d'info) voit
+// toujours la loi signee.
+static const uintptr_t OFF_ETAT_NOEUD = Adr(0x1BC2640), OFF_VISUEL_NOEUD = Adr(0x1BC2020);
+static const uintptr_t OFF_LOI_SIGNEE = Adr(0x16FF990), OFF_ETAT_LOI = Adr(0x16FECC0);
+Fonction4_t oEtatNoeud = nullptr, oVisuelNoeud = nullptr, oLoiSignee = nullptr, oEtatLoi = nullptr;
+thread_local uintptr_t t_loiMasquee = 0;
+
+// Loi retenue (signee, effet en attente de l'item) du noeud, sinon 0.
+uintptr_t LoiRetenueDuNoeud(uintptr_t noeud)
+{
+    if (!g_bati || noeud <= 0x10000) return 0;
+    Guid g{};
+    if (!SafeRead((void*)noeud, &g, sizeof(g))) return 0;
+    int i = IndexParGuid(g);
+    return (i >= 0 && g_lois[i].retenue) ? g_lois[i].adr : 0;
+}
+
+// Correctif du 2026-11-10 (test de l'auteur : noeud d'une loi retenue
+// INVISIBLE) : masquee pendant FUN_141bc2640, la loi n'est ni signee ni
+// signable -> etat 0 (ou 1 / 5), et FUN_141bc2020 cache l'element du noeud
+// quand l'etat vaut 0 (FUN_14105ac90(element, etat != 0)). On laisse donc
+// FUN_141bc2640 calculer sans masque (etat 4), puis on pose l'etat 3 dans
+// les donnees du noeud (FUN_141bbb480(livre + 0x1B0, noeud), comme le jeu) :
+// visible, "ENABLED", "AVAILABLE" (2 / 3), liens non actifs (!= 4). Le
+// visuel (FUN_141bc2020) garde le masque de l'etat brut et de "signee".
+static const uintptr_t OFF_DONNEES_NOEUD = Adr(0x1BBB480);
+constexpr int NOEUD_ETAT = 0x6C;
+
+uintptr_t hkEtatNoeud(uintptr_t livre, uintptr_t noeud, uintptr_t p3, uintptr_t p4)
+{
+    uintptr_t retenue = LoiRetenueDuNoeud(noeud);
+    uintptr_t r = oEtatNoeud(livre, noeud, p3, p4);
+    if (retenue && livre > 0x10000) {
+        __try {
+            uintptr_t donnees = ((Fonction4_t)(Base() + OFF_DONNEES_NOEUD))(livre + 0x1B0, noeud, 0, 0);
+            int32_t etat = 0;
+            if (donnees > 0x10000 && SafeRead((void*)(donnees + NOEUD_ETAT), &etat, 4) && etat == 4) {
+                int32_t disponible = 3;
+                SafeWrite((void*)(donnees + NOEUD_ETAT), &disponible, 4);
+            }
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER) {
+            static int n = 0;
+            if (n++ < 5) printf("[LOIUI] EXCEPTION 0x%08lX a l'etat du noeud d'une loi retenue\n", GetExceptionCode());
+        }
+    }
+    return r;
+}
+
+uintptr_t hkVisuelNoeud(uintptr_t livre, uintptr_t noeud, uintptr_t p3, uintptr_t p4)
+{
+    uintptr_t precedente = t_loiMasquee;
+    t_loiMasquee = LoiRetenueDuNoeud(noeud);
+    uintptr_t r = oVisuelNoeud(livre, noeud, p3, p4);
+    t_loiMasquee = precedente;
+    return r;
+}
+
+uintptr_t hkLoiSignee(uintptr_t sys, uintptr_t loi, uintptr_t p3, uintptr_t p4)
+{
+    if (t_loiMasquee && loi == t_loiMasquee) return 0;
+    return oLoiSignee(sys, loi, p3, p4);
+}
+
+uintptr_t hkEtatLoi(uintptr_t sys, uintptr_t loi, uintptr_t p3, uintptr_t p4)
+{
+    if (t_loiMasquee && loi == t_loiMasquee) return 0;
+    return oEtatLoi(sys, loi, p3, p4);
+}
+
 void DiagNoeudsLivre(uintptr_t livre)
 {
     static int nAppels = 0;
@@ -1648,6 +1732,10 @@ void InstallHooksLoisAP(uintptr_t modBase)
         { OFF_EVALUER_PREREQUIS, (void*)&hkEvaluerPrerequis, &oEvaluer, "evaluation d'un prerequis" },
         { OFF_CONSTRUIRE_LIVRE, (void*)&hkConstruireLivre, &oConstruireLivre, "construction du livre (icones AP)" },
         { OFF_INFO_LOI, (void*)&hkInfoLoi, &oInfoLoi, "panneau d'info d'une loi (nom du check)" },
+        { OFF_ETAT_NOEUD, (void*)&hkEtatNoeud, &oEtatNoeud, "etat d'un noeud du livre (loi retenue)" },
+        { OFF_VISUEL_NOEUD, (void*)&hkVisuelNoeud, &oVisuelNoeud, "visuel d'un noeud du livre (loi retenue)" },
+        { OFF_LOI_SIGNEE, (void*)&hkLoiSignee, &oLoiSignee, "loi signee ? (livre)" },
+        { OFF_ETAT_LOI, (void*)&hkEtatLoi, &oEtatLoi, "etat brut d'une loi (livre)" },
     };
     for (auto& x : h) {
         void* p = (void*)(modBase + x.off);
@@ -1690,6 +1778,11 @@ bool IconeAPPoser(uintptr_t image, const char* icone)
 void ElementTailleNulle(uintptr_t el)
 {
     ((PoserTaille_t)(Base() + OFF_POSER_TAILLE))(el, 0.f, 0.f);
+}
+
+uint64_t LoisDateDeJeu()
+{
+    return DateCourante();
 }
 
 void LoisAPApresChargement()

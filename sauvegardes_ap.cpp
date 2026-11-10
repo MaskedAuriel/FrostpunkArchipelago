@@ -107,6 +107,8 @@ uintptr_t hkEcrireSauvegarde(uintptr_t profil, uintptr_t nom, uintptr_t p3, uint
             } else printf("[SAV] sauvegarde \"%s\" : ecriture de %s impossible\n", journal, FICHIER);
         }
     } else printf("[SAV] ecriture d'une sauvegarde : nom illisible (0x%llX)\n", (unsigned long long)nom);
+    // Instantane des livraisons d'items AP a cette date de jeu (2026-11-10).
+    ApItemsAvantSauvegarde();
     return oEcrireSauvegarde(profil, nom, p3, p4);
 }
 

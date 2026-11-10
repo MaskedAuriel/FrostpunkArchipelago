@@ -148,8 +148,10 @@ static bool LivrerContenu(const ApItemInfo& it, const char* expediteur)
     }
 
     // Nom du convoi = son contenu, pas le nom du site (demande de l'auteur,
-    // 2026-11-07) ; "Supplies" seul si la liste est vide.
+    // 2026-11-07) ; "Supplies" seul si la liste est vide. Meme texte que le
+    // nom du check (ApTexteContenu, 2026-11-10 : "144 Wood", plus "144 wood").
     char nomConvoi[128];
+    if (ApTexteContenu(it.cle, nomConvoi, sizeof(nomConvoi))) strcpy_s(liste, nomConvoi);
     _snprintf_s(nomConvoi, sizeof(nomConvoi), _TRUNCATE, "%s", liste[0] ? liste : "Supplies");
     g.nom = nomConvoi;
     char description[600], texte[600];
@@ -374,6 +376,139 @@ static void ChargerLivresPartie(const uint64_t gid[2])
     ReleaseSRWLockExclusive(&g_verrouItems);
     printf("[AP ITEMS] partie %016llX%016llX : %d contenu(s) de site deja livre(s)\n",
         (unsigned long long)gid[1], (unsigned long long)gid[0], n);
+}
+
+// --- Livraisons et sauvegardes (2026-11-10) ----------------------------------
+// Bug (test de l'auteur, Steam) : les livraisons etaient comptees par partie
+// (GameId) et non par sauvegarde. Recharger une sauvegarde ANTERIEURE a une
+// livraison ne la refaisait pas (le convoi n'existe pas dans cette
+// sauvegarde, mais le compte disait "deja livre"). Correctif : a chaque
+// ecriture de sauvegarde, instantane des livraisons (de la partie et
+// communes) dans <session>\ap_livres_<GameId>_<date de jeu>.txt ; a la sortie
+// de LoadGame, l'instantane de la meme partie a la meme date de jeu (date
+// relue de la sauvegarde) remplace les comptes et les fichiers de
+// livraisons : les items livres apres cette sauvegarde repartent. Sans
+// instantane (sauvegarde anterieure au correctif) : rien ne change.
+// Lignes : "P <id>" (livraison dans la partie), "C <id>" (item commun).
+
+static bool GameIdCourant(uint64_t gid[2])
+{
+    gid[0] = gid[1] = 0;
+    uintptr_t scn = SystemeParId(IdSysteme::Scenario);
+    return scn && SafeRead((void*)(scn + 0x110), gid, 16) && (gid[0] || gid[1]);
+}
+
+static void NomFichierPartie(const uint64_t gid[2], char* out, size_t taille)
+{
+    _snprintf_s(out, taille, _TRUNCATE, "ap_items_livres_%016llX%016llX.txt",
+        (unsigned long long)gid[1], (unsigned long long)gid[0]);
+}
+
+static bool CheminInstantane(char* out, size_t taille, const uint64_t gid[2], uint64_t date)
+{
+    char nom[96];
+    _snprintf_s(nom, sizeof(nom), _TRUNCATE, "ap_livres_%016llX%016llX_%016llX.txt",
+        (unsigned long long)gid[1], (unsigned long long)gid[0], (unsigned long long)date);
+    return CheminItems(out, taille, nom);
+}
+
+// Reecrit un fichier de livraisons d'apres des comptes. Sous g_verrouItems.
+static void EcrireComptes(const char* fichier, const int* comptes)
+{
+    char chemin[MAX_PATH];
+    FILE* f = nullptr;
+    if (!CheminItems(chemin, sizeof(chemin), fichier) || fopen_s(&f, chemin, "w") != 0 || !f) {
+        printf("[AP ITEMS] reecriture de %s impossible\n", fichier);
+        return;
+    }
+    for (int i = 0; i < AP_ITEM_COUNT; ++i)
+        for (int k = 0; k < comptes[i]; ++k) fprintf(f, "%lld\n", (long long)AP_ITEMS[i].id);
+    fclose(f);
+}
+
+void ApItemsAvantSauvegarde()
+{
+    uint64_t gid[2];
+    uint64_t date = LoisDateDeJeu();
+    if (!GameIdCourant(gid) || !date) {
+        printf("[AP ITEMS] sauvegarde : partie ou date illisible, pas d'instantane des livraisons\n");
+        return;
+    }
+    char chemin[MAX_PATH], fichierPartie[64];
+    if (!CheminInstantane(chemin, sizeof(chemin), gid, date)) return;
+    NomFichierPartie(gid, fichierPartie, sizeof(fichierPartie));
+
+    static int partie[AP_ITEM_COUNT];
+    AcquireSRWLockExclusive(&g_verrouItems);
+    ChargerItemsSiBesoin();
+    if (strcmp(g_fichierPartie, fichierPartie) == 0) memcpy(partie, g_livresPartie, sizeof(partie));
+    else LireComptes(fichierPartie, partie);
+    FILE* f = nullptr;
+    int nP = 0, nC = 0;
+    if (fopen_s(&f, chemin, "w") == 0 && f) {
+        for (int i = 0; i < AP_ITEM_COUNT; ++i) {
+            for (int k = 0; k < partie[i]; ++k, ++nP) fprintf(f, "P %lld\n", (long long)AP_ITEMS[i].id);
+            for (int k = 0; k < g_itemsLivres[i]; ++k, ++nC) fprintf(f, "C %lld\n", (long long)AP_ITEMS[i].id);
+        }
+        fclose(f);
+    }
+    ReleaseSRWLockExclusive(&g_verrouItems);
+    printf("[AP ITEMS] sauvegarde (date de jeu %llX) : instantane des livraisons, %d de la partie, %d commune(s)\n",
+        (unsigned long long)date, nP, nC);
+}
+
+void ApItemsApresChargement()
+{
+    uint64_t gid[2];
+    uint64_t date = LoisDateDeJeu();
+    if (!GameIdCourant(gid) || !date) {
+        printf("[AP ITEMS] chargement : partie ou date illisible, livraisons inchangees\n");
+        return;
+    }
+    char chemin[MAX_PATH];
+    FILE* f = nullptr;
+    if (!CheminInstantane(chemin, sizeof(chemin), gid, date) || fopen_s(&f, chemin, "r") != 0 || !f) {
+        printf("[AP ITEMS] chargement (partie %016llX%016llX, date de jeu %llX) : pas d'instantane, livraisons inchangees\n",
+            (unsigned long long)gid[1], (unsigned long long)gid[0], (unsigned long long)date);
+        return;
+    }
+    static int partie[AP_ITEM_COUNT], communs[AP_ITEM_COUNT];
+    memset(partie, 0, sizeof(partie));
+    memset(communs, 0, sizeof(communs));
+    char ligne[128];
+    while (fgets(ligne, sizeof(ligne), f)) {
+        char genre = 0;
+        long long id = 0;
+        if (sscanf_s(ligne, "%c %lld", &genre, 1, &id) != 2) continue;
+        for (int i = 0; i < AP_ITEM_COUNT; ++i) {
+            if (AP_ITEMS[i].id != id) continue;
+            if (genre == 'P') ++partie[i]; else if (genre == 'C') ++communs[i];
+            break;
+        }
+    }
+    fclose(f);
+
+    char fichierPartie[64];
+    NomFichierPartie(gid, fichierPartie, sizeof(fichierPartie));
+    static int avantPartie[AP_ITEM_COUNT];
+    AcquireSRWLockExclusive(&g_verrouItems);
+    ChargerItemsSiBesoin();
+    bool enMemoire = strcmp(g_fichierPartie, fichierPartie) == 0;
+    if (enMemoire) memcpy(avantPartie, g_livresPartie, sizeof(avantPartie));
+    else LireComptes(fichierPartie, avantPartie);
+    int annulesP = 0, annulesC = 0;
+    for (int i = 0; i < AP_ITEM_COUNT; ++i) {
+        annulesP += avantPartie[i] - partie[i];
+        annulesC += g_itemsLivres[i] - communs[i];
+    }
+    if (enMemoire) memcpy(g_livresPartie, partie, sizeof(partie));
+    memcpy(g_itemsLivres, communs, sizeof(communs));
+    EcrireComptes(fichierPartie, partie);
+    EcrireComptes("ap_items_livres.txt", communs);
+    ReleaseSRWLockExclusive(&g_verrouItems);
+    printf("[AP ITEMS] chargement (date de jeu %llX) : livraisons de la sauvegarde reprises ; "
+           "ecart %+d de la partie, %+d commune(s) (positif = a relivrer)\n",
+        (unsigned long long)date, annulesP, annulesC);
 }
 
 // Livre un item commun dans la partie en cours. Thread du jeu.
@@ -1042,12 +1177,83 @@ bool ApScoutTechno(uint64_t hash, ApScoutInfo* out)
     return ScoutDe(LocationAP(ApLocGenre::Techno, cle), out);
 }
 
+// Contenu d'un item de site / filler ("rawfood 47;wood 144;workers 22") en
+// texte du jeu : "47 Raw Food, 144 Wood, 22 Workers" (demande de l'auteur,
+// 2026-11-10). Ressources d'abord, puis survivants, dans l'ordre de la cle ;
+// "technology" omise (jamais livree, voir LivrerContenu). false si rien.
+bool ApTexteContenu(const char* cle, char* out, size_t taille)
+{
+    struct NomRes { const char* interne; const char* un; const char* plusieurs; bool survivant; };
+    static const NomRes NOMS[] = {
+        { "coal",               "Coal",               "Coal",                false },
+        { "wood",               "Wood",               "Wood",                false },
+        { "steel",              "Steel",              "Steel",               false },
+        { "rawfood",            "Raw Food",           "Raw Food",            false },
+        { "ration",             "Food Ration",        "Food Rations",        false },
+        { "steamcore",          "Steam Core",         "Steam Cores",         false },
+        { "structuralprofiles", "Structural Profile", "Structural Profiles", false },
+        { "steelcomposite",     "Steel Composite",    "Steel Composite",     false },
+        { "steamexchanger",     "Steam Exchanger",    "Steam Exchangers",    false },
+        { "workers",            "Worker",             "Workers",             true  },
+        { "engineers",          "Engineer",           "Engineers",           true  },
+        { "children",           "Child",              "Children",            true  },
+        { "automaton",          "Automaton",          "Automatons",          true  },
+    };
+    if (!out || !taille) return false;
+    out[0] = 0;
+    if (!cle) return false;
+    // Deux passes : ressources (passe 0), survivants (passe 1).
+    for (int passe = 0; passe < 2; ++passe) {
+        char tmp[256];
+        strncpy_s(tmp, cle, _TRUNCATE);
+        char* ctx = nullptr;
+        for (char* tok = strtok_s(tmp, ";", &ctx); tok; tok = strtok_s(nullptr, ";", &ctx)) {
+            char nom[32] = {};
+            int quantite = 0;
+            if (sscanf_s(tok, "%31s %d", nom, (unsigned)sizeof(nom), &quantite) != 2 || quantite <= 0) continue;
+            if (_stricmp(nom, "technology") == 0) continue;
+            const NomRes* r = nullptr;
+            for (const NomRes& n : NOMS) if (_stricmp(n.interne, nom) == 0) { r = &n; break; }
+            bool survivant = r && r->survivant;
+            if (survivant != (passe == 1)) continue;
+            char morceau[64];
+            sprintf_s(morceau, "%s%d %s", out[0] ? ", " : "", quantite,
+                r ? (quantite == 1 ? r->un : r->plusieurs) : nom);
+            strncat_s(out, taille, morceau, _TRUNCATE);
+        }
+    }
+    return out[0] != 0;
+}
+
 // Format de l'auteur (2026-11-04) : "<joueur> - <item>", destinataire en
 // tete, y compris quand l'item est pour ce slot. Pas de '|' : le texte des
 // noeuds s'arretait a la barre (test du 2026-11-04 : "Simon" seul).
+// Item de site / filler Frostpunk (meme d'un autre slot) : son contenu exact
+// a la place du nom (demande de l'auteur, 2026-11-10 : "Simon - 20 Coal,
+// 2 Engineers" et non "... Crash Site Supplies"), technos, lois, sites,
+// quetes compris. L'item est reconnu par son id ET son nom (un id egal d'un
+// autre jeu ne porte pas le meme nom).
+// Item d'arbre de technos : nom de known_ap_ids.h (table NOMS_ARBRES de
+// l'apworld, 2026-11-10) si l'id correspond et que le nom du serveur a le
+// meme prefixe "<scenario> - Progressive " : une graine generee avant le
+// renommage affiche aussi "Progressive Coal Mine Upgrade".
 void ApNomDuScout(const ApScoutInfo& s, char* out, size_t taille)
 {
-    _snprintf_s(out, taille, _TRUNCATE, "%s - %s", s.nomJoueur, s.nomItem);
+    char contenu[128] = "";
+    for (const ApItemInfo& it : AP_ITEMS) {
+        if (it.id != s.item) continue;
+        if ((it.genre == ApItemGenre::Site || it.genre == ApItemGenre::Filler) && strcmp(it.nom, s.nomItem) == 0) {
+            ApTexteContenu(it.cle, contenu, sizeof(contenu));
+        } else if (it.genre == ApItemGenre::Arbre) {
+            const char* p = strstr(it.nom, " - Progressive ");
+            if (p) {
+                size_t n = (size_t)(p - it.nom) + strlen(" - Progressive ");
+                if (strncmp(it.nom, s.nomItem, n) == 0) strncpy_s(contenu, it.nom, _TRUNCATE);
+            }
+        }
+        break;
+    }
+    _snprintf_s(out, taille, _TRUNCATE, "%s - %s", s.nomJoueur, contenu[0] ? contenu : s.nomItem);
     ApTexteSansTree(out);
 }
 
@@ -1201,6 +1407,32 @@ bool ApNomDuCheckLocation(int64_t locationId, char* out, size_t taille)
     ReleaseSRWLockShared(&g_verrouScouts);
     if (ok) ApNomDuScout(s, out, taille);
     return ok;
+}
+
+bool ApQueteDejaCochee(const char* quete)
+{
+    const ApLocationInfo* l = quete ? LocationAP(ApLocGenre::Quete, quete) : nullptr;
+    return l && ReseauLocationFaite(l->id);
+}
+
+bool ApSiteDejaCoche(const char* site)
+{
+    if (!site) return false;
+    char cle[128];
+    ApCleDeSite(site, cle, sizeof(cle));
+    const ApLocationInfo* l = LocationAP(ApLocGenre::Site, cle);
+    return l && ReseauLocationFaite(l->id);
+}
+
+bool ApNomDuCheckSite(const char* site, char* out, size_t taille)
+{
+    if (!site || !out || taille < 2) return false;
+    char cle[128];
+    ApCleDeSite(site, cle, sizeof(cle));
+    ApScoutInfo s;
+    if (!ScoutDe(LocationAP(ApLocGenre::Site, cle), &s)) return false;
+    ApNomDuScout(s, out, taille);
+    return true;
 }
 
 const char* ApIconeDuCheck(const char* genre, const char* cle)

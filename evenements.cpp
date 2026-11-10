@@ -362,6 +362,19 @@ void hkInvoquerEvenement(uintptr_t sys, uintptr_t entree, uintptr_t contexte, ui
                 return;
             }
     }
+    // Groupes de refugies de l'apres-005 (2026-11-10, demande de l'auteur :
+    // leur arrivee rejouait l'arrivee visuelle du 1er groupe de l'histoire,
+    // deja retiree pour les convois AP). Seul cet evenement est ignore :
+    // "U: Refugees in the City1/2/3" reste (il cree la bulle de la porte :
+    // check "Refugees Arrival k" et objectif de 006).
+    if (!suivie && entite && strcmp(nom, "S: Survivors - main scenario first group") == 0) {
+        char ctx[320] = "";
+        DecrireEntiteContexte(entite, ctx, sizeof(ctx));
+        if (strstr(ctx, "StoryModeRefugees")) {
+            printf("[EVT] \"%s\" ignore pour un groupe de refugies (%s)\n", nom, ctx);
+            return;
+        }
+    }
     int avant = g_suivieEnCours;
     if (suivie) g_suivieEnCours = indice;
     char nomAvant[128];
@@ -389,6 +402,8 @@ int32_t g_aResoudre[8];
 int     g_nAResoudre = 0;
 bool    g_bullePorteCreee = false;   // lu par groupes.cpp apres l'arrivee d'un groupe de refugies
 
+bool EvenementsCriseCharbonDejaForcee(const char* nomDilemme);   // plus bas
+
 // Hook de FUN_1417cde10(systeme des dilemmes, dilemme, contexte, p4) =
 // creer un dilemme (bulle). Renvoie l'identifiant du dilemme ou -1.
 uintptr_t hkCreerDilemme(uintptr_t sys, uintptr_t dilemme, uintptr_t contexte, uintptr_t p4)
@@ -406,6 +421,12 @@ uintptr_t hkCreerDilemme(uintptr_t sys, uintptr_t dilemme, uintptr_t contexte, u
         titre, i >= 0 ? "oui" : "non");
     if (!remplace && (g_arriveeConvoiAP || i >= 0)) {
         printf("[DIL]   refusee : bulle du jeu pendant l'arrivee d'un convoi AP\n");
+        return (uintptr_t)(intptr_t)-1;
+    }
+    // Crise du charbon deja forcee dans cette partie (2026-11-10) : pas de
+    // 2e bulle "Fear over coal supply" par la chaine vanilla.
+    if (EvenementsCriseCharbonDejaForcee(nom)) {
+        printf("[DIL]   refusee : crise du charbon deja forcee dans cette partie\n");
         return (uintptr_t)(intptr_t)-1;
     }
     uintptr_t r = g_origCreerDilemme(sys, cree, contexte, p4);
@@ -752,13 +773,39 @@ void AppliquerChoixPiege(const PiegeSuivi& p, int i, bool ignore)
     if (c.effetSpecial) c.effetSpecial();
 }
 
+// Nom du dilemme ACTIF 'id' (table sys + 0x21A0, entrees de 0x90, +0x10 =
+// dilemme ; indice par FUN_1416c5ec0, comme la resolution FUN_1417d40c0).
+// Chaine vide si l'id n'est pas actif. A lire AVANT la resolution.
+void NomDilemmeActif(uintptr_t sys, int32_t id, char* out, int taille)
+{
+    out[0] = 0;
+    uint64_t cle = (uint32_t)id;
+    int idx = -1;
+    __try { idx = ((int(*)(uintptr_t, const void*))((uintptr_t)GetModuleHandleW(nullptr) + Adr(0x16C5EC0)))(sys + 0x21A0, &cle); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { idx = -1; }
+    uintptr_t tab = 0, d = 0, p = 0;
+    if (idx < 0 || !SafeRead((void*)(sys + 0x21A0), &tab, 8) || tab <= 0x10000 ||
+        !SafeRead((void*)(tab + 0x10 + (uintptr_t)idx * 0x90), &d, 8) || d <= 0x10000 || !SafeRead((void*)d, &p, 8)) return;
+    TexteDe(p, out, taille);
+}
+
 uintptr_t hkResoudreDilemme(uintptr_t sys, uintptr_t id, uintptr_t choix, uintptr_t drapeaux)
 {
     int slot = -1;
     for (int i = 0; i < MAX_PIEGES && slot < 0; ++i)
         if (g_pieges[i].actif && g_pieges[i].id == (int32_t)id) slot = i;
+    // Emeutes du bois de A New Home (2026-11-10, demande de l'auteur) : la
+    // quete "Give Away Wood Supplies" ([ENDGAME] Gather wood) ne part que si
+    // l'on choisit de rassembler le bois plus tard ; donner le bois tout de
+    // suite (1er choix, "Give away {wood} Wood") vaut son check.
+    char nomDil[128];
+    NomDilemmeActif(sys, (int32_t)id, nomDil, sizeof(nomDil));
     uintptr_t r = g_origResoudre(sys, id, choix, drapeaux);
     int32_t c = (int32_t)choix;
+    if ((r & 0xFF) && c == 0 && strcmp(nomDil, "M: Wood Riots") == 0) {
+        printf("[DIL] \"%s\" : bois donne (choix 1) -> check de la quete \"Give Away Wood Supplies\"\n", nomDil);
+        SendQuestCheck("[ENDGAME] Gather wood", "Give Away Wood Supplies");
+    }
     if (slot >= 0) printf("[DIL] resolution du piege slot %d : choix %d, drapeaux 0x%llX, retour %d\n",
         slot, c, (unsigned long long)drapeaux, (int)(r & 0xFF));
     if (slot < 0 || !(r & 0xFF)) return r;
@@ -1051,6 +1098,60 @@ static void ReleverTableauEffets(uintptr_t adr, const char* quoi, int profondeur
 static const uintptr_t OFF_CONFIG_DILEMMES = Adr(0x4069880);
 constexpr int       CFG_DIL_REPERTOIRES = 0x130;
 
+// Releve de TOUS les dilemmes a 2 choix ou plus (2026-11-10, demande de
+// l'auteur : choisir, pour chaque dilemme d'exploration a plusieurs choix,
+// le choix a forcer ; les choix seront remplaces par "Archipelago Prevail").
+// Une ligne par dilemme, separateurs tabulation :
+//   [DILTAB] <repertoire> <nom> <nb choix> <titre traduit> <choix 1> ... <choix N>
+// Textes traduits par le jeu (TraduireCleJeu, quetes.cpp). Thread du jeu.
+void TraduireCleJeu(uintptr_t adrCle, char* out, int taille);   // quetes.cpp
+void ReleverDilemmesAChoix()
+{
+    uintptr_t cfg = (uintptr_t)GetModuleHandleW(nullptr) + OFF_CONFIG_DILEMMES, reps = 0;
+    int32_t nr = 0;
+    if (!SafeRead((void*)(cfg + CFG_DIL_REPERTOIRES), &reps, 8) ||
+        !SafeRead((void*)(cfg + CFG_DIL_REPERTOIRES + 8), &nr, 4) || reps <= 0x10000 || nr <= 0 || nr > 1024) {
+        printf("[DILTAB] repertoires des dilemmes illisibles\n");
+        return;
+    }
+    int lignes = 0;
+    for (int r = 0; r < nr; ++r) {
+        uintptr_t rep = 0, tab = 0, pr = 0;
+        int32_t ne = 0;
+        char nomRep[128] = "?";
+        if (!SafeRead((void*)(reps + (uintptr_t)r * 8), &rep, 8) || rep <= 0x10000 ||
+            !SafeRead((void*)(rep + 0x18), &tab, 8) || !SafeRead((void*)(rep + 0x20), &ne, 4) ||
+            tab <= 0x10000 || ne <= 0 || ne > 4096) continue;
+        if (SafeRead((void*)rep, &pr, 8)) TexteDe(pr, nomRep, sizeof(nomRep));
+        for (int i = 0; i < ne; ++i) {
+            uintptr_t d = 0, p = 0, choix = 0;
+            int32_t nc = 0;
+            char nom[160] = "?";
+            if (!SafeRead((void*)(tab + (uintptr_t)i * 8), &d, 8) || d <= 0x10000) continue;
+            if (SafeRead((void*)d, &p, 8)) TexteDe(p, nom, sizeof(nom));
+            SafeRead((void*)(d + DIL_CHOIX), &choix, 8);
+            SafeRead((void*)(d + DIL_CHOIX + 8), &nc, 4);
+            if (nc < 2 || nc > 8 || choix <= 0x10000) continue;
+            static char ligne[4096];
+            char titre[300] = "";
+            TraduireCleJeu(d + DIL_TITRE, titre, sizeof(titre));
+            _snprintf_s(ligne, sizeof(ligne), _TRUNCATE, "[DILTAB]\t%s\t%s\t%d\t%s", nomRep, nom, nc, titre);
+            for (int c = 0; c < nc; ++c) {
+                uintptr_t ch = 0;
+                char t[400] = "";
+                if (SafeRead((void*)(choix + (uintptr_t)c * 8), &ch, 8) && ch > 0x10000)
+                    TraduireCleJeu(ch + CHOIX_TEXTE, t, sizeof(t));
+                for (char* q = t; *q; ++q) if (*q == '\t' || *q == '\n' || *q == '\r') *q = ' ';
+                strcat_s(ligne, "\t");
+                strncat_s(ligne, t, _TRUNCATE);
+            }
+            printf("%s\n", ligne);
+            ++lignes;
+        }
+    }
+    printf("[DILTAB] %d dilemme(s) a plusieurs choix sur %d repertoire(s)\n", lignes, nr);
+}
+
 void ReleverDilemmesParNom(const char* motif)
 {
     uintptr_t cfg = (uintptr_t)GetModuleHandleW(nullptr) + OFF_CONFIG_DILEMMES, reps = 0;
@@ -1097,24 +1198,129 @@ void ReleverDilemmesParNom(const char* motif)
     printf("[REFUG] %d dilemme(s) \"%s\" sur %d (%d repertoire(s))\n", trouves, motif, n, nr);
 }
 
+// Le dilemme 'id' est-il ACTIF ? FUN_1416c5ec0(systeme + 0x21A0, &id) = indice
+// dans la table des dilemmes actifs, -1 sinon : c'est le premier test de la
+// resolution FUN_1417d40c0, qui appelle terminate() ("No dilemma with id {0}
+// is active.") si l'id n'y est pas (decompile du 2026-11-10).
+static const uintptr_t OFF_INDICE_DILEMME_ACTIF = Adr(0x16C5EC0);
+static bool DilemmeActif(uintptr_t sys, int32_t id)
+{
+    uint64_t cle = (uint32_t)id;
+    int r = -1;
+    __try { r = ((int(*)(uintptr_t, const void*))((uintptr_t)GetModuleHandleW(nullptr) + OFF_INDICE_DILEMME_ACTIF))(sys + 0x21A0, &cle); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { r = -1; }
+    return r >= 0;
+}
+
 // Bulles en attente de resolution automatique (porte des refugies) : choix 0.
 // Thread du jeu (DilemmesPompe), hors creation de la bulle.
+// Correctif du 2026-11-10 (2 crashs c0000409 a l'arrivee des refugies,
+// releve [CRASH] : abort() dans FUN_1417d40c0 appele par cette fonction) :
+// l'id renvoye a la creation n'etait pas (encore) un dilemme actif -> le jeu
+// appelait terminate(). On ne resout plus qu'un dilemme actif ; sinon il
+// reste en file et est retente, abandonne apres 60 s.
+// --- Crise du charbon forcee (2026-11-10, demande de l'auteur) ---------------
+// La quete "[ENDGAME] Build Coal Thumpers" (check AP) n'est lancee que par la
+// crise du charbon de la fin de partie, qui suppose des mines : le choix 1
+// ("We'll build Coal Thumpers") du dilemme "[coal crisis] Fear over coal
+// supply" la demarre. Au demarrage de "[ENDGAME] 002 Prepare for the storm -
+// main quest" (quetes.cpp), ce dilemme est cree d'office (contexte par
+// defaut, comme nos bulles), sauf si le check de la quete est deja fait.
+// Une fois force dans la partie, sa creation vanilla est refusee (doublon).
+static const char DILEMME_CRISE_CHARBON[] = "[coal crisis] Fear over coal supply";
+volatile bool g_criseCharbonDemandee = false;
+static bool   g_criseCharbonForcee = false;
+static unsigned g_criseCharbonGeneration = 0;
+
+uintptr_t DilemmeParNom(const char* nom)
+{
+    uintptr_t cfg = (uintptr_t)GetModuleHandleW(nullptr) + OFF_CONFIG_DILEMMES, reps = 0;
+    int32_t nr = 0;
+    if (!nom || !SafeRead((void*)(cfg + CFG_DIL_REPERTOIRES), &reps, 8) ||
+        !SafeRead((void*)(cfg + CFG_DIL_REPERTOIRES + 8), &nr, 4) || reps <= 0x10000 || nr <= 0 || nr > 1024) return 0;
+    for (int r = 0; r < nr; ++r) {
+        uintptr_t rep = 0, tab = 0;
+        int32_t ne = 0;
+        if (!SafeRead((void*)(reps + (uintptr_t)r * 8), &rep, 8) || rep <= 0x10000 ||
+            !SafeRead((void*)(rep + 0x18), &tab, 8) || !SafeRead((void*)(rep + 0x20), &ne, 4) ||
+            tab <= 0x10000 || ne <= 0 || ne > 4096) continue;
+        for (int i = 0; i < ne; ++i) {
+            uintptr_t d = 0, p = 0;
+            char n[160] = "";
+            if (!SafeRead((void*)(tab + (uintptr_t)i * 8), &d, 8) || d <= 0x10000) continue;
+            if (SafeRead((void*)d, &p, 8) && TexteDe(p, n, sizeof(n)) && strcmp(n, nom) == 0) return d;
+        }
+    }
+    return 0;
+}
+
+void EvenementsForcerCriseCharbon()
+{
+    if (ApQueteDejaCochee("[ENDGAME] Build Coal Thumpers")) {
+        printf("[DIL] crise du charbon : check de \"Build Coal Thumpers\" deja fait, rien force\n");
+        return;
+    }
+    g_criseCharbonDemandee = true;
+}
+
+static void CreerCriseCharbonSiDemandee()
+{
+    if (PartieGeneration() != g_criseCharbonGeneration) {
+        g_criseCharbonGeneration = PartieGeneration();
+        g_criseCharbonForcee = false;
+    }
+    if (!g_criseCharbonDemandee || !g_origCreerDilemme) return;
+    g_criseCharbonDemandee = false;
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr), sys = 0;
+    SafeRead((void*)(base + OFF_SYSTEME_DILEMMES), &sys, 8);
+    uintptr_t d = DilemmeParNom(DILEMME_CRISE_CHARBON);
+    if (sys <= 0x10000 || !d) {
+        printf("[DIL] crise du charbon : dilemme \"%s\" %s\n", DILEMME_CRISE_CHARBON, d ? "sans systeme" : "introuvable");
+        return;
+    }
+    int32_t id = -1;
+    __try { id = (int32_t)g_origCreerDilemme(sys, d, base + OFF_CONTEXTE_DEFAUT, 0); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { id = -1; }
+    if (id >= 0) g_criseCharbonForcee = true;
+    printf("[DIL] crise du charbon forcee : \"%s\" -> %d\n", DILEMME_CRISE_CHARBON, id);
+}
+
+bool EvenementsCriseCharbonDejaForcee(const char* nomDilemme)
+{
+    return g_criseCharbonForcee && nomDilemme && strcmp(nomDilemme, DILEMME_CRISE_CHARBON) == 0;
+}
+
 void DilemmesResoudreEnAttente()
 {
+    CreerCriseCharbonSiDemandee();
     if (g_nAResoudre <= 0 || !g_origResoudre) return;
     uintptr_t sys = 0;
     SafeRead((void*)((uintptr_t)GetModuleHandleW(nullptr) + OFF_SYSTEME_DILEMMES), &sys, 8);
     if (sys <= 0x10000) return;
-    int n = g_nAResoudre;
-    g_nAResoudre = 0;
+    static DWORD depuis[8] = {};
+    int n = g_nAResoudre, garde = 0;
     for (int k = 0; k < n; ++k) {
+        int32_t id = g_aResoudre[k];
+        if (!depuis[k]) depuis[k] = GetTickCount();
+        if (!DilemmeActif(sys, id)) {
+            if (GetTickCount() - depuis[k] < 60000) {
+                g_aResoudre[garde] = id;
+                depuis[garde] = depuis[k];
+                ++garde;
+            } else {
+                printf("[DIL] bulle %d de la porte des refugies : jamais active en 60 s, resolution automatique abandonnee\n", id);
+            }
+            continue;
+        }
         uintptr_t r = 0;
         bool ok = true;
-        __try { r = g_origResoudre(sys, (uintptr_t)(intptr_t)g_aResoudre[k], 0, 0); }
+        __try { r = g_origResoudre(sys, (uintptr_t)(intptr_t)id, 0, 0); }
         __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; }
         printf("[DIL] bulle %d de la porte des refugies resolue automatiquement (choix 0) : %s\n",
-            g_aResoudre[k], ok ? ((r & 0xFF) ? "ok" : "refus du jeu") : "EXCEPTION");
+            id, ok ? ((r & 0xFF) ? "ok" : "refus du jeu") : "EXCEPTION");
     }
+    for (int k = garde; k < 8; ++k) depuis[k] = 0;
+    g_nAResoudre = garde;
 }
 
 bool EvenementsBullePorteCreee(bool remettreAZero)

@@ -26,6 +26,7 @@
 #include "scooting.h"    // ScootingExpeditionAffichee (infobulle de l'item AP)
 #include "sites_contenu.h"  // SitesEntreeSurvivants (survivants par classe)
 #include "quetes.h"         // QuetesDemanderFinQuete (refugies de 006)
+#include "ap_ressources.h"  // ApPorteurDef (item AP de l'inventaire des refugies)
 #include <cmath>
 #include <cstring>
 
@@ -1522,9 +1523,13 @@ UISupprimerReste_t g_origSupprimerReste = nullptr;
 UIFinaliser_t      g_origFinaliser      = nullptr;
 
 // Rafraichissement en cours d'un controle de NOTRE groupe (thread du jeu).
+// 'vague' (2026-11-10) : groupe de refugies de l'apres-005 du jeu (1..3) ;
+// ses survivants sont masques et une seule case est posee : l'item AP (le
+// porteur des scouts), dont le nom traduit est le check porte.
 struct RafraichissementAP {
     bool      actif;
     int       slot;
+    int       vague;
     int       nLayouts;
     uintptr_t layouts[MAX_LAYOUTS_UI];
     uintptr_t suivante[MAX_LAYOUTS_UI];   // dernier retour de AjouterCase pour ce layout
@@ -1627,10 +1632,51 @@ int FiltreInventaire(EXCEPTION_POINTERS* ep, DWORD* code, uintptr_t* adresse)
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
+// Groupe de refugies en cours d'affichage (1..3, 0 sinon) : lu par
+// hkTranslate pour le nom de l'item AP pendant le remplissage de sa case.
+int g_vagueAffichee = 0;
+
+// Case de l'item AP d'un groupe de refugies (comme l'item porte par un
+// scout) : definition = le porteur (FrostpunkResourceEntry clonee, nom
+// "@Resources/Names/AP_Item" en +0x28, icone en +0x98), quantite 1.
+uintptr_t PoserCaseRefugies(int k, uintptr_t suivante)
+{
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    uintptr_t support = 0, def = ApPorteurDef();
+    if (!def || !SafeRead((void*)(base + OFF_UI_SUPPORT), &support, 8) || !support) return suivante;
+    TexteDepuisCle_t texteDepuisCle = (TexteDepuisCle_t)(base + OFF_TEXTE_DEPUIS_CLE);
+    TexteLiberer_t liberer = (TexteLiberer_t)(base + OFF_TEXTE_LIBERER);
+    uintptr_t texte = 0;
+    uint64_t quantite = ((uint64_t)1 << 32) | 1;
+    DWORD code = 0;
+    uintptr_t fautive = 0;
+    g_vagueAffichee = g_rafr.vague;
+    __try {
+        texteDepuisCle(&texte, def + DEF_RES_NOM);
+        suivante = g_origAjouterCase(support, base + OFF_UI_NOM_CASE, suivante, g_rafr.layouts[k],
+                                     &texte, def + DEF_RES_ICONE, quantite, -1, base + OFF_UI_PRESET_CASE);
+        if (texte) liberer(&texte);
+    }
+    __except (FiltreInventaire(GetExceptionInformation(), &code, &fautive)) {
+        g_vagueAffichee = 0;
+        JournalImmediat("[GRP] inventaire des refugies %d : EXCEPTION 0x%08lX, adresse Ghidra 0x%llX\n", g_rafr.vague,
+            code, (unsigned long long)(fautive - base + 0x140000000ULL));
+        return 0;
+    }
+    g_vagueAffichee = 0;
+    static bool dit[4] = {};
+    if (g_rafr.vague >= 1 && g_rafr.vague <= 3 && !dit[g_rafr.vague]) {
+        dit[g_rafr.vague] = true;
+        printf("[GRP] inventaire des refugies %d : case de l'item AP posee (layout %d)\n", g_rafr.vague, k);
+    }
+    return suivante;
+}
+
 // Pose nos cases a partir de 'suivante' (case a reutiliser, ou 0 : creee).
 // Renvoie la case qui suit les notres.
 uintptr_t PoserCasesCargaison(int k, uintptr_t suivante)
 {
+    if (g_rafr.vague) return PoserCaseRefugies(k, suivante);
     GroupeSuivi& s = g_groupes[g_rafr.slot];
     uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
     uintptr_t support = 0;
@@ -1736,6 +1782,30 @@ void hkFinaliser(uintptr_t element)
     g_origFinaliser(element);
 }
 
+// Vague (1..3) d'un groupe de refugies de l'apres-005 PAS ENCORE ARRIVE
+// (contexte "StoryModeRefugeesK", comme hkGroupeArrive), 0 sinon. Cache
+// par composant (le contexte est une chaine construite).
+int VagueRefugiesDuComposant(uintptr_t comp)
+{
+    if (!ClasseExacte(comp, "FrostpunkSurvivorGroupComponent")) return 0;
+    uint8_t arrive = 0;
+    SafeRead((void*)(comp + COMP_ARRIVE), &arrive, 1);
+    if (arrive) return 0;
+    uintptr_t entite = 0;
+    if (!SafeRead((void*)(comp + 0x18), &entite, 8) || entite <= 0x10000) return 0;
+    struct Connu { uintptr_t comp, entite; int vague; };
+    static Connu connus[16];
+    static int prochain = 0;
+    for (const Connu& c : connus) if (c.comp == comp && c.entite == entite) return c.vague;
+    char ctx[256] = "";
+    DecrireEntiteContexte(entite, ctx, sizeof(ctx));
+    const char* sm = strstr(ctx, "StoryModeRefugees");
+    int vague = (sm && sm[17] >= '1' && sm[17] <= '3') ? sm[17] - '0' : 0;
+    connus[prochain] = { comp, entite, vague };
+    prochain = (prochain + 1) % 16;
+    return vague;
+}
+
 void hkUICargaison(uintptr_t ctrl)
 {
     // Scout : l'infobulle de la case de l'item AP est traduite pendant ce
@@ -1752,7 +1822,11 @@ void hkUICargaison(uintptr_t ctrl)
             if (g_groupes[i].actif && !g_groupes[i].arrive && g_groupes[i].comp == comp && g_groupes[i].nCargaison > 0 &&
                 !g_groupes[i].inventaireEchec)
                 slot = i;
-    if (slot < 0 || g_rafr.actif) {
+    // Groupe de refugies de l'apres-005, pas encore arrive (2026-11-10,
+    // demande de l'auteur) : ses gens sont des items AP ; la liste montre a
+    // la place le check qu'il porte (Refugees Arrival k), comme un scout.
+    int vague = (slot < 0 && comp) ? VagueRefugiesDuComposant(comp) : 0;
+    if ((slot < 0 && !vague) || g_rafr.actif) {
         g_origUICargaison(ctrl);
         ScootingExpeditionAffichee(0);
         return;
@@ -1760,6 +1834,7 @@ void hkUICargaison(uintptr_t ctrl)
 
     memset(&g_rafr, 0, sizeof(g_rafr));
     g_rafr.slot = slot;
+    g_rafr.vague = vague;
     uintptr_t tab = 0;
     int32_t n = 0;
     SafeRead((void*)(ctrl + CTRL_LAYOUTS), &tab, 8);
@@ -1770,12 +1845,73 @@ void hkUICargaison(uintptr_t ctrl)
             g_rafr.layouts[g_rafr.nLayouts++] = e;
     }
     g_rafr.actif = g_rafr.nLayouts > 0;
+    // Refugies : leurs gens sont des items AP, retires a l'arrivee
+    // (hkGroupeArrive). Test du 2026-11-10 : masques le temps du remplissage
+    // seulement, ils restaient visibles dans le panneau de selection de la
+    // carte -> retires DES leur 1er affichage (compte du contenu a 0, comme a
+    // l'arrivee : meme resultat, aucun ecran ne les montre plus).
+    int32_t nContenu = 0;
+    if (vague && SafeRead((void*)(comp + COMP_CONTENU + 8), &nContenu, 4) && nContenu > 0) {
+        int32_t zero = 0;
+        SafeWrite((void*)(comp + COMP_CONTENU + 8), &zero, 4);
+        printf("[GRP] refugies du groupe %d : %d entree(s) de survivants retiree(s) des le trajet (items AP)\n",
+            vague, nContenu);
+    }
     g_origUICargaison(ctrl);
     g_rafr.actif = false;
     ScootingExpeditionAffichee(0);
 }
 
+// Groupe de refugies (1..3) survole ou selectionne sur la carte, 0 sinon :
+// l'infobulle de la case est traduite AU SURVOL, apres le remplissage
+// (comme pour les scouts, ExpeditionVisee : survol +0x2298, puis selection
+// +0x2250 {entite, ...} au pas de 0x10, compte +0x2258).
+static int VagueDeLEntite(uintptr_t ent)
+{
+    if (ent <= 0x10000) return 0;
+    static uintptr_t comps[64];
+    int n = ComposantsDuSysteme(0x6D, "FrostpunkSurvivorGroupComponent", comps, 64);
+    for (int i = 0; i < n; ++i) {
+        uintptr_t e = 0;
+        if (SafeRead((void*)(comps[i] + 0x18), &e, 8) && e == ent) return VagueRefugiesDuComposant(comps[i]);
+    }
+    return 0;
+}
+
+int VagueRefugiesVisee()
+{
+    uintptr_t sel = SystemeParId(IdSysteme::Selection);
+    if (!sel) return 0;
+    uintptr_t survol = 0;
+    if (SafeRead((void*)(sel + 0x2298), &survol, 8)) {
+        int v = VagueDeLEntite(survol);
+        if (v) return v;
+    }
+    uintptr_t tab = 0;
+    uint32_t n = 0;
+    if (!SafeRead((void*)(sel + 0x2250), &tab, 8) || !SafeRead((void*)(sel + 0x2258), &n, 4) || tab <= 0x10000 || n > 64)
+        return 0;
+    for (uint32_t k = 0; k < n; ++k) {
+        uintptr_t ent = 0;
+        if (SafeRead((void*)(tab + (uintptr_t)k * 0x10), &ent, 8)) {
+            int v = VagueDeLEntite(ent);
+            if (v) return v;
+        }
+    }
+    return 0;
+}
+
 } // namespace
+
+int GroupesVagueRefugiesAffichee()
+{
+    return g_vagueAffichee;
+}
+
+int GroupesVagueRefugiesVisee()
+{
+    return VagueRefugiesVisee();
+}
 
 void CarteAssurerAcces()
 {

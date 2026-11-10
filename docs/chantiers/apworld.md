@@ -1256,3 +1256,41 @@ testé ; apworld régénéré, testé 0.6.8, `frostpunk.apworld` reconstruit) :
   le mod`). Les convois AP ne lancent de nouveau plus `U: Refugees in the
   City1/2/3`. Cohérent avec l'apworld : les sites « après 006 REFUGEES » sont
   dans la région qui suit ce goulot.
+
+## 2026-11-10 — Noms propres des arbres et contenu des checks de ressources
+
+Demande de l'auteur : plus de « Coal mine upgrade 1 » dans les noms d'arbres,
+et les checks de ressources doivent afficher leur contenu exact
+(« 20 Coal, 2 Engineers »), y compris dans le livre des lois.
+
+- **Origine** : le nom de l'item d'arbre était `"<scn> - Progressive " +` le
+  nom court **interne** de la racine de l'arbre (d'où aussi « GU
+  GeneratorUpgrade1 », « FF Foragers_+1 »…). Les items de site s'appellent
+  `"<scn> - <site> Supplies"`. Tous les noms de checks vus en jeu
+  (technos, lois via `hkInfoLoi`/`PoserTexteNomCheck`, sites via `ap_data`,
+  quêtes) passent par `ApNomDuScout` (archipelago.cpp).
+- **Décisions de l'auteur** :
+  1. arbres : **table écrite à la main** `NOMS_ARBRES` (generer.py, numéro
+     d'arbre → nom anglais sans numéro), visible de tous ; ids inchangés
+     (`ids.tsv` non modifié, la clé est le numéro d'arbre). Un arbre sans
+     nom = erreur de génération. Exemples : 20 « Coal Mine Upgrade », 1
+     « Generator Power », 53 « Generator Upgrade », 55 « Forager Capacity »,
+     74 « Vault Upgrade », 37 « Repair Station ». Noms à corriger à la
+     main si l'auteur préfère ceux du jeu.
+  2. ressources : **en jeu seulement** (les autres joueurs gardent « …
+     Supplies »). `ApNomDuScout` : item Site / Filler reconnu par son id
+     **et** son nom (known_ap_ids.h) → `"<joueur> - <contenu>"` ;
+     `ApTexteContenu(cle)` : ressources puis survivants, singulier pour 1
+     (« 1 Steam Core », « 1 Child »), « technology » omise (jamais livrée).
+     Le nom du convoi (carte, message « Item received ») utilise le même
+     texte (« 144 Wood » au lieu de « 144 wood »).
+- Item d'arbre d'une graine **antérieure** au renommage : `ApNomDuScout`
+  prend le nom de known_ap_ids.h si l'id correspond et que le nom du
+  serveur a le même préfixe `"<scn> - Progressive "`.
+- `outils\technos_classification.tsv` : sa colonne `item` (informative,
+  generer.py ne lit que scénario / arbre / classification) garde les
+  anciens noms.
+- Régénéré (`data.py`, `known_ap_ids.h`, 409 items / 865 locations),
+  `custom_worlds\frostpunk.apworld` reconstruit, génération OK (spoiler :
+  « A New Home - Progressive Steam Hub », etc.), DLL compilée et déployée
+  (Epic, 08:09). **Non testé en jeu.**

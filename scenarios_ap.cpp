@@ -462,8 +462,14 @@ int DifficulteCible()
     return (g_difficulteCible >= 0 && g_difficulteCible <= 3) ? g_difficulteCible : -1;
 }
 
+// TEMPORAIRE (2026-11-10, demande de l'auteur) : tous les scenarios
+// debloques, le temps du releve des dilemmes d'exploration dans chaque
+// scenario ([DILTAB] / [SCONT]). Remettre a false ensuite.
+static const bool TOUS_DEBLOQUES_TEMPORAIRE = true;
+
 bool ScenarioDebloque(const char* nomInterne)
 {
+    if (TOUS_DEBLOQUES_TEMPORAIRE) return true;
     if (!nomInterne) return true;
     int i = IndiceScenarioAP(nomInterne);
     return i < 0 || g_debloque[i];

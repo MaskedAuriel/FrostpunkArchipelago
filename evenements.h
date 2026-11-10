@@ -64,6 +64,11 @@ uintptr_t DilemmeCloner(uintptr_t orig, const char* cleTitre, const char* cleDes
 // choix. Lecture seule de la configuration, tout thread. Sert a retrouver
 // l'arrivee des refugies de l'apres-005 d'A New Home (2026-11-04).
 void ReleverDilemmesParNom(const char* motif);
+// Tous les dilemmes a 2 choix ou plus, textes traduits : lignes [DILTAB] (2026-11-10).
+void ReleverDilemmesAChoix();
+// Crise du charbon (2026-11-10) : bulle "[coal crisis] Fear over coal supply" creee d'office
+// au debut de "Prepare for the storm" (sauf check de Build Coal Thumpers deja fait).
+void EvenementsForcerCriseCharbon();
 
 // Classe de l'entite et chemin de son CompoundTemplate (journal).
 void DecrireEntiteContexte(uintptr_t entite, char* out, int maxlen);

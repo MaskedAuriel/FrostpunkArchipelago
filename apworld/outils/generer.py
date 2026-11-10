@@ -230,6 +230,38 @@ SURVIVANTS = ("workers", "engineers", "children", "automaton")
 QUETE_POURCENT_PROGRESSIFS = 100
 
 # Filler de complement (places restantes) et pieges (Q6).
+# Nom affiche de chaque arbre de technos (decision de l'auteur, 2026-11-10 :
+# table ecrite a la main, plus le nom interne de la racine type "Coal mine
+# upgrade 1" / "GU GeneratorUpgrade1"). Cle = numero d'arbre
+# (outils\technos_arbres.tsv) ; les ids ne dependent pas du nom. Texte en
+# anglais, sans numero. Un arbre absent = erreur de generation.
+NOMS_ARBRES = {
+    0: "Steam Hub", 1: "Generator Power", 2: "Generator Coal Efficiency",
+    3: "Generator Range", 4: "Generator Overdrive", 5: "Boilers",
+    6: "Boiler Coal Efficiency", 7: "Beacon", 8: "Expedition Center",
+    9: "Scout Limit", 10: "Scout Speed", 11: "Factory", 12: "Augmentation Parts",
+    13: "Automaton Efficiency", 14: "Automaton Medical", 15: "Gathering Upgrade",
+    16: "Resource Depot", 17: "Gathering Efficiency", 18: "Coal Thumper",
+    19: "Coal Mine", 20: "Coal Mine Upgrade", 21: "Charcoal Kiln", 22: "Sawmill",
+    23: "Sawmill Upgrade", 24: "Wall Drill", 25: "Steel Mine", 26: "Hothouse",
+    27: "Hothouse Insulation", 28: "Hunters", 29: "Hunters Workforce",
+    30: "Healthcare", 31: "Healthcare Heating", 32: "Infirmary Workforce",
+    33: "Housing", 34: "Cookhouse Heating", 35: "Cheaper Houses", 36: "Tier",
+    37: "Repair Station", 38: "Repair Station Ability", 39: "Repair Station Workforce",
+    40: "Brazier", 41: "Brazier Range", 42: "Brazier Coal Efficiency", 43: "Heater",
+    44: "Healthcare Insulation", 45: "Scaffolding Manufacture", 46: "Protective Structure",
+    47: "Steel Plate Forge", 48: "Cheaper Forge", 49: "Steam Mill", 50: "Supercharge",
+    51: "Air Scrubbers", 52: "Air Scrubber Optimization", 53: "Generator Upgrade",
+    54: "Foragers", 55: "Forager Capacity", 56: "Forager Speed", 57: "Fishing Harbor",
+    58: "Fishing Harbor Efficiency", 59: "Healthcare", 60: "Infirmary Upgrade",
+    61: "Docks", 62: "URS", 63: "URS Steam", 64: "Docks Reload Speed",
+    65: "Gathering Upgrade", 66: "Resource Depot", 67: "Sawmill", 68: "Sawmill Upgrade",
+    69: "Charcoal Kiln", 70: "Brazier", 71: "Brazier Range", 72: "Brazier Coal Efficiency",
+    73: "Vault Efficiency", 74: "Vault Upgrade", 75: "Vault Multitasking",
+    76: "Vault Insulation", 77: "Vault Steam Cores", 79: "Automaton Engineers",
+    80: "Storm Research", 81: "URS Advanced",
+}
+
 FILLER_GENERIQUE = [
     ("Wood Crate", [("wood", 30)]),
     ("Coal Crate", [("coal", 30)]),
@@ -365,8 +397,9 @@ def main():
             arbres.setdefault(int(t["arbre"]), []).append(t)
         noms_arbres = {}
         for a, lst in arbres.items():
-            racine = min(lst, key=lambda t: int(t["rang"]))
-            noms_arbres[a] = "Tier" if a == ARBRE_PALIERS else racine["nom court"]
+            if a not in NOMS_ARBRES:
+                erreurs.append("arbre sans nom affiche (NOMS_ARBRES) : %s / %d" % (scn, a))
+            noms_arbres[a] = NOMS_ARBRES.get(a, "Tree %d" % a)
         depart = PALIERS_DE_DEPART.get(scn, 0)
 
         # region / paliers requis effectifs (fermeture sur rang precedent et parent)

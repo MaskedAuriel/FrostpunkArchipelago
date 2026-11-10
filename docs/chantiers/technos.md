@@ -967,3 +967,45 @@ Table générée par `outils\technos_classification.py` depuis `technos_table.ts
   **réception**, pas à la recherche. → réception : 3e argument 1 ;
   `ResearchComplete` d'une techno AP pas encore reçue : 0 (hook
   `hkAjouterRecherchee`). Compilé, déployé 09:34, non testé.
+
+## 2026-11-10 — Check suivant d'un arbre accessible à la recherche, pas à la réception
+
+Demande de l'auteur : la possibilité de rechercher le check suivant d'un
+arbre dépendait de la **réception** du précédent (l'état du jeu d'une
+techno AP vaut 2 seulement si elle est reçue, `SyncGameState`, et le jeu
+lit cet état pour les prérequis : parent, palier `TierUnlockN`). Voulu :
+de sa **recherche**. Correctif (hooks_research.cpp) :
+`EleverRecherchees` / `RabaisserRecherchees` autour de l'original dans
+`hkCanResearch` et `hkResearchStart` : les technos AP recherchées mais pas
+reçues (état 0) passent à l'état 2 le temps de l'évaluation, sauf la
+techno évaluée (le jeu plante en évaluant une techno à l'état 2). Liste
+recalculée au plus toutes les 500 ms, état revérifié avant écriture. Les
+bâtiments et effets restent liés à la réception (état 2 permanent
+seulement à la réception). Non testé : l'aspect des nœuds de l'arbre
+(verrouillé / disponible) s'il est calculé ailleurs que par CanResearch.
+
+### 2026-11-10 — Test : Steam Sawmill toujours pas recherchable
+
+Retour de l'auteur : Steam Sawmill (arbre 22, palier 2, parent Sawmill)
+non recherchable alors que Sawmill est recherchée (journal : Sawmill
+researched 1 / received 0 ; TierUnlock2 received 1). Décompilé
+`FUN_141326a60` (CanResearch) : refus si `FUN_141327b10` (« TechnologyLocked »),
+si techno en cours, si aucun atelier (`FUN_141392c70`), si état 2, si les
+prérequis `tech +0x38` échouent (`FUN_1416a7ab0` → `FUN_1416a79e0` →
+`FUN_1416a71f0` ; cas 4 = techno : `FUN_1413276a0(DAT_144062ba8, techno)
+== 2`, donc l'état que le mod élève), ou si le coût `tech +0xA0` n'est pas
+payable (`FUN_141742300`). Cause pas encore identifiée : journal
+`[TECHPRE]` ajouté dans `hkCanResearch` (une ligne par techno AP quand la
+réponse du jeu change : réponse, technos élevées, parent recherché / reçu
+/ état, palier).
+- **Suite (même jour)** : nœud de Steam Sawmill **non sélectionnable**,
+  aucune ligne `[TECHPRE]` : CanResearch n'est appelée qu'une fois le
+  nœud sélectionné (bouton du panneau, `FUN_141bc9b30`). Sélectionnable =
+  `FUN_141bc3cb0` (« AVAILABLE » + drapeau `0x20000000`) si
+  `FUN_141bc5100(panneau, techno, 1)` (prérequis lus sur l'état du jeu) ;
+  appelée par le rafraîchissement d'un nœud `FUN_141bca5a0(panneau, GUID)`
+  (qui colore aussi les liens : `"NOT_AVAILABLE"` si le parent n'est pas à
+  2). Même élévation autour de ces deux fonctions (`hkNoeudDisponible`,
+  `hkRafraichirNoeud`, hooks_research.cpp ; la techno du nœud exclue).
+  Steam : `0x1BC5100 → 0x1A65E40`, `0x1BCA5A0 → 0x1A6B2E0` (voisinage,
+  octets identiques hors RIP). Compilé, non testé.

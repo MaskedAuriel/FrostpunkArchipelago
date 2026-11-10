@@ -7,6 +7,7 @@
 #include "evenements.h" // DilemmesAPChargement
 #include "scooting.h"   // ScootingApresChargement
 #include "lois_ap.h"    // LoisAPApresChargement
+#include "archipelago.h" // ApItemsApresChargement (livraisons de la sauvegarde)
 #include "MinHook.h"
 #include <psapi.h>
 
@@ -1478,7 +1479,11 @@ static uintptr_t hkLoadGame(uintptr_t jeu, uintptr_t nom, uintptr_t p3, uintptr_
 {
     NoterPointChargement("LoadGame : entree");
     GroupesAvantChargement();
+    // Reperes immediats (crash c0000374 du 2026-11-10 pendant un chargement :
+    // le journal s'arretait a l'entree).
+    JournalImmediat("[CHARG] groupes : avant chargement fait\n");
     DilemmesAPChargement(0);
+    JournalImmediat("[CHARG] dilemmes AP : avant chargement fait, appel du LoadGame du jeu\n");
     uintptr_t r = oLoadGame(jeu, nom, p3, p4);
     NoterPointChargement("LoadGame : sortie");
     // Test du 2026-10-29 : chargement synchrone sur le thread du jeu, groupes
@@ -1488,6 +1493,7 @@ static uintptr_t hkLoadGame(uintptr_t jeu, uintptr_t nom, uintptr_t p3, uintptr_
     MessagesApresChargement();
     if (g_lectureReussie) ScootingApresChargement();   // pas pour le 2e appel de LoadGame, a vide
     if (g_lectureReussie) LoisAPApresChargement();     // date de la sauvegarde : effets des lois deja presents ?
+    if (g_lectureReussie) ApItemsApresChargement();    // livraisons d'items de cette sauvegarde (2026-11-10)
     g_lectureReussie = false;
     return r;
 }

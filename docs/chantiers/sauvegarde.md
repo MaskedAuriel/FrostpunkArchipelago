@@ -187,3 +187,100 @@ refuser le chargement), et seulement les sauvegardes **de la session**
 Conséquence : sans session (jamais connecté), aucune sauvegarde visible ; une
 sauvegarde faite avant ce correctif est masquée (la réécrire une fois). Non
 testé (liste, Continue, sauvegarde automatique).
+## 2026-11-10 — Livraisons d'items qui suivent la sauvegarde ; crash au rechargement
+
+**Retour de l'auteur (Steam, A New Home)** : T1 jour 3, une recherche dont
+le check est « 11 Workers, 7 Children » (pour lui) → convoi reçu ;
+sauvegarde. T2 : rechargement d'une sauvegarde du début de la journée, la
+même recherche finit → rien ne part. T3 : rechargement de la sauvegarde de
+fin de T1 → **crash**.
+
+**Colis (cause)** : en T2 le check était déjà envoyé (normal, rien à
+renvoyer), et la livraison était comptée **par partie** (GameId,
+`ap_items_livres_<GameId>.txt`) ou globalement (fillers,
+`ap_items_livres.txt`), pas par sauvegarde : le convoi n'existait pas
+dans la sauvegarde de T2, mais le compte disait « déjà livré ».
+**Correctif (compilé, non testé)** : `ApItemsAvantSauvegarde` (hook
+d'écriture, sauvegardes_ap.cpp) écrit un instantané des livraisons
+(`P <id>` partie, `C <id>` communes) dans
+`<session>\ap_livres_<GameId>_<date de jeu>.txt` ;
+`ApItemsApresChargement` (sortie de LoadGame, mod_common.cpp) reprend
+l'instantané de même partie et même date de jeu : comptes en mémoire et
+fichiers de livraisons réécrits, les items livrés après la sauvegarde
+repartent. Date de jeu = horloge des lois (`LoisDateDeJeu`, exportée de
+lois_ap.cpp). Sauvegardes antérieures au correctif : pas d'instantané,
+rien ne change. Limite : un filler (commun) relivré après un retour en
+arrière peut l'être aussi dans une autre partie qui l'avait déjà.
+Journal `[AP ITEMS] sauvegarde (date de jeu …) : instantane …` et
+`[AP ITEMS] chargement (date de jeu …) : … ecart +N …`.
+
+**Crash** : rapport Windows `APPCRASH`, `c0000374` (corruption du tas
+Windows) dans `ntdll`, Steam. Journal arrêté à `[CHARG] LoadGame : entree`
+(lignes perdues au crash). Pas de minidump. Cause non trouvée. Repères
+immédiats ajoutés dans `hkLoadGame` (après `GroupesAvantChargement`, après
+`DilemmesAPChargement(0)`, avant le LoadGame du jeu) pour situer la
+prochaine occurrence.
+
+### 2026-11-10 — 2e crash c0000374 (Steam), relevé de plantage
+
+Après une recherche (Plantation Insulation → check « 18 Engineers » pour
+l'auteur → convoi AP créé, message émis) : même `c0000374` dans `ntdll`
+(décalage `0x118095`), journal coupé. Écarté par analyse : tailles de
+classe identiques Epic / Steam (groupe, template de groupe 0x118, carte,
+mouvement, expédition, entrées de message, UIElement / UIPicture /
+UITextBox… : relevé par la taille passée à l'enregistrement de la classe) ;
+blobs de textures substitués tous plus petits que l'original dans
+`textures-s3.idx` Steam (pas de débordement sur le blob suivant), tailles
+décompressées égales ; copie `NtReadFile` bornée à la longueur lue ;
+toutes les fonctions de `VERSION_STEAM` comparées octet à octet (hors
+déplacements RIP) : pas d'appariement faux trouvé. Cause inconnue.
+**Relevé ajouté** (version.cpp) : gestionnaire d'exceptions vectorisé,
+sur `c0000374` / `c0000409` seulement, pile d'appels écrite aussitôt dans
+le journal (`[CRASH]   n  module+0x…`), une fois par processus.
+
+### 2026-11-10 — Cause des crashs c0000374 trouvée : tampon statique donné au jeu
+
+3e crash (Steam), pendant l'écriture de la sauvegarde « NEW SAVE-5 ».
+Relevé `[CRASH]` : `_aligned_free` (ucrtbase) appelé depuis le destructeur
+d'un composant de 0x210 octets = `FrostpunkExpeditionComponent`
+(`FUN_1419e9960` / `FUN_1419e9c60` sur Epic, cadres Steam `0x188644E` /
+`0x18866DE`, retrouvés par motif d'octets), sur sa cargaison de ressources
+`+0x168` (`FUN_140d9f120` : `_aligned_free` du tableau). `MoteurAlloc` =
+`FUN_140e27bf0` = `_aligned_malloc(n, 16)`, identique sur Steam.
+**Cause** : `InjecterPorteur` (scooting.cpp), qui remet les checks portés
+dans la cargaison d'une expédition (rechargement : `[PERSIST] Restaured
+this check`, retour…), fournissait un **tampon statique** (`g_tamponsInj`)
+quand la cargaison n'avait pas de tableau — règle n° 1. Le jeu le libère
+(destruction / copie de l'expédition) ou l'agrandit → tas Windows corrompu.
+**Correctif** : tableau alloué par `MoteurAlloc(4 × 0x10)`, laissé au jeu ;
+`g_tamponsInj` / `g_proprioInj` et leur retrait dans `ViderCargaison`
+supprimés. Compilé, non testé.
+
+### 2026-11-10 — 4e crash (arrivée des réfugiés 1) : c0000409 dans ucrtbase
+
+Steam, DLL de 16:03 : groupe `StoryModeRefugees1` arrivé (6 entrées, gens
+retirés : items AP), bulle « Refugees at the door 1 », check envoyé, item
+reçu (Progressive Factory, message 227) puis crash. Rapport : `c0000409`,
+module `ucrtbase.dll` (décalage `0xA527E`) = arrêt immédiat (`__fastfail`)
+du **CRT du jeu** (la DLL a son CRT statique) : paramètre invalide d'une
+fonction du CRT ou `abort()` / `terminate()`. Invisible du relevé
+vectorisé, journal coupé. Cause inconnue. **Relevé étendu** (version.cpp,
+`InstallerRelevesCRTJeu`) : `_set_invalid_parameter_handler` et
+`signal(SIGABRT)` posés dans l'`ucrtbase` du jeu (`GetProcAddress`) ; ils
+écrivent la pile (`[CRASH] parametre invalide …` / `[CRASH] abort() …`)
+puis laissent le CRT arrêter le jeu comme avant.
+
+### 2026-11-10 — 5e crash c0000374 : traductions du jeu remplacées sans en-tête
+
+Relevé `[CRASH]` : `_aligned_free` appelé depuis le rafraîchissement d'un
+nœud de l'arbre des technos (Steam `0x1A6B69A`, dans `FUN_141bca5a0`, par
+notre `hkRafraichirNoeud`), juste après des `[TECHDESC]`. **Cause** :
+`hkTranslate` écrivait dans l'objet de traduction **du jeu** un pointeur
+vers un tampon statique **sans en-tête de comptage** (règles 2 et 3) :
+`GetResearchedName` (« [Researched] »), `ApDescBuffer` (description AP
+des technos), `ApplyOverride`. Le jeu compte sur les 4 octets avant le
+texte (nuls) : à 0, il libère notre tampon → tas corrompu. **Correctif**
+(hooks_loc.cpp) : `PoserEnteteFigee` — en-tête de 0x14 octets juste avant
+chaque tampon, copié d'une chaîne valide du jeu (self vérifié), self posé,
+compteur figé à `0x40000000` ; sans en-tête valide, texte du jeu laissé.
+Compilé, déployé Epic + Steam, non testé.

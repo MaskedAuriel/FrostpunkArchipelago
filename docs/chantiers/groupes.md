@@ -839,3 +839,51 @@
   sa capacité, trésor `+0x70`, aléatoires `+0xD8`. Limite : une entrée par
   classe (si un site mélange des ouvriers sains et gravement malades, la
   1re entrée trouvée décide).
+
+## 2026-11-10 — Inventaire des réfugiés de 006 : le check AP au lieu des gens
+
+Demande de l'auteur : la liste de droite d'un groupe de réfugiés de
+l'après-005 (`StoryModeRefugeesK`, gens = items AP « Refugees (Group k) »,
+vidé seulement à l'arrivée) doit montrer le check porté, comme un scout.
+`hkUICargaison` : groupe du jeu non arrivé (`COMP_ARRIVE` nul) dont le
+contexte contient `StoryModeRefugeesK` (`VagueRefugiesDuComposant`, cache
+par composant) → compte du contenu mis à 0 le temps du remplissage puis
+remis ; une case posée (`PoserCaseRefugies`) : le porteur des scouts
+(`ApPorteurDef`, nom `@Resources/Names/AP_Item`), quantité 1. Pendant la
+pose, `GroupesVagueRefugiesAffichee()` vaut k : `hkTranslate` renvoie le
+nom du check « Refugees Arrival k » (`ApNomDuCheckLocation(7747600000 +
+k)`, scout du serveur), chaîne `ApChaine` propre au groupe (slots 20..22).
+Compilé, non testé.
+- **Test (même jour)** : case posée, mais **rien au survol** (l'infobulle
+  est traduite au survol, après le remplissage), et le **panneau de
+  sélection de la carte** montrait toujours les réfugiés. Correctifs :
+  `GroupesVagueRefugiesVisee` (entité survolée `sélection +0x2298`, puis
+  sélectionnée `+0x2250`/`+0x2258`, comme `ExpeditionVisee`) consultée par
+  `hkTranslate` quand aucun scout n'a de liste (`ApLocRefugies`) ; gens
+  retirés **dès le 1er affichage** dans la liste (compte du contenu à 0,
+  plus restauré ; même résultat qu'à l'arrivée). Journal `[GRP] refugies du
+  groupe k : N entree(s) de survivants retiree(s) des le trajet`.
+
+## 2026-11-10 — Crash à la bulle « Refugees at the door » (c0000409)
+
+Deux crashs (16:55 et 17:21, Steam) à l'arrivée du groupe de réfugiés 1.
+Relevé `[CRASH] abort()` : `FUN_1417d40c0` (résolution, Steam `0x166F1C7`)
+appelée par `DilemmesResoudreEnAttente` (evenements.cpp, résolution
+automatique de la bulle de la porte, choix 0, décision du 2026-11-07).
+Décompilé : son premier test, `FUN_1416c5ec0(système + 0x21A0, &id) < 0`
+→ « No dilemma with id {0} is active. » → `terminate()`. L'id renvoyé à
+la création (`[DIL] -> 71`) n'était pas (encore) un dilemme actif.
+**Correctif** : `DilemmeActif` (même test que le jeu) avant la
+résolution ; sinon l'id reste en file, retenté, abandonné après 60 s
+(`[DIL] bulle N … jamais active en 60 s`). Compilé, déployé Epic + Steam,
+non testé.
+- **Test (même jour, plus de crash)** : la bulle 71 n'est jamais devenue
+  active (`[DIL] bulle 71 … jamais active en 60 s`) : la bulle de la porte
+  reste à régler à la main (groupe déjà vide). Et l'arrivée des réfugiés
+  rejouait `S: Survivors - main scenario first group` (arrivée visuelle du
+  1er groupe, suivie de `[Act 1 Arc 1-3] Reunion`), retiré le 2026-11-07
+  pour les seuls convois AP. **Correctif** (`hkInvoquerEvenement`) : cet
+  événement est aussi ignoré quand son contexte est un groupe
+  `StoryModeRefugeesK` (`[EVT] … ignore pour un groupe de refugies`) ;
+  `U: Refugees in the City1/2/3` reste (bulle de la porte, check, 006).
+  Compilé, déployé Epic + Steam, non testé.

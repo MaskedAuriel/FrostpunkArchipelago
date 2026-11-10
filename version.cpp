@@ -185,6 +185,99 @@ void JournalImmediat(const char* fmt, ...)
 }
 
 // ---------------------------------------------------------------------------
+// Releve de plantage (2026-11-10) : deux crashs c0000374 (corruption du tas
+// Windows, ntdll) sur Steam, journal coupe, aucun minidump ni debogueur.
+// Gestionnaire d'exceptions vectorise : sur une exception FATALE (tas
+// corrompu c0000374, depassement de pile c0000409), la pile d'appels est
+// ecrite AUSSITOT dans le journal (JournalImmediat, sans allocation) : module
+// + decalage de chaque cadre. Les violations d'acces ne sont pas relevees
+// (SafeRead en provoque sous __try). Une seule fois par processus.
+static LONG CALLBACK ReleveCrash(PEXCEPTION_POINTERS e)
+{
+	DWORD code = e && e->ExceptionRecord ? e->ExceptionRecord->ExceptionCode : 0;
+	if (code != 0xC0000374 && code != 0xC0000409) return EXCEPTION_CONTINUE_SEARCH;
+	static volatile LONG fait = 0;
+	if (InterlockedExchange(&fait, 1)) return EXCEPTION_CONTINUE_SEARCH;
+	JournalImmediat("\n[CRASH] exception 0x%08lX a 0x%p, thread %lu\n", code,
+		e->ExceptionRecord->ExceptionAddress, GetCurrentThreadId());
+	void* cadres[62] = {};
+	USHORT n = RtlCaptureStackBackTrace(0, 62, cadres, nullptr);
+	for (USHORT i = 0; i < n; ++i) {
+		HMODULE m = nullptr;
+		char chemin[MAX_PATH] = "?";
+		const char* nom = chemin;
+		if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+				(LPCSTR)cadres[i], &m) && m) {
+			GetModuleFileNameA(m, chemin, MAX_PATH);
+			for (const char* p = chemin; *p; ++p) if (*p == '\\') nom = p + 1;
+		}
+		JournalImmediat("[CRASH]   %2u  %s+0x%llX\n", (unsigned)i, nom,
+			(unsigned long long)((uintptr_t)cadres[i] - (uintptr_t)m));
+	}
+	JournalImmediat("[CRASH] fin de la pile\n");
+	return EXCEPTION_CONTINUE_SEARCH;
+}
+
+// Pile d'appels courante dans le journal (module + decalage), sans allocation.
+static void ReleverPileCourante(const char* motif)
+{
+	JournalImmediat("\n[CRASH] %s, thread %lu\n", motif, GetCurrentThreadId());
+	void* cadres[62] = {};
+	USHORT n = RtlCaptureStackBackTrace(1, 62, cadres, nullptr);
+	for (USHORT i = 0; i < n; ++i) {
+		HMODULE m = nullptr;
+		char chemin[MAX_PATH] = "?";
+		const char* nom = chemin;
+		if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+				(LPCSTR)cadres[i], &m) && m) {
+			GetModuleFileNameA(m, chemin, MAX_PATH);
+			for (const char* p = chemin; *p; ++p) if (*p == '\\') nom = p + 1;
+		}
+		JournalImmediat("[CRASH]   %2u  %s+0x%llX\n", (unsigned)i, nom,
+			(unsigned long long)((uintptr_t)cadres[i] - (uintptr_t)m));
+	}
+	JournalImmediat("[CRASH] fin de la pile\n");
+}
+
+// 4e crash (2026-11-10, arrivee des refugies) : c0000409 dans ucrtbase.dll
+// (CRT DU JEU : la DLL a son CRT statique). C'est un arret immediat
+// (__fastfail), invisible du gestionnaire vectorise : parametre invalide
+// d'une fonction du CRT, ou abort() / terminate(). Gestionnaires poses dans
+// l'ucrtbase du jeu (GetProcAddress) : ils relevent la pile puis laissent
+// le CRT arreter le jeu comme avant (comportement inchange).
+typedef void(__cdecl* GestionnaireParam_t)(const wchar_t*, const wchar_t*, const wchar_t*, unsigned, uintptr_t);
+typedef GestionnaireParam_t(__cdecl* PoserGestionnaireParam_t)(GestionnaireParam_t);
+typedef void(__cdecl* GestionnaireSignal_t)(int);
+typedef GestionnaireSignal_t(__cdecl* PoserSignal_t)(int, GestionnaireSignal_t);
+static GestionnaireParam_t g_ancienParam = nullptr;
+
+static void __cdecl ParametreInvalideJeu(const wchar_t* e, const wchar_t* f, const wchar_t* fi, unsigned l, uintptr_t r)
+{
+	static volatile LONG n = 0;
+	if (InterlockedIncrement(&n) <= 3) ReleverPileCourante("parametre invalide d'une fonction du CRT du jeu (ucrtbase)");
+	if (g_ancienParam) g_ancienParam(e, f, fi, l, r);
+	else __fastfail(5 /* FAST_FAIL_INVALID_ARG */);
+}
+
+static void __cdecl AbortJeu(int)
+{
+	static volatile LONG n = 0;
+	if (InterlockedIncrement(&n) <= 1) ReleverPileCourante("abort() / terminate() (SIGABRT, ucrtbase)");
+}
+
+static void InstallerRelevesCRTJeu()
+{
+	HMODULE ucrt = GetModuleHandleA("ucrtbase.dll");
+	if (!ucrt) { printf("[CRASH] ucrtbase.dll absent : pas de releve des arrets du CRT\n"); return; }
+	PoserGestionnaireParam_t poserParam = (PoserGestionnaireParam_t)GetProcAddress(ucrt, "_set_invalid_parameter_handler");
+	PoserSignal_t poserSignal = (PoserSignal_t)GetProcAddress(ucrt, "signal");
+	if (poserParam) g_ancienParam = poserParam(&ParametreInvalideJeu);
+	if (poserSignal) poserSignal(22 /* SIGABRT */, &AbortJeu);
+	printf("[CRASH] releves du CRT du jeu : parametre invalide %s, SIGABRT %s\n", poserParam ? "OK" : "KO",
+		poserSignal ? "OK" : "KO");
+}
+
+// ---------------------------------------------------------------------------
 DWORD WINAPI PayloadThread(LPVOID)
 {
 	FILE* f = nullptr;
@@ -209,6 +302,8 @@ DWORD WINAPI PayloadThread(LPVOID)
 	// crash immediat au premier hook).
 	JournalVersionJeu();
 	if (!VersionJeuSupportee()) return 0;
+	AddVectoredExceptionHandler(1, &ReleveCrash);   // releve de plantage (2026-11-10)
+	InstallerRelevesCRTJeu();                       // arrets immediats du CRT du jeu (2026-11-10)
 
 	if (MH_Initialize() != MH_OK) {
 		printf("[!] MH_Initialize KO -- aucun hook installe\n");

@@ -84,3 +84,29 @@
   ignore`. Limite : les autres effets du choix (textes, pertes de
   ressources de l'expédition) restent ; si le texte du dilemme annonce la
   mort, il ne sera pas changé.
+
+## 2026-11-10 — Infobulle de la case AP au retour en ville
+
+Retour de l'auteur : au retour d'un scout en ville, la liste de ce qu'il
+ramène montre la case AP, mais son survol affichait le **premier check de
+la partie** (repli `ApDescriptionW(g_locationAffichee)` de hkTranslate),
+car à l'arrivée les checks sont envoyés, `nEnAttente` remis à 0 et la
+cargaison vidée. Correctif (scooting.cpp) : `ExpCache.retour[] / nRetour`
+= checks du dernier retour, copiés à l'arrivée ; `ConstruireListePortee`
+les liste quand l'expédition n'a plus rien en route ; oubliés au départ
+suivant de la ville (et à l'init). Compilé, non testé.
+
+## 2026-11-10 — Pas de 2e check sur un site déjà coché
+
+Question de l'auteur (check vu sur l'équipe en démontant le centre
+d'expédition) : un site déjà visité redonne-t-il un check ? Le
+ramassage ne vérifiait que la file de l'expédition (`DejaEnAttente`) ; le
+serveur refusait déjà le doublon (`deja cochee : rien envoye`), mais
+l'éclaireur pouvait reporter l'item AP. Correctif : `ApSiteDejaCoche`
+(archipelago.cpp, location du site cochée sur le serveur,
+`ReseauLocationFaite`) dans les deux chemins de ramassage de scooting.cpp
+(exploration et hausse de cargaison) → rien ramassé, journal `[SCOUT] exp N
+: location … deja cochee sur le serveur, rien ramasse`. Le check vu au
+démontage : items en attente relus et réinjectés sur les expéditions
+restantes à la relecture de la liste (`[PERSIST] Restaured this check`),
+comportement existant. Compilé, déployé Epic + Steam, non testé.

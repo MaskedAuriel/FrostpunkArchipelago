@@ -213,3 +213,12 @@ panneau vivant) relance le rafraîchissement complet
 Test de l'auteur (2026-11-04) : journal conforme — sans connexion, NEWGAME,
 SCENARIO, CONTINUE et LOAD forcés inactifs ; à la connexion,
 `[MENU] connexion etablie`, SCENARIO actif. **Validé.**
+
+## 2026-11-10 — Steam : colonne de connexion à gauche
+
+Demande de l'auteur : sur Steam seulement, le bloc de connexion doit être à
+gauche du menu, pas à droite. `menu_ap.cpp` (init du panneau principal) :
+décalage de la colonne Archipelago par rapport à `MENU_LAYOUT` négatif sur
+Steam (`VersionDuJeu() == VersionJeu::Steam`), même écart (largeur de
+`MENU_LAYOUT`, 264 au moins, + 60) ; Epic inchangé (à droite). Journal
+`[MENU] colonne Archipelago …, decalee de -… en x`. Non testé en jeu.

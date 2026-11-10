@@ -4,6 +4,7 @@
 #include "tech_runtime.h"
 #include "tech_brain.h"
 #include "hooks_loc.h"
+#include "known_techs.h"   // TechByHash (journal [TECHPRE])
 #include "MinHook.h"
 
 
@@ -70,6 +71,71 @@ bool TechAppliquerEffets(uint64_t hash)
 }
 
 // ---------------------------------------------------------------------------
+// Prerequis lus sur la RECHERCHE, pas sur la reception (demande de l'auteur,
+// 2026-11-10). L'etat du jeu d'une techno AP vaut 2 seulement si elle est
+// recue (SyncGameState) ; or le jeu lit cet etat pour les prerequis de ses
+// enfants (parent, palier TierUnlockN) : le check suivant d'un arbre n'etait
+// accessible qu'apres l'item. Pendant l'evaluation (CanResearch, et
+// ResearchStart qui peut la refaire), les technos AP recherchees mais pas
+// recues (etat 0) passent a l'etat 2, puis reviennent a 0. Jamais la techno
+// evaluee elle-meme (le jeu plante en evaluant une techno a l'etat 2).
+// Liste des pointeurs recalculee au plus toutes les 500 ms (CanResearch est
+// appelee pour chaque noeud de l'arbre) ; l'etat est reverifie avant ecriture.
+// ---------------------------------------------------------------------------
+static const int MAX_ELEVEES = 256;
+
+static int EleverRecherchees(uintptr_t self, uintptr_t cible, uintptr_t* elevees)
+{
+    static uintptr_t cache[MAX_ELEVEES];
+    static int nCache = 0;
+    static DWORD prochain = 0;
+    if (GetTickCount() >= prochain) {
+        prochain = GetTickCount() + 500;
+        nCache = 0;
+        for (int i = 0; i < RT_Count() && nCache < MAX_ELEVEES; ++i) {
+            TechRuntime* r = RT_At(i);
+            if (!r || !r->researched || r->received || !TechEstUnCheck(r->hash)) continue;
+            uintptr_t t = FindTechPtrByHash(r->hash);
+            if (t) cache[nCache++] = t;
+        }
+    }
+    int n = 0;
+    for (int i = 0; i < nCache; ++i) {
+        uintptr_t t = cache[i];
+        if (t == cible || TechStateByPtr(self, t) != 0) continue;
+        if (WriteTechStateByPtr(self, t, 2)) elevees[n++] = t;
+    }
+    return n;
+}
+
+static void RabaisserRecherchees(uintptr_t self, const uintptr_t* elevees, int n)
+{
+    for (int i = 0; i < n; ++i) WriteTechStateByPtr(self, elevees[i], 0);
+}
+
+// DIAG (2026-11-10, Steam Sawmill non recherchable, Sawmill recherchee mais
+// pas recue) : une ligne par techno AP quand la reponse du jeu change :
+// reponse, parents eleves, parent (table) recherche / recu / etat du jeu.
+static void JournalCanResearch(uintptr_t self, uint64_t hash, char vanilla, int nElevees)
+{
+    static uint64_t vus[128];
+    static char reponses[128];
+    static int nVus = 0;
+    int k = 0;
+    for (; k < nVus; ++k) if (vus[k] == hash) break;
+    if (k < nVus && reponses[k] == vanilla) return;
+    if (k == nVus) { if (nVus >= 128) return; vus[nVus++] = hash; }
+    reponses[k] = vanilla;
+    const TechInfo* t = TechByHash(hash);
+    const TechInfo* p = (t && t->parent) ? TechByHash(t->parent) : nullptr;
+    TechRuntime* rp = p ? RT_Get(p->hash) : nullptr;
+    uintptr_t pp = p ? FindTechPtrByHash(p->hash) : 0;
+    printf("[TECHPRE] %s : jeu %d, %d techno(s) recherchee(s) elevee(s) ; parent %s (recherche %d, recu %d, etat %d), palier %d\n",
+        t ? t->name : "?", (int)vanilla, nElevees, p ? p->name : "-", rp && rp->researched ? 1 : 0,
+        rp && rp->received ? 1 : 0, pp ? TechStateByPtr(self, pp) : -1, t ? t->tier : -1);
+}
+
+// ---------------------------------------------------------------------------
 // CanResearch : decide si le clic sur une techno est accepte.
 //
 // Contrainte du jeu : il PLANTE si on evalue une techno a l'etat 2 (le chemin
@@ -99,12 +165,17 @@ static char hkCanResearch(uintptr_t self, uintptr_t tech, uintptr_t ctx)
     bool restore2 = false;
     if (st == 2) { WriteTechStateByPtr(self, tech, 0); restore2 = true; }
 
+    // Prerequis : parents recherches comptes comme faits (2026-11-10).
+    uintptr_t elevees[MAX_ELEVEES];
+    int nElevees = EleverRecherchees(self, tech, elevees);
     char vanilla = oCanResearch(self, tech, ctx);
+    RabaisserRecherchees(self, elevees, nElevees);
 
     if (restore2) WriteTechStateByPtr(self, tech, 2);
 
     uint64_t hash = HashOfTechPtr(tech);
     if (!hash) return vanilla;
+    JournalCanResearch(self, hash, vanilla, nElevees);
 
     if (!RT_CanResearch(hash)) return 0;      // deja recherchee -> refus ferme
     if (restore2 && vanilla == 0) return 1;   // contourne le refus "etat 2"
@@ -122,7 +193,11 @@ static void hkResearchStart(uintptr_t self, uintptr_t tech)
     bool was2 = (TechStateByPtr(self, tech) == 2);
     if (was2) WriteTechStateByPtr(self, tech, 0);
 
+    // Prerequis : parents recherches comptes comme faits (2026-11-10).
+    uintptr_t elevees[MAX_ELEVEES];
+    int nElevees = EleverRecherchees(self, tech, elevees);
     oResearchStart(self, tech);
+    RabaisserRecherchees(self, elevees, nElevees);
 
     if (was2) WriteTechStateByPtr(self, tech, 2);
 }
@@ -173,6 +248,90 @@ static char hkCancel(uintptr_t self)
 }
 
 // ---------------------------------------------------------------------------
+// Arbre des technos : un noeud n'est SELECTIONNABLE que si FUN_141bc3cb0 le
+// juge disponible, par FUN_141bc5100(panneau, techno, 1) (prerequis lus sur
+// l'etat du jeu) ; CanResearch n'est appelee qu'une fois le noeud
+// selectionne (bouton du panneau, FUN_141bc9b30). Test de l'auteur du
+// 2026-11-10 (Steam Sawmill non selectionnable, Sawmill recherchee mais pas
+// recue ; aucune ligne [TECHPRE]) -> meme elevation autour de
+// FUN_141bc5100 et du rafraichissement d'un noeud FUN_141bca5a0(panneau,
+// GUID de la techno) (liens du noeud : "NOT_AVAILABLE" si le parent n'est
+// pas a l'etat 2). La techno du noeud elle-meme n'est jamais elevee.
+// Decompiles du 2026-11-10 (Epic) ; Steam : 0x1A65E40, 0x1A6B2E0.
+typedef uintptr_t (*Fonction4R_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
+static const uintptr_t OFF_NOEUD_DISPONIBLE = Adr(0x1BC5100), OFF_RAFRAICHIR_NOEUD = Adr(0x1BCA5A0);
+static Fonction4R_t oNoeudDisponible = nullptr, oRafraichirNoeud = nullptr;
+
+// DIAG (2026-11-10, "Generator Upgrade - less coal" grise alors que
+// CanResearch l'accepte) : pour l'appel de profondeur 1 (FUN_141bc3cb0),
+// une ligne par techno AP quand la reponse change : reponse, technos
+// elevees, et chaque prerequis "techno" (tech +0x38, compte +0x40 ; type
+// vtable +0xE0 == 4 ; lien GUID +0x30, hash = 8 premiers octets) avec son
+// etat PENDANT l'appel (apres elevation).
+static void JournalNoeudDisponible(uintptr_t self, uintptr_t tech, uintptr_t r, int nElevees)
+{
+    uint64_t hash = HashOfTechPtr(tech);
+    if (!hash || !TechEstUnCheck(hash)) return;
+    static uint64_t vus[128];
+    static char reponses[128];
+    static int nVus = 0;
+    char rep = (char)(r & 0xFF);
+    int k = 0;
+    for (; k < nVus; ++k) if (vus[k] == hash) break;
+    if (k < nVus && reponses[k] == rep) return;
+    if (k == nVus) { if (nVus >= 128) return; vus[nVus++] = hash; }
+    reponses[k] = rep;
+    const TechInfo* t = TechByHash(hash);
+    char reqs[512] = "";
+    uintptr_t tab = 0;
+    int32_t nReq = 0;
+    SafeRead((void*)(tech + 0x38), &tab, 8);
+    SafeRead((void*)(tech + 0x40), &nReq, 4);
+    for (int i = 0; tab > 0x10000 && i < nReq && i < 8; ++i) {
+        uintptr_t req = 0, vt = 0;
+        if (!SafeRead((void*)(tab + (uintptr_t)i * 8), &req, 8) || req <= 0x10000 || !SafeRead((void*)req, &vt, 8)) continue;
+        int type = -1;
+        __try { type = ((int(*)(uintptr_t))(*(uintptr_t*)(vt + 0xE0)))(req); }
+        __except (EXCEPTION_EXECUTE_HANDLER) { type = -2; }
+        uint64_t h = 0;
+        SafeRead((void*)(req + 0x30), &h, 8);
+        const TechInfo* rt = (type == 4 && h) ? TechByHash(h) : nullptr;
+        uintptr_t rp = (type == 4 && h) ? FindTechPtrByHash(h) : 0;
+        char un[96];
+        _snprintf_s(un, sizeof(un), _TRUNCATE, "%s[type %d] %s etat %d", i ? " ; " : "", type,
+            rt ? rt->name : (type == 4 ? "?" : "-"), rp ? TechStateByPtr(self, rp) : -1);
+        strcat_s(reqs, un);
+    }
+    printf("[TECHUI] %s : disponible %d, %d elevee(s) ; prerequis : %s\n", t ? t->name : "?", (int)rep, nElevees,
+        reqs[0] ? reqs : "(aucun)");
+}
+
+static uintptr_t hkNoeudDisponible(uintptr_t panneau, uintptr_t tech, uintptr_t p3, uintptr_t p4)
+{
+    uintptr_t self = g_selfTech;
+    if (!self) return oNoeudDisponible(panneau, tech, p3, p4);
+    uintptr_t elevees[MAX_ELEVEES];
+    int n = EleverRecherchees(self, tech, elevees);
+    uintptr_t r = oNoeudDisponible(panneau, tech, p3, p4);
+    if ((int)p3 == 1) JournalNoeudDisponible(self, tech, r, n);
+    RabaisserRecherchees(self, elevees, n);
+    return r;
+}
+
+static uintptr_t hkRafraichirNoeud(uintptr_t panneau, uintptr_t guid, uintptr_t p3, uintptr_t p4)
+{
+    uintptr_t self = g_selfTech;
+    uint64_t h = 0;
+    if (!self || !guid || !SafeRead((void*)guid, &h, 8)) return oRafraichirNoeud(panneau, guid, p3, p4);
+    uintptr_t cible = h ? FindTechPtrByHash(h) : 0;
+    uintptr_t elevees[MAX_ELEVEES];
+    int n = EleverRecherchees(self, cible, elevees);
+    uintptr_t r = oRafraichirNoeud(panneau, guid, p3, p4);
+    RabaisserRecherchees(self, elevees, n);
+    return r;
+}
+
+// ---------------------------------------------------------------------------
 void InstallResearchHooks(uintptr_t modBase)
 {
     struct { uintptr_t off; void* detour; void** orig; const char* name; } H[] = {
@@ -181,6 +340,8 @@ void InstallResearchHooks(uintptr_t modBase)
         { GameOffsets::ResearchComplete, (void*)&hkResearchComplete, (void**)&oResearchComplete, "ResearchComplete" },
         { GameOffsets::CancelResearch,   (void*)&hkCancel,           (void**)&oCancel,           "CancelResearch" },
         { OFF_AJOUTER_RECHERCHEE,        (void*)&hkAjouterRecherchee, (void**)&oAjouterRecherchee, "AddResearchedTechnology" },
+        { OFF_NOEUD_DISPONIBLE,          (void*)&hkNoeudDisponible,  (void**)&oNoeudDisponible,  "noeud disponible (arbre)" },
+        { OFF_RAFRAICHIR_NOEUD,          (void*)&hkRafraichirNoeud,  (void**)&oRafraichirNoeud,  "rafraichissement d'un noeud (arbre)" },
     };
     for (auto& h : H) {
         void* target = (void*)(modBase + h.off);

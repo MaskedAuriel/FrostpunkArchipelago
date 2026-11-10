@@ -128,6 +128,7 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
 | `lois.h/.cpp` | Lois du jeu (« sociotechs ») : `DiagLois` (F4), relevé des arbres, prérequis et réglages par scénario |
 | `lois_ap.h/.cpp` | Lois Archipelago : signature = check(s) par rang dans l'arbre, effet retenu jusqu'à l'item progressif, sauvegarde locale `ap_lois_<GameId>.txt` ; F5 = item de test |
 | `dilemmes_ap.h/.cpp` | **Catalogue des dilemmes Archipelago** (bulles en ville, pièges) : table `DILEMMES_AP` (id, titre, sous-titre, texte, icône, titre de popup, choix si ignoré, ≤ 4 choix `{texte, ressource, quantité signée, effetSpecial}`) ; `DilemmeAPDemander("id")` (tout thread, file) → `DilemmesPompe` (thread du jeu). **Pour ajouter un piège : une entrée dans la table** |
+| `dilemmes_exploration.h/.cpp` | **Dilemmes d'exploration à plusieurs choix** : table `CHOIX_FORCES` (scénario, dilemme, choix retenu) ; à chaque partie, le tableau des choix de la définition (`+0x78`) est remplacé sur place par une copie du seul choix retenu, texte `@AP/Prevail` (« Archipelago Prevail », `ApLocPrevail`, hooks_loc.cpp) ; log `[DILEXP]` |
 | `menu_ap.h/.cpp` | **Écran de connexion Archipelago du menu principal** : hook de l'init du panneau principal (`+0x1B28950`), clones d'`EXIT_BUTTON` (libellés Server / Slot name / Password, bouton Connect) et d'un `UITextInput` de panneau en jeu, masque du mot de passe, `mods\ap_connexion.txt` ; Connect → `RequestConnection` (archipelago) |
 | `scenarios_ap.h/.cpp` | **Verrou des scénarios au menu** : hook de `FUN_141283ea0` (prérequis de profil) ; pour la liste de déblocage (`scénario +0x20`) d'un des 6 scénarios AP, la réponse = `ScenarioDebloque(nom)`, alimenté **uniquement** par `ReceiveScenarioUnlock` (archipelago) ; preset `LOCKED_<nom>` sauté (texte de la condition du jeu) ; log `[SCN]` |
 | `victoire.h/.cpp` | **Fin de partie** : hook de `EndGame` (`+0x1301490`, journal `[FIN]` victoire / défaite) ; toute victoire dans un scénario AP = **événement du goal**, sans item (difficulté imposée, ironman sans effet) (`SendScenarioVictory`, archipelago : `mods\ap_victoires.txt`, goal = tous les scénarios du slot gagnés) ; modes de victoire supprimés le 2026-11-04 |
@@ -691,6 +692,16 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   de fumée Steam et Epic : hooks OK, menu construit. **Non testé en
   partie.** Bouton `CUSTOM_SCENARIO_BUTTON` (Steam, panneau `+0xF0`)
   toujours inactif (décision de l'auteur, 2026-11-07).
+
+- **Dilemmes d'exploration** — `docs/chantiers/dilemmes_exploration.md`.
+  **2026-11-10** : les 49 dilemmes à plusieurs choix des 6 scénarios ont
+  un seul choix « Archipelago Prevail » = effets d'un choix du jeu, sans
+  modification. Règle de l'auteur : **gain maximal** (Escort > Send >
+  deux ressources > ressource de base > rien ; issues aléatoires permises,
+  mort des éclaireurs déjà neutralisée), table validée. Tâche des
+  expéditions = entier `+0x18` de `OrderStationingExpeditionToPerformTask`
+  (15 noms, table `0x141ede5f0`). `dilemmes_exploration.cpp` : **non
+  testé**. `TOUS_DEBLOQUES_TEMPORAIRE` (scenarios_ap.cpp) encore à `true`.
 
 - **Big map (nouveau scénario, hors Archipelago)** — `docs/chantiers/big_map.md`.
   Branche `Big-map` (2026-11-04). Cartes = scènes binaires de `scenes.dat`

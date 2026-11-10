@@ -10,6 +10,7 @@
 #include "lois_ap.h"      // LoisAPPompe (effets des lois en attente d'item)
 #include "temperature.h"  // TemperaturePompe (montees de temperature AP)
 #include "quetes.h"       // QuetesPompe (releve F9)
+#include "dilemmes_exploration.h"   // DilemmesExplorationPompe
 #include "victoire.h"     // VictoirePompe (fin de partie de test, Maj / Ctrl + F9)
 #include "archipelago.h"  // ApItemsPompe (items recus, par scenario)
 
@@ -374,6 +375,7 @@ static int32_t hkModifyResource(uintptr_t self, uintptr_t guidPtr,
             TemperaturePompe();
             ApItemsPompe();          // apres LoisAPPompe / TemperaturePompe (parties relues)
             QuetesPompe();
+            DilemmesExplorationPompe();   // apres QuetesPompe : le releve voit les choix d'origine
             VictoirePompe();
         }
     }

@@ -17,6 +17,8 @@ void LoisAPPompe();
 // Sortie de LoadGame, lecture reussie (thread du jeu) : la sauvegarde locale
 // sera relue et comparee a la date de la sauvegarde du jeu.
 void LoisAPApresChargement();
+// Date de jeu courante (horloge du jeu), 0 si illisible.
+uint64_t LoisDateDeJeu();
 
 // Un item progressif de l'arbre 'arbre' (nom, voir le journal [LOIAP]).
 // Tout thread ; l'effet est applique par LoisAPPompe. 'rang' recoit le

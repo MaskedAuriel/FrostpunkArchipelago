@@ -13,6 +13,9 @@ void QuetesDemanderReleve();
 // Thread du jeu (hook du setter de ressources, a cote des autres pompes).
 // Fait aussi le releve des sites d'exploration (ScootingReleverSites).
 void QuetesPompe();
+// Texte de remplacement d'un objectif "Rescue survivors" valide par
+// l'exploration (cle de texte ou de description), nullptr sinon. hkTranslate.
+const char* QuetesTexteObjectifAP(const char* cle);
 
 // Debug F11 (2026-11-06) : la prochaine QuetesPompe termine avec succes une
 // quete d'histoire active du scenario courant (known_quests.h). Tout thread.

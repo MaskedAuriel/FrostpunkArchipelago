@@ -17,7 +17,7 @@ void InstallLocHooks(uintptr_t modBase);
 void OpenKeyLogWindow(int ms);
 void DumpWide(const char* key, uintptr_t ret);
 
-wchar_t* ApDescBuffer(const char* seg, uint64_t hash);
+wchar_t* ApDescBuffer(const char* seg, uint64_t hash, uintptr_t origChars);
 bool EndsWith(const char* s, const char* suf);
 void OpenKeyLogWindow(int ms);
 static void LogKey(const char* key);
@@ -30,7 +30,11 @@ wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot);
 bool ViderTexteChoixDilemme(const char* k, uintptr_t ret);
 uintptr_t ApLocNotif(int slot, const char* texte);
 uintptr_t ApLocGroupe(int slot, const char* texte);
+// Objet de traduction du nom d'un site de la carte (un par site, cle = nom interne).
+uintptr_t ApLocSite(const char* site, const char* texte);
 uintptr_t ApLocDilemme(int slot, const char* texte);
+// Objet de traduction du choix unique "Archipelago Prevail" (dilemmes d'exploration).
+uintptr_t ApLocPrevail();
 
 bool TexteDescriptionSite(const char* k, uintptr_t ret);
 static void DumpClesLandmark(const char* k, uintptr_t ret);

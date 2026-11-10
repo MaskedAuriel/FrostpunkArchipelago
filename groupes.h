@@ -108,3 +108,9 @@ void GroupesApresChargement();
 // Thread du jeu, meme endroit : rend la carte du monde accessible sans
 // balise (deverrouillage + compte de batiments d'acces au moins a 1).
 void CarteAssurerAcces();
+// Groupe de refugies (1..3) dont la case de l'item AP est en cours de
+// remplissage dans la liste de droite, 0 sinon (hkTranslate, 2026-11-10).
+int GroupesVagueRefugiesAffichee();
+// Groupe de refugies (1..3) survole ou selectionne sur la carte, 0 sinon
+// (infobulle de la case, traduite au survol ; 2026-11-10).
+int GroupesVagueRefugiesVisee();
