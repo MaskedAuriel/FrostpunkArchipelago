@@ -108,9 +108,23 @@ static int EleverRecherchees(uintptr_t self, uintptr_t cible, uintptr_t* elevees
     return n;
 }
 
+// Bug du 2026-11-10 (The Arks : Steam WallDrill et Improved Heaters grises,
+// debloques au rechargement) : un item peut etre RECU pendant l'appel du jeu
+// (le jeu modifie une ressource -> hook du setter -> pompe des items ->
+// OnItemReceived -> etat 2). Le rabaissement remettait alors a 0 une techno
+// recue (journal : WallDrill recue l. 5815, etat 0 l. 5879). Une techno
+// recue entre-temps garde son etat 2.
 static void RabaisserRecherchees(uintptr_t self, const uintptr_t* elevees, int n)
 {
-    for (int i = 0; i < n; ++i) WriteTechStateByPtr(self, elevees[i], 0);
+    for (int i = 0; i < n; ++i) {
+        uint64_t h = HashOfTechPtr(elevees[i]);
+        TechRuntime* r = h ? RT_Get(h) : nullptr;
+        if (r && r->received) {
+            printf("[AP] %s recue pendant l'evaluation : etat 2 garde\n", TechByHash(h) ? TechByHash(h)->name : "?");
+            continue;
+        }
+        WriteTechStateByPtr(self, elevees[i], 0);
+    }
 }
 
 // DIAG (2026-11-10, Steam Sawmill non recherchable, Sawmill recherchee mais
@@ -268,21 +282,22 @@ static Fonction4R_t oNoeudDisponible = nullptr, oRafraichirNoeud = nullptr;
 // elevees, et chaque prerequis "techno" (tech +0x38, compte +0x40 ; type
 // vtable +0xE0 == 4 ; lien GUID +0x30, hash = 8 premiers octets) avec son
 // etat PENDANT l'appel (apres elevation).
+// 2026-11-10 (The Arks, "Boiler Upgrade" grise, Boilers et TierUnlock2 recus) :
+// une seule ligne au depart (indisponible, prerequis a 0), puis plus rien
+// alors que l'arbre a ete reconstruit -> on journalise aussi quand la
+// signature des prerequis (hash, pointeur, etat pendant l'appel) change, et
+// le hash et le pointeur de chaque prerequis (doublon de techno ?).
 static void JournalNoeudDisponible(uintptr_t self, uintptr_t tech, uintptr_t r, int nElevees)
 {
     uint64_t hash = HashOfTechPtr(tech);
     if (!hash || !TechEstUnCheck(hash)) return;
-    static uint64_t vus[128];
-    static char reponses[128];
+    static uint64_t vus[256];
+    static uint64_t signatures[256];
     static int nVus = 0;
     char rep = (char)(r & 0xFF);
-    int k = 0;
-    for (; k < nVus; ++k) if (vus[k] == hash) break;
-    if (k < nVus && reponses[k] == rep) return;
-    if (k == nVus) { if (nVus >= 128) return; vus[nVus++] = hash; }
-    reponses[k] = rep;
     const TechInfo* t = TechByHash(hash);
-    char reqs[512] = "";
+    char reqs[768] = "";
+    uint64_t sig = 1469598103934665603ULL ^ (uint64_t)(unsigned char)rep;
     uintptr_t tab = 0;
     int32_t nReq = 0;
     SafeRead((void*)(tech + 0x38), &tab, 8);
@@ -297,11 +312,19 @@ static void JournalNoeudDisponible(uintptr_t self, uintptr_t tech, uintptr_t r, 
         SafeRead((void*)(req + 0x30), &h, 8);
         const TechInfo* rt = (type == 4 && h) ? TechByHash(h) : nullptr;
         uintptr_t rp = (type == 4 && h) ? FindTechPtrByHash(h) : 0;
-        char un[96];
-        _snprintf_s(un, sizeof(un), _TRUNCATE, "%s[type %d] %s etat %d", i ? " ; " : "", type,
-            rt ? rt->name : (type == 4 ? "?" : "-"), rp ? TechStateByPtr(self, rp) : -1);
+        int etat = rp ? TechStateByPtr(self, rp) : -1;
+        sig = (sig ^ h) * 1099511628211ULL;
+        sig = (sig ^ (uint64_t)(etat + 2)) * 1099511628211ULL;
+        char un[160];
+        _snprintf_s(un, sizeof(un), _TRUNCATE, "%s[type %d] %s %016llX (0x%llX) etat %d", i ? " ; " : "", type,
+            rt ? rt->name : (type == 4 ? "?" : "-"), (unsigned long long)h, (unsigned long long)rp, etat);
         strcat_s(reqs, un);
     }
+    int k = 0;
+    for (; k < nVus; ++k) if (vus[k] == hash) break;
+    if (k < nVus && signatures[k] == sig) return;
+    if (k == nVus) { if (nVus >= 256) return; vus[nVus++] = hash; }
+    signatures[k] = sig;
     printf("[TECHUI] %s : disponible %d, %d elevee(s) ; prerequis : %s\n", t ? t->name : "?", (int)rep, nElevees,
         reqs[0] ? reqs : "(aucun)");
 }

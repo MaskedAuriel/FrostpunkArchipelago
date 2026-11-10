@@ -451,3 +451,23 @@ poseurs exportés retirés ; `ScootingSitePourCleNom` devient
 `ScootingSitePourCleDescription` (4 descriptions par état du gabarit :
 `0x290`, `0x288`, `0x298`, `0x2A0`). Log `[SITE] description du site :
 "<site>" -> "<check>"`. Non testé en jeu.
+
+### 2026-11-10 — The Arks : Lone Boulder et Broken Tree sans leur check
+
+Retour de l'auteur (graine `AP_99291626087738687974`, Steam) : la
+description de ces deux sites reste vanilla. Les scouts sont là
+(`7747300058` Progressive Beacon, `7747300062` Progressive Steel Mine),
+mais aucune ligne `[SITE] description du site` pour eux. **Cause** (lue
+dans `localizations.dat`) : les landmarks `_SHARED/[t-plain][landmark]siteNN`
+n'ont **pas de clé de description propre**, seulement Display / Unvisited /
+Depleted name. Leur texte commun (« A distinct spot in Frostland… ») vient
+d'une clé partagée qui ne nomme pas le site, donc `NomDeSite` échoue. Ça
+touche **tous les landmarks**, dans tous les scénarios. Dans The Arks, seuls
+site04 et site08 sont visibles dès le départ, les autres après 001.
+**Correctif** (`ScootingSitePourCleDescription`) : 1) clé propre au site,
+comme avant ; 2) sinon, site de l'entité **survolée** (sélection `+0x2298`),
+puis des entités **sélectionnées** (`+0x2250`, pas de 0x10, compte
+`+0x2258`), à condition que la clé soit une description de son gabarit.
+Risque à surveiller : si le jeu garde en cache la traduction d'une clé, tous
+les landmarks montreront le check du premier affiché. Compilé, déployé
+Epic + Steam, non testé.

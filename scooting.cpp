@@ -304,12 +304,18 @@ static void SurveillerSites()
 
     for (int i = 0; i < g_nSites; ++i) {
         const SitePayload* p = PayloadDuSite(g_sites[i].nom);
+        // Site deja coche sur le serveur : son contenu n'est plus touche
+        // (bug du 2026-11-10, The Arks : New Manchester sert de DEPOT aux
+        // expeditions de secours de 006 / 007 / 008 ; les ressources livrees
+        // etaient remplacees par l'item AP a chaque chargement et l'expedition
+        // Food restait bloquee sur le site, quete 007 jamais finie).
+        bool coche = p && ApSiteDejaCoche(p->site);
 
         // --- contenu : le jeu cree le tableau Resources a la generation du
         //     site, donc apres notre init. On le corrige des qu'il apparait,
         //     et le test sur la definition fait que l'ecriture n'a lieu
         //     qu'une seule fois par site.
-        if (p && defAP) {
+        if (p && !coche && defAP) {
             uintptr_t arr = 0; uint32_t cnt = 0, cap = 0;
             if (SafeRead((void*)(g_sites[i].comp + 0x48), &arr, 8) &&
                 SafeRead((void*)(g_sites[i].comp + 0x48 + 8), &cnt, 4) &&
@@ -356,7 +362,7 @@ static void SurveillerSites()
         //     OutsiderSurvivors ({tableau, compte}). Compte remis a 0, tableau
         //     laisse au moteur (il le liberera). Le gabarit n'est pas touche :
         //     ses survivants servent de modele aux groupes AP.
-        if (p) {
+        if (p && !coche) {
             static const struct { int off; const char* quoi; } RESTES[] = {
                 { 0x60, "ressources bonus" }, { 0x78, "technologies" },
                 { 0x90, "artefacts" },        { 0xA8, "survivants" },
@@ -826,10 +832,17 @@ void ScootingTick()
                         g_exps[i].nEnAttente);
                 }
 
-                uintptr_t def = ApPorteurDef();
-                int q = g_exps[i].nEnAttente > 0 ? g_exps[i].nEnAttente : 1;
-                if (def && InjecterPorteur(c, def, q)) cargo = (uint32_t)q;
-                else { ViderCargaison(c); cargo = 0; }
+                // Site deja coche et aucun check porte : la cargaison n'est
+                // pas touchee (2026-11-10, The Arks : l'expedition de secours
+                // Food arrivee a New Manchester avec 1200 de cargaison la
+                // voyait remplacee par un item AP).
+                bool rienAPorter = ApSiteDejaCoche(p->site) && g_exps[i].nEnAttente == 0;
+                if (!rienAPorter) {
+                    uintptr_t def = ApPorteurDef();
+                    int q = g_exps[i].nEnAttente > 0 ? g_exps[i].nEnAttente : 1;
+                    if (def && InjecterPorteur(c, def, q)) cargo = (uint32_t)q;
+                    else { ViderCargaison(c); cargo = 0; }
+                }
 
                 if (empile) ScootingSauverEnAttente();
             }
@@ -890,37 +903,84 @@ int ScootingLocationPourCleSite(const char* cle)
     return p ? p->locationId : -1;
 }
 
+// La cle (sans '@') est-elle une des 4 descriptions par etat du gabarit du
+// site g_sites[i] ?
+static bool CleEstDescriptionDuSite(int i, const char* cle)
+{
+    const int offs[4] = { 0x290, 0x288, 0x298, 0x2A0 };
+    uintptr_t tpl = 0;
+    if (!SafeRead((void*)(g_sites[i].comp + 0x20), &tpl, 8) || tpl <= 0x10000) return false;
+    for (int k = 0; k < 4; ++k) {
+        uintptr_t p = 0;
+        char brut[256] = {};
+        if (!SafeRead((void*)(tpl + offs[k]), &p, 8) || p <= 0x10000) continue;
+        if (!SafeRead((void*)p, brut, sizeof(brut) - 1)) continue;
+        const char* b = (brut[0] == '@') ? brut + 1 : brut;
+        if (strcmp(b, cle) == 0) return true;
+    }
+    return false;
+}
+
+// Indice dans g_sites du site de l'entite 'ent' (composant +0x18), ou -1.
+static int SiteDeLEntite(uintptr_t ent)
+{
+    if (ent <= 0x10000) return -1;
+    for (int i = 0; i < g_nSites; ++i) {
+        uintptr_t e = 0;
+        if (SafeRead((void*)(g_sites[i].comp + 0x18), &e, 8) && e == ent) return i;
+    }
+    return -1;
+}
+
 // La cle est-elle une des 4 DESCRIPTIONS par etat du gabarit d'un site de la
 // carte (0x290, 0x288, 0x298, 0x2A0 : affichee, non visite, explore, epuise) ?
 // Renvoie alors le nom interne du site. Noms et autres textes du site non
 // concernes. (2026-11-10, decision de l'auteur : le nom du check va dans la
 // description du panneau du site ; le nom du site reste vanilla, la boite du
 // nom sur la carte etant trop petite.)
+// Correctif du 2026-11-10 (The Arks, Lone Boulder et Broken Tree sans leur
+// check) : les landmarks "_SHARED/[t-plain][landmark]siteNN" n'ont PAS de cle
+// de description propre (localizations.dat : seulement Display / Unvisited /
+// Depleted name ; texte commun "A distinct spot in Frostland..."), la cle ne
+// nomme donc pas le site. Repli : le site de l'entite survolee (systeme de
+// selection +0x2298), puis des entites selectionnees (+0x2250, pas de 0x10,
+// compte +0x2258), si la cle est bien une description de son gabarit.
 bool ScootingSitePourCleDescription(const char* cle, char* out, int maxlen)
 {
     if (!out || maxlen < 2) return false;
     out[0] = 0;
     if (!cle || !g_run.valid) return false;
+    const char* c = (cle[0] == '@') ? cle + 1 : cle;
+
+    // 1. Cle propre au site : son nom est dans le chemin.
     char nom[128];
-    if (!NomDeSite(cle, nom, sizeof(nom))) return false;
-    if (cle[0] == '@') ++cle;
-    const int offs[4] = { 0x290, 0x288, 0x298, 0x2A0 };
-    for (int i = 0; i < g_nSites; ++i) {
-        if (strcmp(g_sites[i].nom, nom) != 0) continue;
-        uintptr_t tpl = 0;
-        if (!SafeRead((void*)(g_sites[i].comp + 0x20), &tpl, 8) || tpl <= 0x10000) return false;
-        for (int k = 0; k < 4; ++k) {
-            uintptr_t p = 0;
-            char brut[256] = {};
-            if (!SafeRead((void*)(tpl + offs[k]), &p, 8) || p <= 0x10000) continue;
-            if (!SafeRead((void*)p, brut, sizeof(brut) - 1)) continue;
-            const char* b = (brut[0] == '@') ? brut + 1 : brut;
-            if (strcmp(b, cle) == 0) {
-                strncpy_s(out, maxlen, nom, _TRUNCATE);
-                return true;
-            }
+    if (NomDeSite(cle, nom, sizeof(nom))) {
+        for (int i = 0; i < g_nSites; ++i) {
+            if (strcmp(g_sites[i].nom, nom) != 0) continue;
+            if (!CleEstDescriptionDuSite(i, c)) break;
+            strncpy_s(out, maxlen, nom, _TRUNCATE);
+            return true;
         }
-        return false;
+    }
+
+    // 2. Cle partagee : site survole, puis selectionne.
+    uintptr_t sel = SystemeParId(IdSysteme::Selection);
+    if (!sel) return false;
+    uintptr_t candidats[1 + 16] = {};
+    int n = 0;
+    SafeRead((void*)(sel + 0x2298), &candidats[n++], 8);
+    uintptr_t tab = 0;
+    uint32_t nSel = 0;
+    if (SafeRead((void*)(sel + 0x2250), &tab, 8) && SafeRead((void*)(sel + 0x2258), &nSel, 4) &&
+        tab > 0x10000 && nSel <= 64) {
+        for (uint32_t k = 0; k < nSel && n < 1 + 16; ++k)
+            SafeRead((void*)(tab + (uintptr_t)k * 0x10), &candidats[n++], 8);
+    }
+    for (int j = 0; j < n; ++j) {
+        int i = SiteDeLEntite(candidats[j]);
+        if (i < 0 || !CleEstDescriptionDuSite(i, c)) continue;
+        strncpy_s(out, maxlen, g_sites[i].nom, _TRUNCATE);
+        return true;
     }
     return false;
 }

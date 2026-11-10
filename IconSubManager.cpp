@@ -688,6 +688,53 @@ void IconesTechnoRafraichirNoeud(uintptr_t tech)
     }
 }
 
+// Bug du 2026-11-10 (The Arks, "Improved Heaters" = Boiler Upgrade grise
+// alors que Boilers, recherchee puis RECUE, est a l'etat 2 ; debloque au
+// rechargement) : la reception d'une techno deja recherchee pose l'etat 2
+// directement (SyncGameState), sans evenement du jeu, donc les noeuds deja
+// construits gardent "NOT_AVAILABLE". On rafraichit chaque noeud du panneau
+// par la fonction du jeu FUN_141bca5a0(panneau, &GUID) (decompile du
+// 2026-11-10 : etat du noeud par FUN_141bc3cb0, liens, couts) ; elle passe
+// par hkRafraichirNoeud (elevation des technos recherchees). Elle dereference
+// sans controle l'enregistrement trouve par GUID : seulement les GUID de la
+// liste du panneau (+0x1A8, enregistrements de 0x80, cle a +0x00). Panneau
+// revalide par sa classe (il peut avoir ete detruit). Thread du jeu.
+typedef void(*RafraichirNoeudJeu_t)(uintptr_t panneau, uintptr_t guid);
+static const uintptr_t OFF_RAFRAICHIR_NOEUD_JEU = Adr(0x1BCA5A0);
+
+void IconesTechnoRafraichirArbre()
+{
+    uintptr_t panneau = g_panneauTechnos, liste = 0;
+    int32_t n = 0;
+    if (!panneau) return;
+    char cls[128] = "";
+    if (!GetClassNameFP(panneau, cls, sizeof(cls)) || !StrContains(cls, "Technology")) {
+        printf("[ICON] arbre non rafraichi : panneau 0x%llX de classe \"%s\"\n", (unsigned long long)panneau, cls);
+        g_panneauTechnos = 0;
+        return;
+    }
+    if (!SafeRead((void*)(panneau + 0x1A8), &liste, 8) || !SafeRead((void*)(panneau + 0x1B0), &n, 4) ||
+        liste <= 0x10000 || n <= 0 || n > 1024) return;
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    int faits = 0;
+    __try {
+        for (int i = 0; i < n; ++i) {
+            uintptr_t rec = liste + (uintptr_t)i * 0x80;
+            uint64_t k[2] = {};
+            if (!SafeRead((void*)rec, k, 16) || (!k[0] && !k[1])) continue;
+            ((RafraichirNoeudJeu_t)(base + OFF_RAFRAICHIR_NOEUD_JEU))(panneau, rec);
+            ++faits;
+        }
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        printf("[ICON] EXCEPTION 0x%08lX au rafraichissement de l'arbre (%d noeud(s) faits)\n",
+            GetExceptionCode(), faits);
+        g_panneauTechnos = 0;
+        return;
+    }
+    printf("[ICON] arbre rafraichi apres reception : %d noeud(s) (panneau %s)\n", faits, cls);
+}
+
 static uintptr_t hkPanneauTechno(uintptr_t panneau, uintptr_t tech, uintptr_t p3, uintptr_t p4)
 {
     ContexteIconeUi c(tech);

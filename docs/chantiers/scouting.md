@@ -110,3 +110,40 @@ l'éclaireur pouvait reporter l'item AP. Correctif : `ApSiteDejaCoche`
 démontage : items en attente relus et réinjectés sur les expéditions
 restantes à la relecture de la liste (`[PERSIST] Restaured this check`),
 comportement existant. Compilé, déployé Epic + Steam, non testé.
+
+### 2026-11-10 — The Arks : expédition de secours bloquée à New Manchester
+
+Retour de l'auteur : quêtes 006 / 007 / 008 (expéditions de secours vers
+New Manchester), étape 1 faite, mais l'expédition de l'étape 2 (Food, exp 5,
+cargaison 1200) ne disparaît jamais une fois arrivée. Journal :
+- `[NM]NewManchester` est un site AP, coché à l'exploration (l. 5156).
+- 006 SHELTER réussie à l'envoi de l'exp 4 (l. 6483) ; puis, à **chaque
+  chargement**, `[SITE] [NM]NewManchester : contenu substitue`
+  (l. 6862, 8029, 9218) : le site avait de nouveau un contenu vanilla.
+  New Manchester sert de **dépôt** aux expéditions de secours : leurs
+  ressources livrées étaient remplacées par l'item AP.
+- exp 5 arrive (l. 10327) ; aucune fin de 007 ensuite.
+
+**Correctif** (`SurveillerSites`) : un site déjà coché sur le serveur
+(`ApSiteDejaCoche`) n'est plus touché, ni substitution du contenu, ni
+retrait du reste du contenu vanilla. Hypothèse forte, pas certitude : il
+faudra repartir d'une sauvegarde **antérieure à l'arrivée** de l'exp 5
+(en mémoire, le contenu était déjà substitué). Compilé ; non déployé (jeu
+lancé) ; non testé.
+
+**Retour de l'auteur (DLL de 22:06, sans sauvegarde antérieure)** : 007 et
+008 se terminent (`[QUETEAP] FIN … 007` l. 3809, `… 008` l. 4333), plus de
+`contenu substitue` sur New Manchester ; les automates arrivent. Les
+expéditions de secours (exp 5, 6, 7) **restent** sur le site :
+probablement vanilla (la quête suivante `004 PREPARE FOR THE STORM`
+demande « Disband all expeditions »), non vérifié.
+Second défaut vu : à l'arrivée de l'exp 5, `location … deja cochee …, rien
+ramasse` puis `InjecterPorteur(c, def, 1)` quand même → cargaison de
+secours (1200) remplacée par un item AP. **Correctif** : site déjà coché et
+aucun check porté → cargaison non touchée. Compilé ; non déployé (jeu
+lancé).
+
+À voir (pas corrigé) : à l'arrivée d'un groupe AP en ville, le journal
+`[EVT] GROUPE AP` liste des événements `[NM] ManchesterSurvivor`,
+`[NM] SpawnQuest`, « Some Question Helping NM - CTA » invoqués avec le
+groupe pour contexte (gabarit `SurvivorsFromExpeditionSite`).

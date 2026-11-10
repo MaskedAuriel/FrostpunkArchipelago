@@ -282,3 +282,19 @@ déployé Epic + Steam, non testé.
   -20_DLC3 … -> -60`). Correctif : `hkIconeFrise` lit la météo vanilla
   dans la chronologie de la partie en cours (`MeteoVanillaChronologie`),
   plus `g_meteoVanilla`. Compilé (18:30), à déployer (jeu ouvert).
+
+### 2026-11-10 — The Arks : « −3 » annoncé, −2 appliqué
+
+- Retour de l'auteur (The Arks Medium, Steam). Journal : la baisse de J13
+  a bien été de 2 niveaux (`changement de meteo -40_NoFog -> -60_NoFog`,
+  `temperature 1 -> -1`). La frise l'annonçait à −3.
+- **Cause** : dans `hkIconeFrise`, le « 1er changement à venir » était
+  reconnu par `avant == cour`, en comparant des **objets** météo. Or ils
+  sont partagés par palier : le changement de J13 part du même objet
+  `-40_NoFog` que la météo affichée (−40, montée de J10 retirée), et il
+  était donc lui aussi annoncé depuis la vanilla (−30 → −60 = 3). Même
+  défaut sur les changements suivants (journal : `changement 9 annonce
+  depuis la meteo vanilla -30 … -> -50`).
+- **Correctif** : substitution seulement si la date de `precedente` (+0)
+  est passée et celle de l'entrée à venir (`Maintenant()`). Compilé ; non
+  déployé (jeu lancé) ; non testé.

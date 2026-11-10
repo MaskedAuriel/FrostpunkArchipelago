@@ -31,6 +31,7 @@
 #include "menu_ap.h"
 #include "mod_common.h"
 #include "archipelago.h"
+#include "sauvegardes_ap.h"
 #include "MinHook.h"
 #include <cstring>
 
@@ -1363,10 +1364,14 @@ void hkRafraichirPanneau(uintptr_t panneau, uintptr_t p2, uintptr_t p3, uintptr_
 
 // Minuterie d'etat : la connexion a change -> rafraichissement complet du
 // panneau (le jeu repose Continue / Load, puis notre verrou).
+// 2026-11-10 : connexion a une autre graine / un autre slot -> la liste des
+// sauvegardes du profil (construite au demarrage avec l'ancienne session) est
+// d'abord reconstruite (sauvegardes_ap.cpp), Continue / Load suivent.
 void VerrouSuivreConnexion()
 {
     if (!g_panneauRafraichi || !g_verrouApplique || ApEstConnecte() == g_verrouConnecte) return;
     printf("[MENU] connexion %s : boutons du menu mis a jour\n", ApEstConnecte() ? "etablie" : "perdue");
+    if (ApEstConnecte()) SauvegardesSuivreSession();
     __try { hkRafraichirPanneau(g_panneauRafraichi, 0, 0, 0); }
     __except (EXCEPTION_EXECUTE_HANDLER) {
         printf("[MENU] EXCEPTION 0x%08lX au rafraichissement du panneau\n", GetExceptionCode());

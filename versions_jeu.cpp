@@ -66,6 +66,8 @@ const Correspondance VERSION_STEAM[] = {
     { 0x1267C50, 0x1101060 },   // scenario.cpp:105 -- exact 1.00
     { 0x126C9F0, 0x1105E00 },   // mod_common.cpp:1486 -- exact 1.00
     { 0x1283EA0, 0x111D2B0 },   // scenarios_ap.cpp:85 -- exact 1.00
+    { 0x1283F90, 0x111D3A0 },   // sauvegardes_ap.cpp:29 -- appels de FUN_1412878d0 identiques (+0x89D), 2026-11-10
+    { 0x1284EB0, 0x111E2C0 },   // sauvegardes_ap.cpp:28 -- seul appelant de 0x1C29F80, meme taille, 2026-11-10
     { 0x1286840, 0x111FC50 },   // mod_common.cpp:1485 -- exact 1.00
     { 0x12892F0, 0x11226F0 },   // sauvegardes_ap.cpp:20 -- exact 1.00
     { 0x12EC200, 0x1186AC0 },   // groupes.cpp:674 -- getter de type (frostpunkselectioncomponent.h), corrige le 2026-11-10

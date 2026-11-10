@@ -20,6 +20,14 @@ namespace {
 static const uintptr_t OFF_ECRIRE_SAUVEGARDE = Adr(0x12892F0);   // FUN_1412892f0
 static const uintptr_t OFF_LISTER_FICHIERS   = Adr(0x1CDEE60);   // FUN_141cdee60
 static const uintptr_t OFF_LIBERER_CHAINE    = Adr(0xE1D180);    // FUN_140e1d180(&chaine)
+// Reconstruction du cache (2026-11-10), comme la fin de FUN_1412878d0 :
+//   FUN_141284eb0(profil, &tmp) remplit tmp = { tableau d'elements de 0x10
+//   {nom, infos 0xD8}, nombre +0x08, capacite +0x0C, allocateur +0x10 } ;
+//   si allocateur(profil +0x1B0) == tmp.allocateur : FUN_141283f90(profil
+//   +0x1B0, 1) (elements et tableau liberes) puis tmp deplace dans le profil.
+static const uintptr_t OFF_CONSTRUIRE_LISTE  = Adr(0x1284EB0);   // FUN_141284eb0
+static const uintptr_t OFF_DETRUIRE_LISTE    = Adr(0x1283F90);   // FUN_141283f90
+constexpr int       PROFIL_LISTE          = 0x1B0;       // cache des sauvegardes du profil
 constexpr int       MAX_NOM               = 260;
 constexpr int       MAX_LISTE             = 4096;        // garde-fou du tableau
 const char*         FICHIER               = "ap_sauvegardes.txt";
@@ -84,6 +92,8 @@ bool NomConnu(const wchar_t* nom, wchar_t (*noms)[MAX_NOM], int n)
 }
 
 wchar_t g_noms[1024][MAX_NOM];   // thread du jeu seulement (ecriture et liste)
+uintptr_t g_profil = 0;              // profil vu par la derniere liste (cache +0x1B0)
+char      g_sessionListe[MAX_PATH] = "";   // fichier de session de la derniere liste
 
 // Ecriture d'une sauvegarde : nom note dans la session (sans doublon).
 uintptr_t hkEcrireSauvegarde(uintptr_t profil, uintptr_t nom, uintptr_t p3, uintptr_t p4)
@@ -123,6 +133,9 @@ uintptr_t hkListerFichiers(uintptr_t profil, uintptr_t liste, uintptr_t dossier,
 
     uintptr_t tab = 0;
     int32_t nombre = 0;
+    // Profil et session de cette liste (reconstruction si la session change).
+    g_profil = profil;
+    if (!ApCheminSession(g_sessionListe, sizeof(g_sessionListe), FICHIER)) g_sessionListe[0] = 0;
     if (!SafeRead((void*)liste, &tab, 8) || !SafeRead((void*)(liste + 8), &nombre, 4) ||
         nombre <= 0 || nombre > MAX_LISTE || tab < 0x10000) return r;
 
@@ -156,7 +169,57 @@ uintptr_t hkListerFichiers(uintptr_t profil, uintptr_t liste, uintptr_t dossier,
     return r;
 }
 
+typedef uintptr_t (*ConstruireListe_t)(uintptr_t profil, uintptr_t* liste);
+typedef void (*DetruireListe_t)(uintptr_t liste, uintptr_t liberer);
+
 } // namespace
+
+// Reconstruit le cache des sauvegardes du profil (profil +0x1B0) quand la
+// session a change depuis la derniere liste. La liste passe par
+// hkListerFichiers : filtree avec la session courante.
+bool SauvegardesSuivreSession()
+{
+    if (!g_profil || !oListerFichiers) return false;
+    char session[MAX_PATH];
+    if (!ApCheminSession(session, sizeof(session), FICHIER)) return false;
+    if (_stricmp(session, g_sessionListe) == 0) return false;
+
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
+    ConstruireListe_t construire = (ConstruireListe_t)(base + OFF_CONSTRUIRE_LISTE);
+    DetruireListe_t detruire = (DetruireListe_t)(base + OFF_DETRUIRE_LISTE);
+    uintptr_t cache = g_profil + PROFIL_LISTE;
+    uintptr_t tmp[3] = { 0, 0, 0 };   // { tableau, nombre | capacite, allocateur }
+    int32_t avant = 0;
+    SafeRead((void*)(cache + 8), &avant, 4);
+    printf("[SAV] session changee depuis la liste des sauvegardes : reconstruction (%d en cache)\n", avant);
+
+    bool ok = false;
+    __try {
+        construire(g_profil, tmp);
+        uintptr_t allocCache = 0;
+        SafeRead((void*)(cache + 0x10), &allocCache, 8);
+        if (allocCache == tmp[2]) {
+            detruire(cache, 1);
+            SafeWrite((void*)cache, &tmp[0], 8);
+            SafeWrite((void*)(cache + 8), &tmp[1], 8);   // nombre et capacite
+            tmp[0] = tmp[1] = 0;
+            ok = true;
+        } else {
+            printf("[SAV] allocateurs differents (cache 0x%llX, liste 0x%llX) : cache garde\n",
+                (unsigned long long)allocCache, (unsigned long long)tmp[2]);
+            detruire((uintptr_t)tmp, 1);
+        }
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        printf("[SAV] EXCEPTION 0x%08lX a la reconstruction de la liste des sauvegardes\n", GetExceptionCode());
+        g_profil = 0;   // plus d'essai
+        return false;
+    }
+    int32_t apres = 0;
+    SafeRead((void*)(cache + 8), &apres, 4);
+    printf("[SAV] liste des sauvegardes reconstruite : %d sauvegarde(s) de la session\n", apres);
+    return ok;
+}
 
 void InstallHooksSauvegardes(uintptr_t modBase)
 {

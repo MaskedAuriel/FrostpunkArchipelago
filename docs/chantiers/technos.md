@@ -1009,3 +1009,51 @@ réponse du jeu change : réponse, technos élevées, parent recherché / reçu
   `hkRafraichirNoeud`, hooks_research.cpp ; la techno du nœud exclue).
   Steam : `0x1BC5100 → 0x1A65E40`, `0x1BCA5A0 → 0x1A6B2E0` (voisinage,
   octets identiques hors RIP). Compilé, non testé.
+
+### 2026-11-10 — The Arks : « Improved Heaters » grisé
+
+- « Improved Heaters » = `H 3_Boiler Upgrade` (`B2366AD179BD4D26`, clé
+  `BoilerUpgrade2`), prérequis Boilers (`85BCE42D5F9E4F3B`) et
+  TierUnlock2. Journal de l'auteur (Steam) : Boilers recherchée (l. 5862)
+  puis reçue (l. 6073, `SyncGameState` → 2), TierUnlock2 reçue ;
+  « Boiler Upgrade - less coal » (enfant) **reçue avant** le parent
+  (l. 7179, effets appliqués).
+- Une seule ligne `[TECHUI] Boiler Upgrade` (l. 3991 : indisponible,
+  Boilers et TierUnlock2 à 0), plus jamais ensuite, alors que l'arbre a
+  été reconstruit (l. 6478-6484 : nœuds du même onglet devenus
+  disponibles). Le diagnostic ne journalisait que les changements de
+  réponse : réévalué à 0 sans trace possible.
+- Ghidra : `FUN_141bc3cb0` (état visuel du nœud) = « RESEARCHED » si état
+  2, sinon `FUN_141bc5100(panneau, techno, 1)` = tous les prérequis de type
+  4 à l'état 2 (`FUN_1413276a0(DAT_144062ba8, techno)`), rien d'autre.
+- **Diagnostic élargi** (`JournalNoeudDisponible`) : une ligne aussi quand
+  la signature des prérequis change (hash, pointeur, état pendant l'appel),
+  avec hash et pointeur de chaque prérequis (doublon de techno ?). Compilé ;
+  non déployé (jeu lancé) ; cause non trouvée.
+- **Retour de l'auteur : débloqué au rechargement.** Cause : la réception
+  d'une techno **déjà recherchée** pose l'état 2 directement
+  (`SyncGameState`, `OnItemReceived`), sans événement du jeu. Les nœuds de
+  l'arbre déjà construit gardent donc « NOT_AVAILABLE » jusqu'à leur
+  reconstruction (rechargement). Une techno reçue sans avoir été recherchée
+  passe, elle, par `AddResearchedTechnology` (écouteurs).
+- **Correctif** : `IconesTechnoRafraichirArbre` (IconSubManager.cpp),
+  appelée par `OnItemReceived` après `SyncGameState`. Pour chaque nœud de la
+  liste du panneau (`+0x1A8`, enregistrements de 0x80, GUID à `+0x00`) :
+  `FUN_141bca5a0(panneau, &GUID)` (Ghidra : état du nœud par
+  `FUN_141bc3cb0`, liens, coûts ; l'enregistrement est déréférencé sans
+  contrôle, d'où les seuls GUID de la liste), via `hkRafraichirNoeud`
+  (élévation). Panneau revalidé par sa classe RTTI (« Technology »), sinon
+  oublié. Journal `[ICON] arbre rafraichi apres reception : N noeud(s)`.
+  Compilé ; non déployé (jeu lancé) ; non testé.
+- **Même problème avec Steam WallDrill, vraie cause trouvée** (diagnostic
+  élargi). WallDrill recherchée (l. 5772), reçue (l. 5815, état 2), puis
+  **état 0** à la l. 5879 (`researched 1, received 1`). L'item est arrivé
+  **pendant** une fenêtre d'élévation : le jeu modifie une ressource (coût
+  de la recherche de TierUnlock1), donc hook du setter → pompe des items →
+  `OnItemReceived` → état 2, puis `RabaisserRecherchees` remet à 0 la
+  techno qu'elle avait élevée. Explique aussi Improved Heaters (Boilers) et
+  « débloqué au rechargement » (états reposés depuis la sauvegarde locale).
+- **Correctif** (`RabaisserRecherchees`) : une techno reçue entre-temps
+  (`RT_Get(hash)->received`) garde l'état 2. Journal `[AP] <techno> recue
+  pendant l'evaluation : etat 2 garde`. Le rafraîchissement de l'arbre à la
+  réception reste en place. Compilé et déployé (Epic + Steam), non testé.

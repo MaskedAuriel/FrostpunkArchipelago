@@ -5,6 +5,7 @@
 #include "scenario.h"
 #include "archipelago.h"
 #include "hooks_research.h"   // TechAppliquerEffets
+#include "IconSubManager.h"   // IconesTechnoRafraichirArbre
 #include <cstdlib>
 
 bool g_showApInfo = true;
@@ -79,6 +80,9 @@ void OnResearchComplete(uint64_t hash)
 // encore recherchee recoit donc ses effets par AddResearchedTechnology
 // (TechAppliquerEffets) ; deja recherchee, ses effets ont ete appliques par
 // la recherche : seul l'etat 2 est pose.
+// 2026-11-10 : ce dernier cas ne previent pas le jeu -> les noeuds enfants de
+// l'arbre deja construit restaient grises jusqu'au rechargement ; l'arbre est
+// donc rafraichi (IconesTechnoRafraichirArbre).
 void OnItemReceived(uint64_t hash)
 {
     TechRuntime* r = RT_Get(hash);
@@ -89,6 +93,7 @@ void OnItemReceived(uint64_t hash)
         return;
     }
     SyncGameState(r);          // -> etat 2
+    IconesTechnoRafraichirArbre();
 }
 
 void ReceiveAll()

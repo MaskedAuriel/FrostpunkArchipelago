@@ -1294,3 +1294,28 @@ et les checks de ressources doivent afficher leur contenu exact
   `custom_worlds\frostpunk.apworld` reconstruit, génération OK (spoiler :
   « A New Home - Progressive Steam Hub », etc.), DLL compilée et déployée
   (Epic, 08:09). **Non testé en jeu.**
+
+### 2026-11-10 — Décision de l'auteur : Temperature Rise répartis par région
+
+- Constat (graine `AP_99291626087738687974`, The Arks Medium) : 4 des 5
+  `Temperature Rise` étaient dans la dernière région (après Coal For New
+  Manchester (3/3), technos de palier 4-5), le 5e après Find The Factory
+  Plans. Ces items sont « useful », sans règle : le remplissage les posait
+  n'importe où. `regions_montees` (Q4.5 a) ne servait plus depuis la
+  suppression des locations de montée (2026-11-04).
+- **Décision** : répartition **équitable** des montées entre les régions,
+  dans **tous** les scénarios.
+- `FrostpunkWorld.placer_montees` (`__init__.py`), appelée par
+  `create_items` avant le calcul des places : pour chaque scénario, la
+  k-ième montée va dans une location **libre et non exclue**, tirée au
+  hasard, de la région `regions_montees(n, nombre de régions)[k]` (le reste
+  aux premières régions). À défaut de place, la région la plus proche
+  avant, puis après. `place_locked_item` ; ces items sortent du pool.
+- Répartition obtenue (scénarios × difficultés) : A New Home Medium 7 →
+  [2, 2, 2, 1] ; The Arks Medium 5 → [2, 1, 1, 1] ; Refugees Medium 4 →
+  [1, 1, 1, 1] ; Winterhome Medium 6 → [2, 1, 1, 1, 1] ; On the Edge 9 →
+  [3, 2, 2, 2] ; Last Autumn et The Arks Hard / Very Hard : 0.
+- Banc 0.6.8 (`tester.py` + répartition, 4 difficultés) : tout OK.
+  `custom_worlds\frostpunk.apworld` reconstruit, génération OK avec
+  l'exe 0.6.7 et le YAML The Arks. **La graine en cours n'est pas
+  concernée** : il faut régénérer.

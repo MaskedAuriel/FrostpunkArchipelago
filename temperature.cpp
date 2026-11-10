@@ -778,7 +778,17 @@ uintptr_t hkIconeFrise(uintptr_t panneau, uintptr_t i, uintptr_t entree, uintptr
     // precedente quand la frise se dessine au chargement -> "-4 niveaux"
     // annonces depuis la meteo d'On the Edge).
     uintptr_t vanilla = MeteoVanillaChronologie(nullptr);
-    if (avant && cour && avant == cour && vanilla > 0x10000 && vanilla != cour) {
+    // Seul le 1er changement A VENIR part de la meteo courante (correctif du
+    // 2026-11-10, The Arks : "-3" annonce pour J13, -2 applique). Les objets
+    // meteo sont partages par palier : le changement de J13 (-40 -> -60)
+    // partait du meme objet -40 que la meteo affichee, et etait annonce depuis
+    // la vanilla -30. Critere par les dates (entree +0) : precedente passee,
+    // entree a venir.
+    uint64_t datePrec = 0, dateEntree = 0, maintenant = Maintenant();
+    if (precedente > 0x10000) SafeRead((void*)precedente, &datePrec, 8);
+    if (entree > 0x10000) SafeRead((void*)entree, &dateEntree, 8);
+    bool premierAVenir = maintenant && datePrec <= maintenant && dateEntree > maintenant;
+    if (premierAVenir && avant && cour && avant == cour && vanilla > 0x10000 && vanilla != cour) {
         avant = vanilla;
         uintptr_t faux[4] = {};
         SafeRead((void*)precedente, faux, sizeof(faux));

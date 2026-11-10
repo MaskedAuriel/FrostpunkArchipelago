@@ -457,3 +457,25 @@
   fait (`ApQueteDejaCochee`). Une fois forcé dans la partie, sa création
   vanilla est refusée (`hkCreerDilemme`). Journal `[DIL] crise du charbon
   forcee : … -> id`. Compilé, déployé Epic + Steam, non testé.
+
+### 2026-11-10 — The Arks : plans de la Factory (analyse, rien de changé)
+
+- `[TechHeaven] 001 FIND FACTORY PLANS` (goulot) : « Research and build the
+  Beacon », puis « Find the Factory plans »
+  (`RetrieveExpeditionSiteRevealsQuestObjective`), validée par
+  l'exploration du Lost Dreadnought (`[quest]Expedition03`).
+- `[TechHeaven] 002 FACTORY` (au succès de 001) : tâche 0 « Bring the
+  Factory plans to the city » = `ResearchTechnologyQuestObjective`
+  (techno Factory), puis « Build the Factory » et « Increase the number of
+  automatons ».
+- En vanilla, les plans sont **1 technologie** dans la cargaison du site
+  (`sites_contenu.tsv`) : le retour du scout recherche la Factory. Avec le
+  mod, `InjecterPorteur` (scooting.cpp) remet la cargaison de technologies
+  à 0 au ramassage : les plans n'arrivent jamais. La tâche 0 ne peut
+  avancer que par la recherche de la location `The Arks - Factory`
+  (`hkAjouterRecherchee` appelle l'original, notification coupée) ou par
+  la réception d'un `Progressive Factory` (`TechAppliquerEffets`). Ni la
+  façon dont l'objectif se valide (événement ou état), ni la possibilité
+  de rechercher la Factory sans les plans n'ont été vérifiées.
+- Graine de l'auteur `AP_99291626087738687974` : `Progressive Factory` en
+  South Pass (site), SteamCoalThumper et Plantation upgrade (technos).

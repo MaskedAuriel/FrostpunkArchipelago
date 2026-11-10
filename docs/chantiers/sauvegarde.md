@@ -284,3 +284,26 @@ texte (nuls) : à 0, il libère notre tampon → tas corrompu. **Correctif**
 chaque tampon, copié d'une chaîne valide du jeu (self vérifié), self posé,
 compteur figé à `0x40000000` ; sans en-tête valide, texte du jeu laissé.
 Compilé, déployé Epic + Steam, non testé.
+
+### 2026-11-10 — Sauvegardes d'une autre graine visibles dans Load
+
+Retour de l'auteur (The Arks, Steam) : les sauvegardes A New Home de la
+graine précédente apparaissent dans Load. **Journal** : une seule ligne
+`[SAV] liste des sauvegardes : 15 fichier(s), 15 de la session gardee(s)`,
+**avant** la connexion. Elle est filtrée avec la dernière session relue au
+démarrage (`ap_10912…`), et plus rien après la connexion à
+`ap_99291626087738687974_1`. **Ghidra** : `FUN_141284eb0` (liste) n'a qu'un
+appelant, `FUN_1412878d0`, le chargement du profil (succès, puis liste). Le
+résultat est gardé en cache dans **profil `+0x1B0`** (tableau d'éléments de
+0x10 `{nom, infos 0xD8}`, nombre `+0x1B8`, capacité `+0x1BC`, allocateur
+`+0x1C0`). **Correctif** : `hkListerFichiers` note le profil et la session de
+la liste. Quand la connexion est établie, `SauvegardesSuivreSession`
+(appelée par `VerrouSuivreConnexion`, minuterie du menu, thread de
+l'interface) relance la liste si la session a changé, puis remplace le cache
+comme le fait le jeu (`FUN_141283f90(profil+0x1B0, 1)`, puis déplacement si
+les allocateurs sont égaux). Le panneau est rafraîchi ensuite (Continue /
+Load). Adresses Steam : `0x111E2C0` (liste, seul appelant de `0x1C29F80`,
+même taille) et `0x111D3A0` (appels de `0x1120CD0` identiques à ceux de
+`FUN_1412878d0`, octets autour de `+0x1B0` identiques). Journal `[SAV]
+session changee …` / `[SAV] liste des sauvegardes reconstruite : N …`.
+Compilé, déployé Epic + Steam, non testé.

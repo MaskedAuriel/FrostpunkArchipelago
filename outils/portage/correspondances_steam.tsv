@@ -51,6 +51,8 @@
 1267C50	1101060	exact	1.000	scenario.cpp:105
 126C9F0	1105E00	exact	1.000	mod_common.cpp:1486
 1283EA0	111D2B0	exact	1.000	scenarios_ap.cpp:85
+1283F90	111D3A0	appels identiques	1.000	sauvegardes_ap.cpp:29
+1284EB0	111E2C0	seul appelant	1.000	sauvegardes_ap.cpp:28
 1286840	111FC50	exact	1.000	mod_common.cpp:1485
 12892F0	11226F0	exact	1.000	sauvegardes_ap.cpp:20
 12EC200	1186A30	voisinage(3 cand)	1.000	groupes.cpp:674
