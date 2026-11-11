@@ -216,3 +216,42 @@
 > jeu, si le panneau va prendre (dernier contrôle libre, `panneau +0x1A8` /
 > `+0x1B0`, tutoriels `+0x1F8` / `+0x200`) un contrôle colorié par nous, ses
 > éléments repassent en blanc : son preset décide. Non testé.
+
+
+## 2026-11-11 — Crash au rechargement d'une sauvegarde (Winterhome, Steam)
+
+- **Constat** : plantage juste après `[PARTIE] prete (generation 7)`.
+  Rapport Windows : AV `0xC0000005` dans Frostpunk.exe (Steam) `+0xE087C1` =
+  Epic `FUN_140e04980`, croissance d'un `Dynarray` (éléments de 0x18) dont
+  l'allocateur (`+0x10`) est détruit : objet libéré ou corrompu, appelant
+  inconnu.
+- **Suspect côté mod** : à chaque chargement, `[POPUP] icones des messages AP
+  reposees : 15` puis une série d'`EXCEPTION 0xC0000005 a la pose de l'icone
+  du cercle`. `g_ctrlColores` gardait les contrôles de la partie précédente,
+  détruits par le chargement ; `ReposerIconesMessages` appelait le poseur de
+  tuile du moteur sur ces contrôles libérés. Les fautes sont attrapées, mais
+  une écriture qui ne faute pas modifie un objet recyclé.
+- **Correctif** : `MessagesAvantChargement()` (MessageManager.cpp), appelée
+  par `hkLoadGame` avant le chargement du jeu : vide `g_ctrlColores` (journal
+  `[POPUP] chargement : N controle(s) de message oublie(s)`). Les messages AP
+  rechargés pendant `LoadGame` se réinscrivent par `CouleurApresAjoutAP`.
+- Compilé, déployé Epic (dev) et Steam (release) à 16:33. **Non testé** ;
+  si le crash revient sans exceptions `[POPUP]`, la cause est ailleurs.
+### 2026-11-11 — 2e crash, en partie (16:54, Steam)
+
+- Correctif du rechargement confirmé : deux `LoadGame`, `[POPUP] chargement :
+  N controle(s) de message oublie(s)`, plus aucune EXCEPTION de pose d'icône.
+- Nouveau plantage en pleine partie (dernières lignes : survol de l'arbre
+  des technos). AV Steam `+0x1511CF5` = Epic `FUN_141676d90` (+0xC5),
+  ajout d'un élément de 0x30 à un `Dynarray` (écriture `[tableau +
+  n × 0x30]`) : tableau d'un objet détruit. Appelants (35) : le système
+  des erreurs de jeu (`frostpunkgameerrorsystem.cpp`, ex. `FUN_141676ea0`,
+  « BuildingDuringConstruction / Deconstruction / Repairs / Conversion »).
+  Même famille que le 1er crash (`Dynarray` d'un objet libéré), cause non
+  trouvée ; aucun dump du jeu.
+- **Relevé étendu** (`ReleveCrash`, version.cpp) : une AV dont l'adresse est
+  dans Frostpunk.exe est journalisée (4 au plus) avec registres et adresses
+  de retour probables (pile balayée, valeurs dans Frostpunk.exe / version.dll
+  précédées d'un CALL). Déployé à 16:58 (Epic dev, Steam release).- **Cause trouvée** (même jour) : recherche d'une techno reçue sans les
+  ressources ; voir `docs/chantiers/technos.md` (2026-11-11). Le 1er crash
+  (rechargement, `FUN_140e04980`) reste attribué aux contrôles périmés.

@@ -1483,6 +1483,7 @@ static uintptr_t hkLoadGame(uintptr_t jeu, uintptr_t nom, uintptr_t p3, uintptr_
     // le journal s'arretait a l'entree).
     JournalImmediat("[CHARG] groupes : avant chargement fait\n");
     DilemmesAPChargement(0);
+    MessagesAvantChargement();      // controles des messages AP detruits par le chargement
     JournalImmediat("[CHARG] dilemmes AP : avant chargement fait, appel du LoadGame du jeu\n");
     uintptr_t r = oLoadGame(jeu, nom, p3, p4);
     NoterPointChargement("LoadGame : sortie");

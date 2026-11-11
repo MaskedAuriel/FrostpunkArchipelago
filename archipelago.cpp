@@ -1239,6 +1239,20 @@ bool ApScoutLoi(const char* arbre, int rang, ApScoutInfo* out)
     return ScoutDe(LocationAP(ApLocGenre::Loi, cle), out);
 }
 
+bool ApLoiAUnCheck(const char* arbre, const char* loi)
+{
+    int rangs[4];
+    int n = ApRangsDeLoi(arbre, loi, rangs, 4);
+    if (n == 0) return false;
+    AcquireSRWLockShared(&g_verrouScouts);
+    bool scoutsConnus = !g_scouts.empty();
+    ReleaseSRWLockShared(&g_verrouScouts);
+    if (!scoutsConnus) return true;           // jamais connecte : la table fait foi
+    for (int k = 0; k < n; ++k)
+        if (ApScoutLoi(arbre, rangs[k], nullptr)) return true;
+    return false;                              // location hors du slot
+}
+
 bool ApScoutTechno(uint64_t hash, ApScoutInfo* out)
 {
     char cle[20];

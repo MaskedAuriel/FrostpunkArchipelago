@@ -76,7 +76,7 @@ const ChoixForce CHOIX_FORCES[] = {
     { "REFUGEES", "[Survivors] Black Spire", 1 },
     { "REFUGEES", "[Outpost] Fishermen Village", 1 },        // 2 = Dismantle outpost
     // Fall of Winterhome
-    { "WINTERHOME", "[lore03] Steel Bridge", 1 },
+    { "WINTERHOME", "[lore03] Steel Bridge", 2 },            // 1 = Dismantle outpost (auteur, 2026-11-11)
     { "WINTERHOME", "[lore04] Storm Shelter", 2 },
     { "WINTERHOME", "[lore02] Coal Mine", 2 },
     { "WINTERHOME", "[lore01] Weather Station", 2 },

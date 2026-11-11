@@ -469,7 +469,7 @@ dilemmes de quête se tranchent à la main (**⚠** = proposition à valider).
 | The Refugees | Trail_Bend | Trail Bands | 1 | Escort |
 | The Refugees | Black_Spire | Black Spire | 1 | Escort |
 | The Refugees | [outpost]Fishermen_Village | Fishermen Village | 2 | Both resources (le 1 « répare » mais ne fait que Retrieve base) |
-| Winterhome | [lore03]_Steel_Bridge | Steel Bridge | 1 | Send + déblocage |
+| Winterhome | [lore03]_Steel_Bridge | Steel Bridge | 2 (2026-11-11 ; était 1) | Rien : automate laissé en place, avant-poste possible |
 | Winterhome | [lore04]_Storm_Shelter | Storm Shelter | 2 | Escort + déblocage |
 | Winterhome | [lore02]_Coal_Mine | Coal Mine | **⚠ 2** | aucun effet relevé ; « Bring » = l'équivalent Escort des autres lore |
 | Winterhome | [lore01]_Weather_Station | Weather Station | 2 | Escort + déblocage |
@@ -548,3 +548,14 @@ scénario montre déjà le choix unique (définitions modifiées).
   attente relit la définition (nouveau choix).
 - Compilé, déployé Epic + Steam (avec l'item AP des groupes de Refugees,
   groupes.md). Non testé.
+
+## 2026-11-11 — Winterhome : Steel Bridge, choix 2
+
+- **Décision de l'auteur** : le choix 1 (« Send the automaton to the city »)
+  retire l'automate et empêche ensuite d'installer un avant-poste sur le
+  pont (`AbandonOutpost` / `DismantleOutpost` sous le `Select`). Retenu :
+  **choix 2** « Leave the automaton on duty » (aucun effet), conforme à la
+  règle « jamais Dismantle outpost ». Annule l'exception du 2026-11-11
+  ci-dessus.
+- `CHOIX_FORCES` : `[lore03] Steel Bridge` 1 → 2. Compilé, déployé Epic
+  (dev) et Steam (release) à 14:44. Non testé.

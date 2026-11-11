@@ -196,11 +196,56 @@ void JournalImmediat(const char* fmt, ...)
 // Gestionnaire d'exceptions vectorise : sur une exception FATALE (tas
 // corrompu c0000374, depassement de pile c0000409), la pile d'appels est
 // ecrite AUSSITOT dans le journal (JournalImmediat, sans allocation) : module
-// + decalage de chaque cadre. Les violations d'acces ne sont pas relevees
-// (SafeRead en provoque sous __try). Une seule fois par processus.
+// + decalage de chaque cadre. Une seule fois par processus.
+// Violations d'acces (2026-11-11, deux AV Steam dans des Dynarray du moteur,
+// +0xE087C1 et +0x1511CF5, sans pile) : relevees seulement si l'adresse
+// fautive est DANS Frostpunk.exe (les SafeRead du mod fautent dans
+// version.dll), 4 au plus par processus, registres compris. Une AV attrapee
+// par un __try du mod autour d'une fonction du jeu (ex. pose d'icone) peut
+// donc apparaitre : elle est suivie de la ligne d'EXCEPTION du mod.
 static LONG CALLBACK ReleveCrash(PEXCEPTION_POINTERS e)
 {
 	DWORD code = e && e->ExceptionRecord ? e->ExceptionRecord->ExceptionCode : 0;
+	if (code == 0xC0000005) {
+		static volatile LONG nAV = 0;
+		uintptr_t adr = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
+		HMODULE jeu = GetModuleHandleW(NULL);
+		HMODULE m = nullptr;
+		if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+				(LPCSTR)adr, &m) || m != jeu) return EXCEPTION_CONTINUE_SEARCH;
+		if (InterlockedIncrement(&nAV) > 4) return EXCEPTION_CONTINUE_SEARCH;
+		const CONTEXT* c = e->ContextRecord;
+		JournalImmediat("\n[CRASH] violation d'acces a Frostpunk.exe+0x%llX (%s 0x%llX), thread %lu\n",
+			(unsigned long long)(adr - (uintptr_t)jeu),
+			e->ExceptionRecord->NumberParameters >= 2 && e->ExceptionRecord->ExceptionInformation[0] ? "ecriture" : "lecture",
+			(unsigned long long)(e->ExceptionRecord->NumberParameters >= 2 ? e->ExceptionRecord->ExceptionInformation[1] : 0),
+			GetCurrentThreadId());
+		JournalImmediat("[CRASH]   rax=%llX rbx=%llX rcx=%llX rdx=%llX rsi=%llX rdi=%llX\n",
+			c->Rax, c->Rbx, c->Rcx, c->Rdx, c->Rsi, c->Rdi);
+		JournalImmediat("[CRASH]   r8=%llX r9=%llX r10=%llX r11=%llX rsp=%llX\n", c->R8, c->R9, c->R10, c->R11, c->Rsp);
+		// Adresses de retour probables : valeurs de la pile qui tombent dans
+		// Frostpunk.exe ou version.dll, precedees d'un CALL (E8 / FF xx).
+		HMODULE mod = nullptr;
+		GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+			(LPCSTR)&ReleveCrash, &mod);
+		const uintptr_t* pile = (const uintptr_t*)c->Rsp;
+		int vus = 0;
+		for (int k = 0; k < 512 && vus < 24; ++k) {
+			uintptr_t v = 0;
+			if (!SafeRead((void*)(pile + k), &v, 8) || v < 0x10000) continue;
+			HMODULE mv = nullptr;
+			if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+					(LPCSTR)v, &mv) || (mv != jeu && mv != mod)) continue;
+			uint8_t av[6] = {};
+			if (!SafeRead((void*)(v - 6), av, 6)) continue;
+			if (av[1] != 0xE8 && av[4] != 0xFF && av[3] != 0xFF) continue;
+			JournalImmediat("[CRASH]   pile +0x%03X : %s+0x%llX\n", k * 8, mv == jeu ? "Frostpunk.exe" : "version.dll",
+				(unsigned long long)(v - (uintptr_t)mv));
+			++vus;
+		}
+		JournalImmediat("[CRASH] fin du releve\n");
+		return EXCEPTION_CONTINUE_SEARCH;
+	}
 	if (code != 0xC0000374 && code != 0xC0000409) return EXCEPTION_CONTINUE_SEARCH;
 	static volatile LONG fait = 0;
 	if (InterlockedExchange(&fait, 1)) return EXCEPTION_CONTINUE_SEARCH;

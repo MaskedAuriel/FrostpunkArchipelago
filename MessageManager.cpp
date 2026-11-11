@@ -716,6 +716,24 @@ static void ReposerIconesMessages(const char* quand)
     for (int i = 0; i < n; ++i) PoserIconeSurControle(ctrls[i], ents[i]);
 }
 
+// Entree de LoadGame (thread du jeu). Crash du 2026-11-11 (Steam, rechargement
+// d'une sauvegarde Winterhome) : g_ctrlColores gardait les controles de la
+// partie precedente, detruits par le chargement ; ReposerIconesMessages
+// posait l'icone sur ces controles liberes (EXCEPTION 0xC0000005 a chaque
+// chargement, et une ecriture qui ne faute pas corrompt un objet recycle :
+// AV ensuite dans un Dynarray du moteur, +0xE087C1 Steam / FUN_140e04980
+// Epic). On oublie tout : les messages AP recharges sont re-ajoutes pendant
+// LoadGame et se reinscrivent (CouleurApresAjoutAP).
+void MessagesAvantChargement()
+{
+    AcquireSRWLockExclusive(&g_verrouCouleurs);
+    int n = 0;
+    for (ControleColore& c : g_ctrlColores) { if (c.ctrl) ++n; c = ControleColore(); }
+    ReleaseSRWLockExclusive(&g_verrouCouleurs);
+    g_iconesAReposer = false;
+    printf("[POPUP] chargement : %d controle(s) de message oublie(s)\n", n);
+}
+
 void MessagesApresChargement()
 {
     ReposerIconesMessages("sortie de LoadGame");

@@ -203,6 +203,12 @@ struct ApScoutInfo {
 // contenu n'est pas encore connu (jamais connecte). Tout thread.
 bool ApScoutLoi(const char* arbre, int rang, ApScoutInfo* out);
 bool ApScoutTechno(uint64_t hash, ApScoutInfo* out);
+// La loi porte-t-elle un check dans la partie ? Il faut au moins un rang
+// dans la table du scenario en cours (AP_LOIS_RANGS) et, si les scouts de la
+// session sont connus, une location de ce rang dans le slot. Bug du
+// 2026-11-11 (Winterhome) : les lois de depart (Child Labour, Fighting
+// Arena...) montraient un check qu'aucune signature ne pouvait envoyer.
+bool ApLoiAUnCheck(const char* arbre, const char* loi);
 // Nom affiche d'un check (noeuds des arbres) : "<joueur> - <item>", le
 // destinataire en tete, meme pour ce slot (auteur, 2026-11-04 ; '|' coupe
 // le texte en jeu). Latin-1.

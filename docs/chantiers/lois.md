@@ -964,3 +964,29 @@ il laisse calculer l'état 4 puis pose **3** dans les données du nœud
 ≠ 4) ; `hkVisuelNoeud` garde le masque de l'état brut et de « signée »
 (pas de plume). Steam : `0x1BBB480 → 0x1A5C1A0` (voisinage, octets
 identiques hors RIP). Compilé, non testé.
+
+## 2026-11-11 — Winterhome : lois de départ affichées avec un check
+
+Retour de l'auteur (Steam, seed Winterhome seul, `exclude_purpose_politics`) :
+des lois signées et « reçues » d'office (Child Labour – Safe Jobs / All
+Jobs…) portent un check impossible à obtenir.
+Journal : nœuds `Child Labour - All Jobs`, `Corpse Disposal`, `Fighting
+Arena`, `Public House` (état 2) en `icon_done`. Lois de Purpose en
+`icon_filler` : normal, `exclude_purpose_politics` met leurs locations en
+EXCLUDED (filler seulement : Coal Crate…), elles restent des checks.
+Aucun envoi fautif (`0 loi(s) signee(s)` : les lois de départ ont la date
+de départ, `Etats::Signee` les écarte). Table de l'apworld (WINTERHOME) :
+aucune location pour Kids, ni pour Fighting Arena / Public House / Corpse
+Disposal (lois de départ), ni pour Child Shelters / Cemetery (exclusives
+d'une loi de départ).
+Cause : l'affichage ne vérifiait jamais que la loi a une location. Hors
+table des rangs (`AP_LOIS_RANGS`, lois de départ exclues par l'apworld),
+`IconeDeLoi` donnait `icon_done` à toute loi active et le repli de test
+(`IconeDuCheckDeTest`) aux autres ; `hkInfoLoi` posait le nom de l'arbre
++ ` [Signed]` dans le panneau d'info.
+Correctif : `ApLoiAUnCheck(arbre, loi)` (archipelago.cpp) = au moins un rang
+dans la table du scénario et, si les scouts de la session sont connus, une
+location de ce rang dans le slot. `PorteUnCheck(i)` (lois_ap.cpp) : sinon
+pas d'icône AP (`IconeDeLoi` → nullptr), case `+0x80` rendue d'origine
+(`RafraichirIcones`), nom vanilla dans le panneau (`hkInfoLoi`).
+Déployé à 13:31 (Steam : release, Epic : dev). **Non testé.**

@@ -1094,3 +1094,29 @@ réponse du jeu change : réponse, technos élevées, parent recherché / reçu
   **Décision de l'auteur** : un check déjà fait sur le serveur ne compte
   **pas** comme recherché pour les prérequis ; seul l'état de la partie
   compte. Rien changé.
+
+
+## 2026-11-11 — Crash : recherche d'une techno reçue sans les ressources
+
+- **Constat** (Winterhome, Steam, 16:54) : plantage en lançant la recherche
+  d'une techno déjà reçue sans assez de ressources (hypothèse de l'auteur,
+  confirmée par le code). AV Steam `+0x1511CF5` = Epic `FUN_141676d90`
+  (ajout d'une erreur à une liste du système des erreurs de jeu).
+- **Décompilés** : `CanResearch` (`FUN_141326a60`, 3e argument = liste
+  d'erreurs) ajoute ses refus à cette liste : `TechnologyLocked`,
+  `TechnologyAlreadyBeingResearched`, pas d'atelier libre
+  (`FUN_141678220`), `TechnologyAlreadyResearched` (état 2), prérequis
+  (`FUN_1416a7ab0`), ressources (`FUN_141742300`). `ResearchStart`
+  (`FUN_141329610`) prend **3 arguments** : il rappelle `CanResearch` avec
+  `rcx`, `rdx`, `r8` inchangés (liste d'erreurs de son appelant).
+- **Cause** : (1) `hkResearchStart` déclarait 2 arguments (règle n° 5) :
+  `r8` quelconque à l'appel de l'original ; (2) `hkCanResearch` répondait 1
+  pour une techno à l'état 2 dès que le jeu refusait (`restore2 && vanilla
+  == 0`), même faute de ressources. La recherche partait, le `CanResearch`
+  interne échouait et écrivait l'erreur dans le `r8` quelconque.
+- **Correctif** (hooks_research.cpp) : `ResearchStart_t` à 4 arguments,
+  transmis ; plus de forçage à 1 (l'état est abaissé à 0 pendant
+  l'évaluation, le refus « déjà recherchée » n'existe plus ; les autres
+  refus sont légitimes). Déployé à 17:00 (Epic dev, Steam release). **Non
+  testé** : vérifier qu'une techno reçue se recherche normalement avec les
+  ressources, et qu'elle est refusée (sans crash) sans elles.

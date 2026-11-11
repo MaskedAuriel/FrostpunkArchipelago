@@ -489,10 +489,20 @@ bool CaseDeLIcone(const TechIcons* ic, int atlas, int32_t c[2])
 
 int RangAffiche(int i, const Etats& e);   // plus bas (apres Accessible)
 
-// Icone AP de la loi i : "icon_done" si active (lois de depart comprises),
-// sinon celle du check de son etape (RangAffiche, 2026-11-04).
+// La loi i porte-t-elle un check dans la partie (ApLoiAUnCheck) ? Sinon elle
+// reste vanilla : ni icone AP, ni nom de check (bug du 2026-11-11, lois de
+// depart de Winterhome, exclues de l'apworld).
+bool PorteUnCheck(int i)
+{
+    return ApLoiAUnCheck(g_arbres[g_lois[i].arbre].nom, g_lois[i].nom);
+}
+
+// Icone AP de la loi i : aucune si elle ne porte pas de check (PorteUnCheck),
+// "icon_done" si active, sinon celle du check de son etape (RangAffiche,
+// 2026-11-04).
 const TechIcons* IconeDeLoi(int i, const Etats& e)
 {
+    if (!PorteUnCheck(i)) return nullptr;
     const char* nomIcone = nullptr;
     if (e.etat[i] == ETAT_ACTIVE) nomIcone = "icon_done";
     else {
@@ -635,6 +645,13 @@ void RafraichirIcones()
     int changees = 0, sansCase = 0;
     for (int i = 0; i < g_nLois; ++i) {
         LoiAP& l = g_lois[i];
+        if (!PorteUnCheck(i)) {           // loi sans check : case vanilla (rendue si changee)
+            int32_t avant[2] = {};
+            if (l.caseSauvee && SafeRead((void*)(l.adr + LOI_ICONE), avant, sizeof(avant)) &&
+                (avant[0] != l.caseOrigine[0] || avant[1] != l.caseOrigine[1]) &&
+                SafeWrite((void*)(l.adr + LOI_ICONE), l.caseOrigine, sizeof(l.caseOrigine))) ++changees;
+            continue;
+        }
         const TechIcons* ic = IconeDeLoi(i, e);
         int32_t c[2];
         if (!CaseDeLIcone(ic, atlas, c)) { ++sansCase; continue; }
@@ -1465,7 +1482,8 @@ uintptr_t hkInfoLoi(uintptr_t livre, uintptr_t p2, uintptr_t p3, uintptr_t p4)
         if (!SafeRead((void*)(livre + LIVRE_SELECTION), &g, sizeof(g))) return r;
         int i = IndexParGuid(g);
         uintptr_t p = 0, texte = 0;
-        if (i < 0 || !SafeRead((void*)(livre + LIVRE_NOM_INFO), &p, 8) || p <= 0x10000 ||
+        if (i < 0 || !PorteUnCheck(i) ||   // loi sans check : nom vanilla
+            !SafeRead((void*)(livre + LIVRE_NOM_INFO), &p, 8) || p <= 0x10000 ||
             !SafeRead((void*)p, &texte, 8) || texte <= 0x10000) return r;
         Etats e;
         if (!LireEtats(e)) return r;

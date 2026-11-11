@@ -10,7 +10,10 @@
 
 // --- Pointeurs vers les originaux (internes a ce fichier) -------------------
 typedef char (*CanResearch_t)(uintptr_t self, uintptr_t tech, uintptr_t ctx);
-typedef void (*ResearchStart_t)(uintptr_t self, uintptr_t tech);
+// ResearchStart (FUN_141329610) : 3e argument (r8) = liste d'erreurs de
+// l'appelant, transmise telle quelle a CanResearch (desassemble le
+// 2026-11-11). 4 arguments declares (regle n. 5).
+typedef uintptr_t (*ResearchStart_t)(uintptr_t self, uintptr_t tech, uintptr_t erreurs, uintptr_t p4);
 typedef void (*ResearchComplete_t)(uintptr_t self);
 typedef char (*Cancel_t)(uintptr_t self);
 
@@ -197,15 +200,22 @@ static char hkCanResearch(uintptr_t self, uintptr_t tech, uintptr_t ctx)
     JournalCanResearch(self, hash, vanilla, nElevees);
 
     if (!RT_CanResearch(hash)) return 0;      // deja recherchee -> refus ferme
-    if (restore2 && vanilla == 0) return 1;   // contourne le refus "etat 2"
-    return vanilla;                           // sinon le jeu decide (prerequis)
+    // Plus de "if (restore2 && vanilla == 0) return 1" (crash du 2026-11-11,
+    // Steam +0x1511CF5) : l'etat etant abaisse a 0 pendant l'evaluation, le
+    // jeu ne refuse plus pour "TechnologyAlreadyResearched" ; ses autres
+    // refus (decompile FUN_141326a60 : verrouillee, recherche en cours, pas
+    // d'atelier libre, prerequis, RESSOURCES) sont legitimes. Forcer 1 sans
+    // ressources lancait ResearchStart, dont le CanResearch interne echouait
+    // et ecrivait l'erreur dans la liste r8 que l'ancien hook a 2 arguments
+    // ne transmettait pas (valeur quelconque) : AV dans FUN_141676d90.
+    return vanilla;                           // le jeu decide
 }
 
 // ---------------------------------------------------------------------------
 // ResearchStart : le demarrage natif plante si la techno est a l'etat 2.
 // On l'abaisse a 0 avant, on la restaure a 2 apres.
 // ---------------------------------------------------------------------------
-static void hkResearchStart(uintptr_t self, uintptr_t tech)
+static uintptr_t hkResearchStart(uintptr_t self, uintptr_t tech, uintptr_t erreurs, uintptr_t p4)
 {
     if (self) g_selfTech = self;
 
@@ -215,10 +225,11 @@ static void hkResearchStart(uintptr_t self, uintptr_t tech)
     // Prerequis : parents recherches comptes comme faits (2026-11-10).
     uintptr_t elevees[MAX_ELEVEES];
     int nElevees = EleverRecherchees(self, tech, elevees);
-    oResearchStart(self, tech);
+    uintptr_t r = oResearchStart(self, tech, erreurs, p4);   // liste d'erreurs transmise
     RabaisserRecherchees(self, elevees, nElevees);
 
     if (was2) WriteTechStateByPtr(self, tech, 2);
+    return r;
 }
 
 // ---------------------------------------------------------------------------
