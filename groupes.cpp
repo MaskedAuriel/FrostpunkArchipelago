@@ -792,8 +792,11 @@ void hkComposantAjoute(uintptr_t sys, uintptr_t entite, uintptr_t comp, uintptr_
 // 0 : pas un groupe de Refugees.
 static const uint8_t CLASSE_OUVRIERS[4] = { 0x35, 0xF2, 0x53, 0xD1 };
 
+// Documentation seulement (2026-11-11) : GUID et composition des gabarits de
+// composant (templates.dat, releve [REFGRP]) ; le GUID n'est pas retrouve en
+// memoire, la numerotation passe par NumeroAttribue (plus bas).
 struct GabaritRefugees { uint64_t q1, q2; int numero; };
-static const GabaritRefugees GABARITS_REFUGEES[] = {
+[[maybe_unused]] static const GabaritRefugees GABARITS_REFUGEES[] = {
     { 0x9C4F77273A737E6DULL, 0x3F9141341EE742FAULL,  1 },   // premiers refugies : 10 ouvriers, 20 enfants
     { 0x992252BEFFBEB0E0ULL, 0x2B9E07D723974DC3ULL,  2 },   // RefugeeScenarioSurvivors01 : 15 ouvriers
     { 0xA36612B67007C19CULL, 0xEF97BB8B3D3946B8ULL,  3 },   // RefugeeScenarioSurvivors02 : 10 ingenieurs
@@ -809,23 +812,95 @@ static const GabaritRefugees GABARITS_REFUGEES[] = {
     { 0xAD8D1B7D68664E72ULL, 0x1143D2A8BB3A481BULL, 13 },   // Lords03 : 30 ingenieurs, 70 enfants
 };
 
+// Attribution persistante des numeros (2026-11-11). Test de l'auteur : le
+// GUID n'est jamais trouve dans le gabarit en memoire ("sans GUID connu"),
+// et le repli "premier numero pas encore coche" donnait le MEME numero a deux
+// groupes affiches avant leur arrivee (RefugeeScenarioSurvivors01 et 02 :
+// tous deux 8). Les items ne sont lies a aucun groupe : il suffit que chaque
+// groupe ait un numero distinct et stable. Cle = identifiant 128 bits de
+// l'entite (entite +0x18 / +0x20, sauvegarde par le jeu) ; plus petit numero
+// libre de la famille dans cette partie ; fichier par partie
+// mods\ap_refugies_<GameId>.txt ("<id hex> <numero>"), relu au changement de
+// partie : un rechargement retrouve le meme numero.
+struct AttributionRefugees { uint64_t id[2]; int numero; };
+static AttributionRefugees g_attrib[32];
+static int g_nAttrib = 0;
+static uint64_t g_attribPartie[2] = { ~0ULL, ~0ULL };
+
+static bool CheminAttributions(char* out, size_t taille)
+{
+    if (!g_run.valid || (!g_run.gameId[0] && !g_run.gameId[1])) return false;
+    char base[MAX_PATH] = {};
+    if (!GetModuleFileNameA(nullptr, base, MAX_PATH)) return false;
+    for (int i = (int)strlen(base) - 1; i >= 0; --i)
+        if (base[i] == '\\') { base[i + 1] = 0; break; }
+    _snprintf_s(out, taille, _TRUNCATE, "%smods\\ap_refugies_%016llX%016llX.txt", base,
+        (unsigned long long)g_run.gameId[1], (unsigned long long)g_run.gameId[0]);
+    return true;
+}
+
+static void AttributionsCharger()
+{
+    if (g_attribPartie[0] == g_run.gameId[0] && g_attribPartie[1] == g_run.gameId[1]) return;
+    g_attribPartie[0] = g_run.gameId[0];
+    g_attribPartie[1] = g_run.gameId[1];
+    g_nAttrib = 0;
+    char chemin[MAX_PATH];
+    FILE* f = nullptr;
+    if (!CheminAttributions(chemin, sizeof(chemin)) || fopen_s(&f, chemin, "r") != 0 || !f) return;
+    unsigned long long a = 0, b = 0;
+    int k = 0;
+    while (g_nAttrib < 32 && fscanf_s(f, "%llx %llx %d", &a, &b, &k) == 3)
+        g_attrib[g_nAttrib++] = { { a, b }, k };
+    fclose(f);
+    printf("[GRP] attributions des groupes de Refugees relues : %d\n", g_nAttrib);
+}
+
+static void AttributionsSauver()
+{
+    char chemin[MAX_PATH];
+    FILE* f = nullptr;
+    if (!CheminAttributions(chemin, sizeof(chemin)) || fopen_s(&f, chemin, "w") != 0 || !f) return;
+    for (int i = 0; i < g_nAttrib; ++i)
+        fprintf(f, "%016llX %016llX %d\n", (unsigned long long)g_attrib[i].id[0],
+            (unsigned long long)g_attrib[i].id[1], g_attrib[i].numero);
+    fclose(f);
+}
+
+// Numero de l'entite dans [premier, dernier] ; 'voulu' (> 0) s'il est libre
+// (Lords reconnus par leur composition). 0 si la famille est pleine.
+static int NumeroAttribue(uintptr_t entite, int premier, int dernier, int voulu)
+{
+    uint64_t id[2] = {};
+    if (!entite || !SafeRead((void*)(entite + ENT_ID), id, 16) || (!id[0] && !id[1])) return voulu;
+    AttributionsCharger();
+    for (int i = 0; i < g_nAttrib; ++i)
+        if (g_attrib[i].id[0] == id[0] && g_attrib[i].id[1] == id[1]) return g_attrib[i].numero;
+    auto pris = [&](int k) { for (int i = 0; i < g_nAttrib; ++i) if (g_attrib[i].numero == k) return true; return false; };
+    int k = (voulu >= premier && voulu <= dernier && !pris(voulu)) ? voulu : 0;
+    // D'abord un numero dont le check n'est pas encore coche sur le serveur
+    // (partie commencee avant cette table : 8, 9, 10 deja envoyes), sinon
+    // n'importe quel numero libre (nouvelle partie d'un slot deja joue).
+    for (int c = premier; c <= dernier && !k; ++c) if (!pris(c) && !ApRefugiesDejaCoche(c)) k = c;
+    for (int c = premier; c <= dernier && !k; ++c) if (!pris(c)) k = c;
+    if (!k || g_nAttrib >= 32) {
+        printf("[GRP]   groupe de Refugees : plus aucun numero libre (%d..%d)\n", premier, dernier);
+        return 0;
+    }
+    g_attrib[g_nAttrib++] = { { id[0], id[1] }, k };
+    AttributionsSauver();
+    printf("[GRP]   groupe de Refugees %016llX%016llX : numero %d attribue\n",
+        (unsigned long long)id[1], (unsigned long long)id[0], k);
+    return k;
+}
+
 static int NumeroGroupeRefugeesCalcule(uintptr_t comp)
 {
     uintptr_t tpl = 0;
     if (!SafeRead((void*)(comp + COMP_TEMPLATE), &tpl, 8) || tpl <= 0x10000) return 0;
 
-    // 1. GUID du gabarit.
-    uint64_t q[0x200 / 8 + 1] = {};
-    if (SafeRead((void*)tpl, q, 0x200)) {
-        for (int i = 0; i < 0x200 / 8; ++i)
-            for (const GabaritRefugees& g : GABARITS_REFUGEES)
-                if (q[i] == g.q1 && q[i + 1] == g.q2) {
-                    printf("[GRP]   gabarit de Refugees (GUID a +0x%X) -> groupe %d\n", i * 8, g.numero);
-                    return g.numero;
-                }
-    }
-
-    // 2. Repli : famille par la cle du panneau.
+    // Famille par la cle du panneau du gabarit (le GUID, cherche jusqu'au
+    // 2026-11-11, n'est pas dans le gabarit en memoire : retire).
     int famille = 0;                              // 1 [OurPeople], 2 Lords
     for (int off = 0x08; off < 0x200 && !famille; off += 8) {
         uintptr_t p = 0;
@@ -835,7 +910,9 @@ static int NumeroGroupeRefugeesCalcule(uintptr_t comp)
         else if (strstr(texte, "[RefugeesScenario]Lords")) famille = 2;
     }
     if (!famille) return 0;
-    printf("[GRP]   gabarit de Refugees sans GUID connu (famille %s) : repli\n", famille == 1 ? "OurPeople" : "Lords");
+    uintptr_t entite = 0;
+    SafeRead((void*)(comp + 0x18), &entite, 8);
+    int voulu = 0;
     if (famille == 2) {
         // Ouvriers du gabarit (le contenu du composant peut deja etre vide).
         uintptr_t tab = 0;
@@ -850,14 +927,10 @@ static int NumeroGroupeRefugeesCalcule(uintptr_t comp)
                 if (memcmp(cls, CLASSE_OUVRIERS, 4) == 0) ouvriers += nb;
             }
         }
-        int k = ouvriers == 50 ? 11 : ouvriers == 60 ? 12 : ouvriers == 0 ? 13 : 0;
-        printf("[GRP]   Lords : %d ouvrier(s) -> groupe %d\n", ouvriers, k);
-        if (k) return k;
+        voulu = ouvriers == 50 ? 11 : ouvriers == 60 ? 12 : ouvriers == 0 ? 13 : 0;
+        printf("[GRP]   Lords : %d ouvrier(s) dans le gabarit -> groupe %d voulu\n", ouvriers, voulu);
     }
-    int premier = famille == 1 ? 1 : 11, dernier = famille == 1 ? 10 : 13;
-    for (int k = premier; k <= dernier; ++k)
-        if (ApRefugiesLocationExiste(k) && !ApRefugiesDejaCoche(k)) return k;
-    return premier;
+    return NumeroAttribue(entite, famille == 1 ? 1 : 11, famille == 1 ? 10 : 13, voulu);
 }
 
 int NumeroGroupeRefugees(uintptr_t comp)
@@ -942,11 +1015,17 @@ void hkGroupeArrive(uintptr_t sys, uintptr_t entite, uintptr_t p3, uintptr_t p4)
             SafeWrite((void*)(comp + COMP_CONTENU + 8), &zero, 4);
             // Groupe vide + dilemme en comp +0x80 = crash du 2026-11-10
             // (survivants secourus nuls, FUN_141697870) : dilemme retire,
-            // l'effet prend alors le dilemme de son propre lien.
+            // l'effet prend alors le dilemme de son propre lien, sans
+            // survivants. 2026-11-11 (auteur : les sites reveles par ces
+            // bulles n'apparaissaient plus, ex. White Pass par "Survivors07 -
+            // LostRefugees") : le dilemme du groupe est remis a la place de la
+            // bulle generique a sa creation (EvenementsDilemmeGroupeVide).
             uintptr_t dil = 0, nul = 0;
             if (SafeRead((void*)(comp + COMP_DILEMME_ARRIVEE), &dil, 8) && dil) {
                 SafeWrite((void*)(comp + COMP_DILEMME_ARRIVEE), &nul, 8);
-                printf("[GRP]   dilemme d'arrivee du groupe (0x%llX) retire (groupe vide)\n", (unsigned long long)dil);
+                EvenementsDilemmeGroupeVide(entite, dil);
+                printf("[GRP]   dilemme d'arrivee du groupe (0x%llX) retire de comp +0x80, cree sans survivants\n",
+                    (unsigned long long)dil);
             }
             printf("[GRP]   groupe de Refugees %d : gens retires (items AP), check envoye\n", numero);
             SendRefugeesCheck(numero);

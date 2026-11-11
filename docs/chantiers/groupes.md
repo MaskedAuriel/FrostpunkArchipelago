@@ -1054,3 +1054,44 @@ non testé.
   gens étant des items AP).
 - Compilé, déployé Epic + Steam. Non testé (à vérifier : `Survivors` est
   bien « en bonne santé » en jeu).
+
+### 2026-11-11 — Refugees : sites non révélés, numéros en double
+
+- **Constat (auteur)** : l'arrivée des groupes de réfugiés devait révéler un
+  site d'exploration (`outils\sites_apparition.tsv` : White Pass, Trail
+  Bend, Black Spire, Landing Site, par les bulles `[1][OurPeople]
+  SurvivorsNN - …`), mais il n'apparaît pas.
+- **Journal de l'auteur (build de release, Steam\mods\logs)** : à l'arrivée
+  de `RefugeeScenarioSurvivors01*3704`, `dilemme d'arrivee du groupe
+  (0x…) retire (groupe vide)`, puis `S: Survivors - universal` crée la
+  bulle générique `[Beacon]S: Survivors group`. Le dilemme du groupe
+  (`comp +0x80`) portait la révélation du site ; il était retiré pour
+  éviter le crash du groupe vide (2026-11-10).
+- **Correctif 1** (evenements.cpp) : `EvenementsDilemmeGroupeVide(entité,
+  dilemme)` note le dilemme retiré ; `hkCreerDilemme`, pendant `S:
+  Survivors - universal` de cette entité (`g_entiteEvtEnCours`, posée par
+  `hkInvoquerEvenement`), crée ce dilemme à la place de la bulle générique,
+  avec `p4 = 0` (branche sans survivants du jeu, pas de crash). Une fois par
+  entité. Journal `[DIL] groupe du jeu vide : "…" remplace par son dilemme
+  d'arrivee "…" (sans survivants)`.
+- **Même journal, autre bug** : `gabarit de Refugees sans GUID connu`
+  partout (le GUID du gabarit de composant n'est pas dans l'objet en
+  mémoire) ; le repli « premier numéro pas encore coché » a donné **8 à
+  deux groupes** (01 et 02, affichés avant leur arrivée), puis 9 deux fois.
+  Les groupes [OurPeople] sont les gabarits composés
+  `SurvivorGroups/Refugees/RefugeeScenarioSurvivorsNN` (01 à 05 vus) ; le
+  hash d'index de `templates.dat` n'est pas le MurmurHash2 du chemin (essai
+  hors jeu), donc pas de lien NN → composition hors jeu.
+- **Correctif 2** (groupes.cpp, `NumeroAttribue`) : numéro par **entité**
+  (identifiant 128 bits `entité +0x18/+0x20`, sauvegardé par le jeu), plus
+  petit numéro libre de la famille dans la partie (Lords : 11/12/13 d'après
+  les ouvriers du gabarit s'il est libre), fichier
+  `mods\ap_refugies_<GameId>.txt`. Les items n'étant liés à aucun groupe,
+  seul compte un numéro distinct et stable. Recherche du GUID retirée
+  (`GABARITS_REFUGEES` gardée comme documentation). Journal `[GRP] groupe de
+  Refugees <id> : numero K attribue`.
+- Partie en cours de l'auteur : checks 8, 9, 10 déjà envoyés. Choix du
+  numéro : d'abord un numéro libre dont le check **n'est pas encore coché**
+  sur le serveur, sinon n'importe quel numéro libre (nouvelle partie d'un
+  slot déjà joué) : les groupes restants prendront 1 à 7.
+- Compilé, déployé Epic + Steam (10:42). Non testé.

@@ -20,6 +20,9 @@ static int g_sinceBonus = 0;
 
 static void TechSauver();   // sauvegarde locale (plus bas)
 
+volatile long g_versionTechnos = 0;
+static volatile long g_rafraichirArbre = 0;   // demande du thread du mod (TechPersistanceTick)
+
 static const char* NameOfHash(uint64_t hash)
 {
     const TechInfo* t = TechByHash(hash);
@@ -65,6 +68,7 @@ void OnResearchComplete(uint64_t hash)
     if (!r) return;
     bool dejaEnvoye = r->researched;
     r->researched = true;
+    InterlockedIncrement(&g_versionTechnos);
     SyncGameState(r);          // received ? 2 : 0 -> une techno recue RESTE a 2
     printf("[AP] recherche terminee : %s (recu=%d) -> etat %d%s\n",
            NameOfHash(hash), r->received, r->received ? 2 : 0,
@@ -88,6 +92,7 @@ void OnItemReceived(uint64_t hash)
     TechRuntime* r = RT_Get(hash);
     if (!r) return;
     r->received = true;
+    InterlockedIncrement(&g_versionTechnos);
     if (!r->researched && TechAppliquerEffets(hash)) {
         printf("[AP] techno %s recue : effets appliques\n", NameOfHash(hash));
         return;
@@ -288,10 +293,31 @@ void TechPersistanceTick()
     g_partieTechnos[0] = g_run.gameId[0];
     g_partieTechnos[1] = g_run.gameId[1];
     g_technosPretes = true;
+    // Bug du 2026-11-11 (auteur) : apres un rechargement, une techno deja
+    // recherchee (pas recue) s'affichait recherchee mais ne debloquait pas ses
+    // enfants : l'arbre evalue ses noeuds au chargement, avant cette
+    // relecture (runtime encore vide), et ne les reevalue plus. Le cache des
+    // technos elevees est invalide et l'arbre rafraichi sur le thread du jeu.
+    InterlockedIncrement(&g_versionTechnos);
+    InterlockedExchange(&g_rafraichirArbre, 1);
     printf("[TECH] partie %016llX%016llX (generation %u) : %s, %d techno(s) reappliquee(s)\n",
         (unsigned long long)g_run.gameId[1], (unsigned long long)g_run.gameId[0], gen,
         n < 0 ? "identifiant de partie absent" : n == 0 ? "aucune sauvegarde locale (nouvelle partie)" : "sauvegarde locale relue",
         appliquees);
+}
+
+void TechPompe()
+{
+    if (!g_rafraichirArbre || !PartiePrete()) return;
+    InterlockedExchange(&g_rafraichirArbre, 0);
+    int recherchees = 0;
+    for (int i = 0; i < RT_Count(); ++i) {
+        TechRuntime* r = RT_At(i);
+        if (r && r->researched && !r->received && TechEstUnCheck(r->hash)) ++recherchees;
+    }
+    printf("[TECH] sauvegarde locale relue : rafraichissement de l'arbre des technos "
+           "(%d techno(s) recherchee(s) non recue(s), comptees pour les prerequis)\n", recherchees);
+    IconesTechnoRafraichirArbre();
 }
 
 int TechProgressivesRecues(int tree, const uint64_t gid[2])

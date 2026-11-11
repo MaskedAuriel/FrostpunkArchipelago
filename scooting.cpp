@@ -311,6 +311,29 @@ static void SurveillerSites()
         // Food restait bloquee sur le site, quete 007 jamais finie).
         bool coche = p && ApSiteDejaCoche(p->site);
 
+        // Site deja coche mais PAS encore explore (2026-11-11, demande de
+        // l'auteur : re-exploration dans une sauvegarde anterieure, les
+        // ressources de base vanilla etaient ramenees en double, l'item du
+        // site etant deja dans le multiworld) : tout son contenu est vide
+        // (ressources +0x48, bonus, technologies, artefacts, survivants). Un
+        // site deja explore n'est pas touche (New Manchester, depot des
+        // expeditions de secours de The Arks).
+        int32_t etatSite = -1;
+        if (coche && SafeRead((void*)(g_sites[i].comp + 0x34), &etatSite, 4) && etatSite == 0) {
+            static const struct { int off; const char* quoi; } TOUT[] = {
+                { 0x48, "ressources" },  { 0x60, "ressources bonus" }, { 0x78, "technologies" },
+                { 0x90, "artefacts" },   { 0xA8, "survivants" },
+            };
+            for (const auto& r : TOUT) {
+                uintptr_t tab = 0; uint32_t n = 0, zero = 0;
+                if (!SafeRead((void*)(g_sites[i].comp + r.off), &tab, 8) ||
+                    !SafeRead((void*)(g_sites[i].comp + r.off + 8), &n, 4) || n == 0) continue;
+                SafeWrite((void*)(g_sites[i].comp + r.off + 8), &zero, 4);
+                printf("[SITE] %s (deja coche, non explore) : %s retire(s) (%u entree(s))\n",
+                    g_sites[i].nom, r.quoi, n);
+            }
+        }
+
         // --- contenu : le jeu cree le tableau Resources a la generation du
         //     site, donc apres notre init. On le corrige des qu'il apparait,
         //     et le test sur la definition fait que l'ecriture n'a lieu

@@ -323,6 +323,7 @@ void ReleverEvenement(uintptr_t entree)
 // Nom de l'evenement en cours d'execution (thread du jeu), pour les journaux
 // d'autres modules (ex. quete demarree par un evenement, quetes.cpp).
 char g_nomEvtEnCours[128] = "";
+extern uintptr_t g_entiteEvtEnCours;   // definie avec hkCreerDilemme (groupes du jeu vides)
 
 uintptr_t g_sysEvenements = 0;   // systeme des evenements, vu au dernier appel
 
@@ -386,7 +387,10 @@ void hkInvoquerEvenement(uintptr_t sys, uintptr_t entree, uintptr_t contexte, ui
     char nomAvant[128];
     strcpy_s(nomAvant, g_nomEvtEnCours);
     strcpy_s(g_nomEvtEnCours, nom);
+    uintptr_t entiteAvant = g_entiteEvtEnCours;
+    g_entiteEvtEnCours = entite;          // groupes du jeu vides (hkCreerDilemme)
     g_origInvoquer(sys, entree, contexte, forcer);
+    g_entiteEvtEnCours = entiteAvant;
     strcpy_s(g_nomEvtEnCours, nomAvant);
     g_suivieEnCours = avant;
 }
@@ -412,6 +416,29 @@ bool EvenementsCriseCharbonDejaForcee(const char* nomDilemme);   // plus bas
 
 // Hook de FUN_1417cde10(systeme des dilemmes, dilemme, contexte, p4) =
 // creer un dilemme (bulle). Renvoie l'identifiant du dilemme ou -1.
+// Groupes DU JEU vides par le mod (2026-11-11, The Refugees : [OurPeople],
+// Lords ; leurs gens sont des items AP). Leur dilemme d'arrivee (comp +0x80,
+// ex. "[1][OurPeople] S: Survivors07 - LostRefugees", qui revele White Pass)
+// est retire par hkGroupeArrive : avec un groupe vide, le jeu plante en
+// lisant les survivants secourus (crash du 2026-11-10). L'effet prend alors
+// le dilemme de son lien ("[Beacon]S: Survivors group") par la branche SANS
+// survivants (p4 = 0) ; on remet ici le dilemme du groupe a sa place, pour
+// l'evenement "S: Survivors - universal" de cette entite (une fois).
+static const int MAX_GROUPES_VIDES = 16;
+static uintptr_t g_videsEntite[MAX_GROUPES_VIDES] = {}, g_videsDilemme[MAX_GROUPES_VIDES] = {};
+static int g_prochainVide = 0;
+uintptr_t g_entiteEvtEnCours = 0;   // entite du contexte de l'evenement en cours (thread du jeu)
+
+void EvenementsDilemmeGroupeVide(uintptr_t entite, uintptr_t dilemme)
+{
+    if (!entite || !dilemme) return;
+    for (int k = 0; k < MAX_GROUPES_VIDES; ++k)
+        if (g_videsEntite[k] == entite) { g_videsDilemme[k] = dilemme; return; }
+    g_videsEntite[g_prochainVide] = entite;
+    g_videsDilemme[g_prochainVide] = dilemme;
+    g_prochainVide = (g_prochainVide + 1) % MAX_GROUPES_VIDES;
+}
+
 uintptr_t hkCreerDilemme(uintptr_t sys, uintptr_t dilemme, uintptr_t contexte, uintptr_t p4)
 {
     char nom[128] = "?", titre[128] = "";
@@ -420,6 +447,22 @@ uintptr_t hkCreerDilemme(uintptr_t sys, uintptr_t dilemme, uintptr_t contexte, u
     uintptr_t remplace = 0;
     int i = g_suivieEnCours;
     if (i >= 0 && i < g_nSuivies && g_remplOrig[i] && g_remplOrig[i] == dilemme) remplace = g_remplNouveau[i];
+    // Groupe du jeu vide : son propre dilemme d'arrivee (voir plus haut).
+    if (!remplace && g_entiteEvtEnCours && strcmp(g_nomEvtEnCours, "S: Survivors - universal") == 0) {
+        for (int k = 0; k < MAX_GROUPES_VIDES; ++k)
+            if (g_videsEntite[k] == g_entiteEvtEnCours && g_videsDilemme[k]) {
+                uintptr_t d = g_videsDilemme[k];
+                g_videsEntite[k] = g_videsDilemme[k] = 0;
+                char nomD[128] = "?";
+                uintptr_t pd = 0;
+                if (SafeRead((void*)d, &pd, 8)) TexteDe(pd, nomD, sizeof(nomD));
+                printf("[DIL] groupe du jeu vide : \"%s\" remplace par son dilemme d'arrivee \"%s\" (sans survivants)\n",
+                    nom, nomD);
+                uintptr_t r = g_origCreerDilemme(sys, d, contexte, 0);
+                printf("[DIL]   -> %lld\n", (long long)(int32_t)r);
+                return r;
+            }
+    }
     uintptr_t cree = remplace ? remplace : dilemme;
     if (SafeRead((void*)(cree + DIL_TITRE), &p, 8)) TexteDe(p, titre, sizeof(titre));
     printf("[DIL] creation du dilemme \"%s\" 0x%llX%s%llX, titre \"%s\" (evenement d'un groupe AP : %s)\n",

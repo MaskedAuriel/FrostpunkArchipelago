@@ -13,6 +13,7 @@
 #include "dilemmes_exploration.h"   // DilemmesExplorationPompe
 #include "victoire.h"     // VictoirePompe (fin de partie de test, Maj / Ctrl + F9)
 #include "archipelago.h"  // ApItemsPompe (items recus, par scenario)
+#include "tech_brain.h"   // TechPompe (arbre rafraichi apres rechargement)
 
 volatile bool g_traceRes = false;
 
@@ -374,6 +375,7 @@ static int32_t hkModifyResource(uintptr_t self, uintptr_t guidPtr,
             LoisAPPompe();
             TemperaturePompe();
             ApItemsPompe();          // apres LoisAPPompe / TemperaturePompe (parties relues)
+            TechPompe();             // arbre rafraichi apres relecture des technos (rechargement)
             QuetesPompe();
             DilemmesExplorationPompe();   // apres QuetesPompe : le releve voit les choix d'origine
             VictoirePompe();

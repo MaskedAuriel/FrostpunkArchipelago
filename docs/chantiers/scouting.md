@@ -147,3 +147,22 @@ lancé).
 `[EVT] GROUPE AP` liste des événements `[NM] ManchesterSurvivor`,
 `[NM] SpawnQuest`, « Some Question Helping NM - CTA » invoqués avec le
 groupe pour contexte (gabarit `SurvivorsFromExpeditionSite`).
+
+## 2026-11-11 — Site déjà coché, re-exploré dans une sauvegarde antérieure
+
+- **Test de l'auteur** : un site exploré dans une partie, re-exploré
+  après le chargement d'une sauvegarde antérieure, a rendu ses ressources
+  de base vanilla au lieu de rien.
+- **Cause** : depuis le correctif New Manchester du 2026-11-10,
+  `SurveillerSites` ne touche plus le contenu d'un site dont la location
+  est déjà cochée sur le serveur (`ApSiteDejaCoche`) : ni substitution par
+  l'item AP, ni retrait du reste. Le site non encore exploré de la vieille
+  sauvegarde gardait donc tout son contenu vanilla, en double avec l'item
+  du site déjà dans le multiworld.
+- **Correctif** (scooting.cpp) : site déjà coché **et** pas encore exploré
+  (`State +0x34` à 0) → comptes mis à 0 pour les ressources (`+0x48`),
+  ressources bonus, technologies, artefacts et survivants ; journal
+  `[SITE] <site> (deja coche, non explore) : <quoi> retire(s)`. Un site
+  déjà exploré n'est toujours pas touché (New Manchester reste un dépôt).
+- Compilé, déployé Epic + Steam (10:42, remplace la DLL déployée à 10:04
+  sur Steam). Non testé.

@@ -1057,3 +1057,40 @@ réponse du jeu change : réponse, technos élevées, parent recherché / reçu
   (`RT_Get(hash)->received`) garde l'état 2. Journal `[AP] <techno> recue
   pendant l'evaluation : etat 2 garde`. Le rafraîchissement de l'arbre à la
   réception reste en place. Compilé et déployé (Epic + Steam), non testé.
+
+### 2026-11-11 — Rechargement : techno recherchée qui ne débloque plus
+
+- **Constat (auteur)** : après le chargement d'une partie où une techno a
+  déjà été recherchée (pas reçue), elle s'affiche recherchée, mais ne
+  compte pas pour les prérequis des autres.
+- **Aucun journal du cas** (celui de la partie en cours, build de release
+  dans `Steam\mods\logs`, n'a pas de rechargement après une recherche) :
+  cause **présumée**. L'état runtime (`researched`) est relu par
+  `TechPersistanceTick`, dans le tick d'une seconde du mod, après
+  `RT_Reset` ; les nœuds de l'arbre évalués avant (ou avec le cache de 500
+  ms de `EleverRecherchees` calculé sur le runtime vide) ne sont pas
+  élevés, puis jamais réévalués (même mécanisme que « débloqué au
+  rechargement » du 2026-11-10, en sens inverse). Le texte, lu au survol,
+  dit bien « recherchée ».
+- **Correctif** :
+  - `g_versionTechnos` (tech_brain.h) incrémentée à la relecture, à chaque
+    recherche terminée et à chaque réception ; `EleverRecherchees` recalcule
+    son cache dès qu'elle change (en plus des 500 ms).
+  - `TechPersistanceTick` (thread du mod) demande un rafraîchissement ;
+    `TechPompe` (thread du jeu, pompe du setter après `ApItemsPompe`) appelle
+    `IconesTechnoRafraichirArbre` (chaque nœud par `FUN_141bca5a0`, via
+    `hkRafraichirNoeud` = élévation). Journal `[TECH] sauvegarde locale
+    relue : rafraichissement de l'arbre des technos (N techno(s)
+    recherchee(s) non recue(s) ...)`, puis `[ICON] arbre rafraichi ...`.
+- Compilé, déployé Epic + Steam (10:42). Non testé. Si le problème reste :
+  journal `[TECHUI]` du nœud enfant après le rechargement.
+- **Exemple de l'auteur, même jour** : Generator Efficiency Upgrade
+  (`Generator Upgrade - less coal`) non recherchable alors que Generator
+  Power Upgrade (`Generator Upgrade - power 1`, `A55C1E23258CB056`) porte
+  le logo vert. Ce n'était pas ce bug : le logo vert (`icon_done`,
+  `ApIconeDuCheck`) signale une location **cochée sur le serveur** (ici dans
+  une partie précédente du slot) ; dans la partie en cours, power 1 n'a
+  jamais été recherchée (absente de `ap_technos_<GameId>.txt`, état 0).
+  **Décision de l'auteur** : un check déjà fait sur le serveur ne compte
+  **pas** comme recherché pour les prérequis ; seul l'état de la partie
+  compte. Rien changé.

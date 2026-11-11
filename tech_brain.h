@@ -50,6 +50,18 @@ int  ArbreProgressifAuHasard();   // -1 si tous les arbres sont epuises
 // relit et reapplique l'etat a chaque nouvelle partie.
 void TechPersistanceTick();
 
+// Version de l'etat runtime des technos (2026-11-11) : incrementee a chaque
+// changement (partie relue, recherche terminee, item recu). Le cache des
+// technos "recherchees non recues" (hooks_research.cpp) se recalcule quand
+// elle change.
+extern volatile long g_versionTechnos;
+
+// Thread du jeu (pompe du setter de ressources, apres ApItemsPompe) : apres
+// la relecture de la sauvegarde locale (TechPersistanceTick, thread du mod),
+// rafraichit les noeuds de l'arbre deja construit (prerequis recalcules avec
+// les technos recherchees).
+void TechPompe();
+
 // Progressives deja recues par l'arbre 'tree' dans la partie 'gid' (GameId).
 // -1 si la sauvegarde locale de cette partie n'est pas encore relue.
 int TechProgressivesRecues(int tree, const uint64_t gid[2]);

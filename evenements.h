@@ -88,6 +88,11 @@ void DilemmesResoudreEnAttente();
 // des effets des evenements des groupes (Lords, [OurPeople], premiers
 // refugies). Thread du jeu (DilemmesPompe). Vide en AP_RELEASE.
 void EvenementsReleveGroupesRefugies();
+// Groupe du jeu vide par le mod (2026-11-11) : son dilemme d'arrivee, retire
+// de comp +0x80 (crash avec un groupe vide), est cree a la place de la bulle
+// generique de "S: Survivors - universal" pour cette entite, sans survivants.
+// Thread du jeu.
+void EvenementsDilemmeGroupeVide(uintptr_t entite, uintptr_t dilemme);
 
 // Une bulle de la porte des refugies a-t-elle ete creee (depuis la derniere
 // remise a zero) ?

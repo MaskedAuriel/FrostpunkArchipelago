@@ -89,8 +89,13 @@ static int EleverRecherchees(uintptr_t self, uintptr_t cible, uintptr_t* elevees
     static uintptr_t cache[MAX_ELEVEES];
     static int nCache = 0;
     static DWORD prochain = 0;
-    if (GetTickCount() >= prochain) {
+    static long versionVue = -1;
+    // Recalcul toutes les 500 ms, et aussitot que l'etat runtime change
+    // (2026-11-11 : apres la relecture de la sauvegarde locale, le cache
+    // calcule avec un runtime vide privait l'arbre de toute elevation).
+    if (GetTickCount() >= prochain || versionVue != g_versionTechnos) {
         prochain = GetTickCount() + 500;
+        versionVue = g_versionTechnos;
         nCache = 0;
         for (int i = 0; i < RT_Count() && nCache < MAX_ELEVEES; ++i) {
             TechRuntime* r = RT_At(i);
