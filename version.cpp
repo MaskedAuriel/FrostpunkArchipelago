@@ -141,8 +141,14 @@ static void DupliquerConsoleVersJournal()
 	// Mode AJOUT (FILE_APPEND_DATA) : le relais du tube et JournalImmediat
 	// ecrivent dans le meme fichier depuis deux threads. Sans ce mode, ils
 	// partagent une position d'ecriture et peuvent s'ecraser (une ligne
-	// immediate a disparu ainsi le 2026-10-27). L'ancien journal est efface.
-	DeleteFileW(JOURNAL_FICHIER);
+	// immediate a disparu ainsi le 2026-10-27).
+	// 2026-11-11 (demande de l'auteur : le journal d'une session Refugees a ete
+	// ecrase au redemarrage du jeu) : l'ancien journal est garde sous
+	// console_precedent.log (un seul niveau), au lieu d'etre efface.
+	wchar_t precedent[MAX_PATH];
+	swprintf_s(precedent, MAX_PATH, L"%s\\console_precedent.log", JOURNAL_DOSSIER);
+	if (!MoveFileExW(JOURNAL_FICHIER, precedent, MOVEFILE_REPLACE_EXISTING))
+		DeleteFileW(JOURNAL_FICHIER);
 	g_journal = CreateFileW(JOURNAL_FICHIER, FILE_APPEND_DATA | SYNCHRONIZE, FILE_SHARE_READ, NULL,
 		OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	DWORD erreurJournal = GetLastError();

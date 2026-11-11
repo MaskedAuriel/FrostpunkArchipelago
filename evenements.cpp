@@ -393,6 +393,18 @@ void hkInvoquerEvenement(uintptr_t sys, uintptr_t entree, uintptr_t contexte, ui
     g_entiteEvtEnCours = entiteAvant;
     strcpy_s(g_nomEvtEnCours, nomAvant);
     g_suivieEnCours = avant;
+    // The Refugees (2026-11-11, auteur : check de "Face The Lords" jamais
+    // parti, la quete se terminant apres les Lords 3 ; journal perdu) : filet,
+    // le check de 003 part quand le jeu invoque l'evenement qui la clot (il
+    // lance aussi 004a / 004b). Sans effet si deja coche.
+    if (strcmp(nom, "[Lords] Face the Lords - finish quest") == 0) {
+        static const char* const QUETE_003 = "[Refugees] 003 FACE THE LORDS";
+        const char* scn = ScenarioVictoryId();
+        if (scn && _stricmp(scn, "REFUGEES") == 0 && ApQueteLocation(QUETE_003) && !ApQueteDejaCochee(QUETE_003)) {
+            printf("[EVT] \"%s\" : check de la quete 003 envoye (filet)\n", nom);
+            SendQuestCheck(QUETE_003, "Face The Lords");
+        }
+    }
 }
 
 void SauverBulleGroupe(int id, uintptr_t copie);   // sauvegarde AP des bulles (plus bas)
@@ -489,6 +501,24 @@ uintptr_t hkCreerDilemme(uintptr_t sys, uintptr_t dilemme, uintptr_t contexte, u
         if (k >= 1 && k <= 3) SendRefugeesCheck(k);
         g_bullePorteCreee = true;
         if (g_nAResoudre < 8) g_aResoudre[g_nAResoudre++] = (int32_t)r;
+    }
+    // The Refugees (2026-11-11, auteur : "Lords Arrival 3" jamais envoye alors
+    // que les Lords 3 sont arrives ; journal perdu) : filet, le check du groupe
+    // de Lords part aussi a la creation de sa bulle d'arrivee. Sans effet si
+    // hkGroupeArrive l'a deja envoye (location deja cochee).
+    {
+        static const struct { const char* dilemme; int groupe; } BULLES_LORDS[] = {
+            { "[3a][Lords] E: Lords01 - HUNGER", 11 },
+            { "[3b][Lords] E: Lords02 - SICK",   12 },
+            { "[3c][Lords] E: Lords03 - CRAVEN", 13 },
+        };
+        const char* scn = ScenarioVictoryId();
+        if ((int32_t)r >= 0 && scn && _stricmp(scn, "REFUGEES") == 0)
+            for (const auto& b : BULLES_LORDS)
+                if (strcmp(nom, b.dilemme) == 0 && ApRefugiesLocationExiste(b.groupe) && !ApRefugiesDejaCoche(b.groupe)) {
+                    printf("[DIL] bulle \"%s\" : check du groupe de Lords %d envoye (filet)\n", nom, b.groupe);
+                    SendRefugeesCheck(b.groupe);
+                }
     }
     // Bulle d'arrivee d'un groupe AP : la sauvegarde du jeu la relirait comme
     // l'original (meme GUID) ; on garde ses textes dans notre sauvegarde.

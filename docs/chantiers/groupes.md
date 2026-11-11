@@ -1094,4 +1094,26 @@ non testé.
   numéro : d'abord un numéro libre dont le check **n'est pas encore coché**
   sur le serveur, sinon n'importe quel numéro libre (nouvelle partie d'un
   slot déjà joué) : les groupes restants prendront 1 à 7.
+
+### 2026-11-11 — Fin de session Refugees : Lords 3 et Face The Lords
+
+- **Bilan de la session** (`checks.txt` de `ap_43545499103441807670_1`) :
+  92 / 167 locations ; arrivées 1 à 12 cochées, **Lords Arrival 3 non**
+  alors que les Lords 3 sont arrivés (auteur) ; quête **Face The Lords**
+  non cochée, alors qu'elle se termine après les Lords 3 et que 004
+  (« Resolve The Class Conflict ») l'est. Le numéro 13 a bien été attribué
+  (`ap_refugies_67D427B6…txt`, 12:40, à l'affichage) : le mod n'a donc pas vu
+  l'arrivée classique (`hkGroupeArrive`) de ce groupe. **Journal perdu**
+  (écrasé au redémarrage du jeu à 12:57) : cause non confirmée.
+- **Filets** (evenements.cpp, sans effet si déjà coché) :
+  - `hkCreerDilemme` : création de `[3a][Lords] E: Lords01 - HUNGER`,
+    `[3b][Lords] E: Lords02 - SICK`, `[3c][Lords] E: Lords03 - CRAVEN` →
+    `SendRefugeesCheck(11 / 12 / 13)` ; journal `[DIL] bulle "…" : check du
+    groupe de Lords K envoye (filet)`.
+  - `hkInvoquerEvenement` : après `[Lords] Face the Lords - finish quest`
+    (lance 004a / 004b), `SendQuestCheck("[Refugees] 003 FACE THE LORDS")`
+    si la location n'est pas cochée ; journal `[EVT] "…" : check de la
+    quete 003 envoye (filet)`.
+- Compilé ; pas déployé (jeu relancé à 12:57). Non testé. Les deux checks
+  manquants de cette session ne partiront qu'en rejouant ce passage.
 - Compilé, déployé Epic + Steam (10:42). Non testé.
