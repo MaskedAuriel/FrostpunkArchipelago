@@ -464,8 +464,9 @@ int DifficulteCible()
 
 // TEMPORAIRE (2026-11-10, demande de l'auteur) : tous les scenarios
 // debloques, le temps du releve des dilemmes d'exploration dans chaque
-// scenario ([DILTAB] / [SCONT]). Remettre a false ensuite.
-static const bool TOUS_DEBLOQUES_TEMPORAIRE = true;
+// scenario ([DILTAB] / [SCONT]). Remis a false pour la release 0.3
+// (2026-11-11, accord de l'auteur).
+static const bool TOUS_DEBLOQUES_TEMPORAIRE = false;
 
 bool ScenarioDebloque(const char* nomInterne)
 {
