@@ -526,3 +526,25 @@ retenu (survivants escortés, ressources) ; choix désactivé par une condition
 du jeu (si le choix retenu a des exigences non remplies, seule l'expiration
 resterait). Le relevé `[DILTAB]`/`[SCONT]` d'une partie suivante du même
 scénario montre déjà le choix unique (définitions modifiées).
+
+---
+
+## 2026-11-11 — Jamais « Dismantle outpost »
+
+- **Test de l'auteur (Refugees)** : le choix forcé détruit les sites où
+  l'on peut construire un avant-poste d'expédition, ex. Coal Mine (choix 2 :
+  Retrieve both resources **+ Dismantle outpost**).
+- **Règle ajoutée** : un choix portant la tâche 13 « Dismantle outpost »
+  n'est jamais forcé, même s'il rapporte plus.
+- `CHOIX_FORCES` : choix 2 → **1** (« Retrieve base resources », site
+  intact) pour `[Frostland] 015 Coal Mine` (A New Home et Refugees, même
+  définition), `[Frostland] 018 Fishermen Village` (A New Home) et
+  `[Outpost] Fishermen Village` (Refugees). Autres dilemmes avec cette
+  tâche : Tesla City choix 2 (non retenu) ; Winterhome `[lore03] Steel
+  Bridge` choix 1 retenu, effets `AbandonOutpost` / `DismantleOutpost`
+  sous un `Select` + `UnlockCheck` (non décodé) : **choix 1 gardé**
+  (décision de l'auteur, 2026-11-11).
+- Un site déjà démantelé dans une sauvegarde le reste ; une bulle en
+  attente relit la définition (nouveau choix).
+- Compilé, déployé Epic + Steam (avec l'item AP des groupes de Refugees,
+  groupes.md). Non testé.

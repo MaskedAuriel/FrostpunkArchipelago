@@ -150,6 +150,37 @@ REFUGIES = {
         [("workers", 42), ("children", 28)],
         [("workers", 38), ("engineers", 22)],
     ]},
+    # The Refugees (demande de l'auteur du 2026-11-10) : chaque groupe qui
+    # arrive en ville envoie un check, ses gens deviennent un item du pool.
+    # Compositions lues dans templates.dat (FrostpunkSurvivorGroupComponent-
+    # Template des CreateWorldMapEntityEffect de "[OurPeople] U: Refugees
+    # spawn", "U: FirstRefugees - Survivors01", "[Lords] U: Lords0K spawn",
+    # releve [REFGRP] du 2026-11-10). Numeros globaux : [OurPeople] 1..10
+    # (le mod les compte dans l'ordre d'arrivee), Lords 11..13 (Lords01,
+    # Lords02, Lords03, reconnus par leur composition).
+    # Regions (decision de l'auteur, 2026-11-10) : [OurPeople] 1..5 en Start,
+    # 6..10 apres 001 SAVE YOUR PEOPLE, Lords apres 003 FACE THE LORDS.
+    # "region" : un nombre pour toute la famille, ou une liste par groupe.
+    "REFUGEES": {"familles": [
+        {"loc": "Our People Arrival %d", "item": "Our People (Group %d)",
+         "region": [0, 0, 0, 0, 0, 1, 1, 1, 1, 1], "groupes": [
+            [("workers", 10), ("children", 20)],       # premiers refugies (FirstRefugees)
+            [("workers", 15)],                         # RefugeeScenarioSurvivors01
+            [("engineers", 10)],                       # RefugeeScenarioSurvivors02
+            [("engineers", 10), ("children", 10)],
+            [("workers", 15)],
+            [("workers", 15)],
+            [("workers", 20), ("children", 20)],
+            [("engineers", 10), ("workers", 10)],
+            [("workers", 15)],
+            [("workers", 15)],
+        ]},
+        {"loc": "Lords Arrival %d", "item": "Lords (Group %d)", "region": 2, "groupes": [
+            [("workers", 50), ("children", 35), ("engineers", 15)],   # Lords01
+            [("workers", 60), ("children", 35), ("engineers", 5)],    # Lords02
+            [("engineers", 30), ("children", 70)],                    # Lords03
+        ]},
+    ]},
 }
 
 # Noms des checks de quete trop vagues avec le seul nom affiche du jeu
@@ -577,15 +608,21 @@ def main():
         # --- Refugies (arrivees a la porte) --------------------------------
         if scn in REFUGIES:
             ref = REFUGIES[scn]
-            for k, contenu in enumerate(ref["groupes"], 1):
-                nom = unique("%s - Refugees Arrival %d" % (affiche, k), noms_loc)
-                locations.append(dict(id=ids("loc_refugies", "%s|%d" % (scn, k)), nom=nom, scn=scn,
-                                      region=ref["region"], genre="refugies", tiers=0, eclaireurs=False,
-                                      exclue_option=False, cle=str(k)))
-                nomItem = unique("%s - Refugees (Group %d)" % (affiche, k), noms_item)
-                items.append(dict(id=ids("item_site", "%s|refugies_%d" % (scn, k)), nom=nomItem, scn=scn,
-                                  genre="site", classe="useful", nombre=1, cle="refugies_%d" % k,
-                                  ressources=list(contenu)))
+            familles = ref.get("familles") or [{"loc": "Refugees Arrival %d", "item": "Refugees (Group %d)",
+                                                "region": ref["region"], "groupes": ref["groupes"]}]
+            k = 0                           # numero global (cle et ids)
+            for fam in familles:
+                for j, contenu in enumerate(fam["groupes"], 1):
+                    k += 1
+                    region = fam["region"][j - 1] if isinstance(fam["region"], list) else fam["region"]
+                    nom = unique("%s - %s" % (affiche, fam["loc"] % j), noms_loc)
+                    locations.append(dict(id=ids("loc_refugies", "%s|%d" % (scn, k)), nom=nom, scn=scn,
+                                          region=region, genre="refugies", tiers=0, eclaireurs=False,
+                                          exclue_option=False, cle=str(k)))
+                    nomItem = unique("%s - %s" % (affiche, fam["item"] % j), noms_item)
+                    items.append(dict(id=ids("item_site", "%s|refugies_%d" % (scn, k)), nom=nomItem, scn=scn,
+                                      genre="site", classe="useful", nombre=1, cle="refugies_%d" % k,
+                                      ressources=list(contenu)))
 
         # --- Temperature ----------------------------------------------------
         # Plus de LOCATIONS de montee (decision de l'auteur, 2026-11-04 : la

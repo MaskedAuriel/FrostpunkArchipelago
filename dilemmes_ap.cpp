@@ -107,6 +107,7 @@ bool DilemmeAPDemander(const char* id, const char* expediteur)
 void DilemmesPompe()
 {
     if (PartiePrete()) DilemmesResoudreEnAttente();   // porte des refugies (evenements.cpp)
+    EvenementsReleveGroupesRefugies();                  // releve [REFGRP], une fois par partie de Refugees
     if (g_nFile <= 0 || !PartiePrete()) return;
     DemandeDilemme aCreer[TAILLE_FILE];
     AcquireSRWLockExclusive(&g_verrouFile);

@@ -354,15 +354,18 @@ static void JournalDescTechno(const char* k, uint64_t th, int slot)
         (slot != 0 && !g_showApInfo) ? " (g_showApInfo faux : description vanilla)" : "");
 }
 
-// Objet de traduction de l'item AP d'un groupe de refugies (vague 1..3) :
-// nom du check porte ("Refugees Arrival k", scout du serveur), chaine propre
-// au groupe (l'infobulle garde la chaine) ; 0 si vague hors 1..3 (2026-11-10).
+// Objet de traduction de l'item AP d'un groupe de refugies : nom du check
+// porte (scout du serveur, sinon nom de la location), chaine propre au groupe
+// (l'infobulle garde la chaine) ; 0 si 'vague' hors 1..13 (2026-11-10).
+// A New Home : vagues 1..3 ("Refugees Arrival k") ; The Refugees : 1..10
+// [OurPeople], 11..13 Lords. Location cherchee par sa cle dans le scenario
+// courant (ApNomDuCheckRefugies).
 wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot);
 static uintptr_t ApLocRefugies(int vague)
 {
-    if (vague < 1 || vague > 3 || !g_apLocPret || !g_modeleChars) return 0;
+    if (vague < 1 || vague > 13 || !g_apLocPret || !g_modeleChars) return 0;
     char nom[200];
-    if (!ApNomDuCheckLocation(7747600000LL + vague, nom, sizeof(nom)))
+    if (!ApNomDuCheckRefugies(vague, nom, sizeof(nom)))
         _snprintf_s(nom, sizeof(nom), _TRUNCATE, "Refugees Arrival %d", vague);
     static wchar_t large[256];
     int j = 0;
@@ -726,7 +729,7 @@ void DumpClesDilemme(const char* k, uintptr_t ret)
 }
 
 
-static const int AP_SLOTS = 4 + 16 + 3;   // 0..3 usages fixes, 4..19 item AP par expedition, 20..22 refugies (2026-11-10)
+static const int AP_SLOTS = 4 + 16 + 13;  // 0..3 usages fixes, 4..19 item AP par expedition, 20..32 refugies (2026-11-10 ; 13 groupes de The Refugees)
 
 wchar_t* ApChaine(const wchar_t* texte, uintptr_t modele, int slot)
 {

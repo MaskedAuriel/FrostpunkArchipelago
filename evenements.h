@@ -84,6 +84,10 @@ void EvenementsArriveeConvoiAP(bool enCours);
 // Resout (choix 0) les bulles de la porte des refugies en attente. Thread du
 // jeu, appele par DilemmesPompe.
 void DilemmesResoudreEnAttente();
+// Releve [REFGRP] (2026-11-10) : une fois par partie de The Refugees, arbre
+// des effets des evenements des groupes (Lords, [OurPeople], premiers
+// refugies). Thread du jeu (DilemmesPompe). Vide en AP_RELEASE.
+void EvenementsReleveGroupesRefugies();
 
 // Une bulle de la porte des refugies a-t-elle ete creee (depuis la derniere
 // remise a zero) ?

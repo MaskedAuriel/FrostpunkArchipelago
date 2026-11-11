@@ -20,3 +20,6 @@ void SitesContenuReleve();
 // survivants). Sante : "gravement malade" devient "malade", le reste est
 // garde (demande de l'auteur, 2026-11-06).
 bool SitesEntreeSurvivants(const char* classe, uint8_t entree[0x24], const char* site = nullptr);
+// Lien des statistiques initiales "en bonne sante" ("Survivors", sinon
+// "Default" ; jamais celles de SurvivorsIll / SurvivorsGravelyIll). Cache.
+bool StatsBonneSante(uint8_t guid[16]);

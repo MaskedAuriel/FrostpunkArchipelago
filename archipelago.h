@@ -56,6 +56,9 @@ bool ReceiveProgressive(int tree, const char* fromPlayer);
 // Le credit est applique quelques instants plus tard, sur le thread du jeu.
 // false si la partie n'est pas prete ou la ressource inconnue / jamais vue.
 bool ReceiveResource(const char* resource, int amount, const char* fromPlayer);
+// Plusieurs ressources (cargaison d'un groupe AP) : memes credits, UN seul
+// message pour le tout. false si la partie n'est pas prete ou rien credite.
+bool ReceiveResources(const char* const* resources, const int* amounts, int n, const char* fromPlayer);
 
 // "Progressive Law <tree>" : l'arbre de lois 'tree' (nom du journal [LOIAP])
 // recoit un item ; l'effet de la loi signee au rang correspondant est
@@ -101,6 +104,15 @@ void SendLawCheck(const char* tree, int rank, const char* lawName, bool effectPe
 // (1..3) arrive a la porte (dilemme "[Refugees] Refugees at the door k") :
 // check "A New Home - Refugees Arrival k". Thread du jeu.
 void SendRefugeesCheck(int groupe);
+// The Refugees (2026-11-10) : meme genre de location, groupes 1..10 =
+// [OurPeople], 11..13 = Lords01..03 (numero fixe par gabarit,
+// NumeroGroupeRefugees, groupes.cpp). Location du groupe
+// deja cochee (serveur ou envoi en file) / existante dans le scenario courant.
+bool ApRefugiesDejaCoche(int groupe);
+bool ApRefugiesLocationExiste(int groupe);
+// Nom affiche du check du groupe 'groupe' (scenario courant) : scout
+// "<joueur> - <item>", sinon nom de la location sans le scenario. Latin-1.
+bool ApNomDuCheckRefugies(int groupe, char* out, size_t taille);
 
 // Rang(s) FIXE(s) du check de la loi 'loi' (nom interne) de l'arbre 'arbre',
 // dans le scenario en cours (AP_LOIS_RANGS de known_ap_ids.h, d'apres

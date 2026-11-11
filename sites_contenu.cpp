@@ -669,6 +669,41 @@ static void StatsSansGravite(const char* classe, uint8_t stats[16])
     else printf("[SCONT] classe \"%s\" : statistiques \"%s\" gardees\n", classe, nom);
 }
 
+// Statistiques initiales "en bonne sante" (2026-11-11, demande de l'auteur :
+// tous les groupes AP doivent arriver en bonne sante). Entree "Survivors"
+// de la collection (releve du 2026-11-04), sinon "Default" ; refusee si son
+// niveau de sante (+0x7C) est celui de SurvivorsIll ou SurvivorsGravelyIll.
+// Lien mis en cache pour la session. false si aucune entree saine.
+bool StatsBonneSante(uint8_t guid[16])
+{
+    static uint8_t cache[16];
+    static bool pret = false;
+    if (pret) { memcpy(guid, cache, 16); return true; }
+    uint8_t gIll[16], gGrave[16], santeIll[16] = {}, santeGrave[16] = {};
+    uintptr_t ill = StatsParNom("SurvivorsIll", gIll), grave = StatsParNom("SurvivorsGravelyIll", gGrave);
+    if (ill)   SafeRead((void*)(ill + 0x7C), santeIll, 16);
+    if (grave) SafeRead((void*)(grave + 0x7C), santeGrave, 16);
+    static const char* const CANDIDATS[] = { "Survivors", "Default" };
+    for (const char* nom : CANDIDATS) {
+        uint8_t g[16], sante[16] = {};
+        uintptr_t e = StatsParNom(nom, g);
+        if (!e) continue;
+        SafeRead((void*)(e + 0x7C), sante, 16);
+        if ((ill && memcmp(sante, santeIll, 16) == 0) || (grave && memcmp(sante, santeGrave, 16) == 0)) {
+            printf("[SCONT] statistiques \"%s\" : malades, ecartees\n", nom);
+            continue;
+        }
+        memcpy(cache, g, 16);
+        pret = true;
+        memcpy(guid, cache, 16);
+        printf("[SCONT] statistiques en bonne sante : \"%s\" (sante %02X%02X%02X%02X...)\n", nom,
+            sante[0], sante[1], sante[2], sante[3]);
+        return true;
+    }
+    printf("[SCONT] aucune statistique en bonne sante trouvee\n");
+    return false;
+}
+
 // Entree de survivants d'une classe sociale, prise dans les sites de la carte
 // (composant +0xA8, tresor du gabarit +0x70, survivants aleatoires +0xD8) ;
 // classe et statistiques retenues par nom de classe pour toute la session

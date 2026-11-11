@@ -36,6 +36,7 @@
 #include "IconSubManager.h"
 #include "dilemmes_ap.h"
 #include "archipelago.h"   // SendRefugeesCheck
+#include "scenario.h"      // ScenarioVictoryId (releve [REFGRP])
 #include "MinHook.h"
 #include <cstdio>
 #include <cstring>
@@ -336,11 +337,16 @@ void hkInvoquerEvenement(uintptr_t sys, uintptr_t entree, uintptr_t contexte, ui
     int indice = IndiceSuivie(entite);
     bool suivie = indice >= 0;
 
-    if (suivie || InterlockedIncrement(&g_logsEvt) <= MAX_LOGS_EVT) {
-        char ctx[320] = "aucune";
-        if (entite) DecrireEntiteContexte(entite, ctx, sizeof(ctx));
+    // Releve des groupes de Refugees (2026-11-10) : tout evenement dont le
+    // contexte est un groupe de survivants DU JEU est journalise, hors budget
+    // (arrivee des Lords, des [OurPeople], des premiers refugies).
+    char ctx[320] = "aucune";
+    if (entite) DecrireEntiteContexte(entite, ctx, sizeof(ctx));
+    bool groupeDuJeu = !suivie && entite && strstr(ctx, "SurvivorGroups/");
+    if (suivie || groupeDuJeu || InterlockedIncrement(&g_logsEvt) <= MAX_LOGS_EVT) {
         printf("[EVT] %s \"%s\" (entree 0x%llX, forcer %d) contexte : %s\n",
-            suivie ? "GROUPE AP" : "invoque", nom, (unsigned long long)entree, (int)(forcer & 0xFF), ctx);
+            suivie ? "GROUPE AP" : (groupeDuJeu ? "GROUPE DU JEU" : "invoque"), nom,
+            (unsigned long long)entree, (int)(forcer & 0xFF), ctx);
         if (suivie) ReleverEvenement(entree);
         else DecrireEffets(entree);
     }
@@ -1357,6 +1363,120 @@ uintptr_t EvenementParNom(const char* nom)
     }
     return 0;
 }
+
+// --- Releve des groupes de The Refugees (2026-11-10) --------------------------
+// Demande de l'auteur : le contenu des groupes qui arrivent en ville (3
+// groupes de Lords, premiers refugies, groupes [OurPeople]) doit devenir des
+// checks. Ces groupes sont des SurvivorsFromExpeditionSite generiques remplis
+// par les effets des evenements qui les font apparaitre (seuls
+// RefugeeScenarioSurvivors01/02 sont propres au scenario dans templates.dat).
+// Releve, une fois par partie de REFUGEES, des evenements dont le nom parle
+// de ces groupes : arbre des effets avec, pour chaque objet, ses qwords
+// +0x08..+0x80 en hexadecimal (entiers, GUID de liens) et le contenu brut des
+// tableaux qui ne sont pas des pointeurs d'objets (SurvivorsEntry...).
+#ifndef AP_RELEASE
+static int g_lignesRefgrp = 0;
+
+static void DecrireObjetBrut(uintptr_t obj, int profondeur)
+{
+    if (profondeur > 6 || ++g_lignesRefgrp > 6000) return;
+    char cls[96], t[200];
+    if (!ClasseDe(obj, cls, sizeof(cls))) return;
+    Indenter(profondeur); printf("[REFGRP] 0x%llX %s\n", (unsigned long long)obj, cls);
+    uint64_t q[15] = {};
+    if (SafeRead((void*)(obj + 0x08), q, sizeof(q))) {
+        Indenter(profondeur + 1); printf("[REFGRP] brut +08..+80 :");
+        for (int i = 0; i < 15; ++i) printf(" %016llX", (unsigned long long)q[i]);
+        printf("\n");
+    }
+    for (int off = 0x08; off < 0x80; off += 8) {
+        uintptr_t p = 0;
+        if (!SafeRead((void*)(obj + off), &p, 8) || p <= 0x10000) continue;
+        char c2[96];
+        if (TexteDe(p, t, sizeof(t))) { Indenter(profondeur + 1); printf("[REFGRP] +0x%02X \"%s\"\n", off, t); continue; }
+        if (ClasseDe(p, c2, sizeof(c2))) {
+            Indenter(profondeur + 1); printf("[REFGRP] +0x%02X ->\n", off);
+            DecrireObjetBrut(p, profondeur + 1);
+            continue;
+        }
+        int32_t n = 0;
+        if (!SafeRead((void*)(obj + off + 8), &n, 4) || n <= 0 || n > 32) continue;
+        uintptr_t e0 = 0;
+        if (SafeRead((void*)p, &e0, 8) && ClasseDe(e0, c2, sizeof(c2))) {
+            Indenter(profondeur + 1); printf("[REFGRP] +0x%02X tableau de %d objet(s)\n", off, n);
+            for (int i = 0; i < n; ++i) {
+                uintptr_t e = 0;
+                if (SafeRead((void*)(p + (uintptr_t)i * 8), &e, 8)) DecrireObjetBrut(e, profondeur + 2);
+            }
+        }
+        else {
+            // Tableau d'elements en ligne : 0x30 octets par element (a lire
+            // avec la taille de l'element, inconnue ici), 4 elements au plus.
+            int octets = (n < 4 ? n : 4) * 0x30;
+            uint8_t b[4 * 0x30] = {};
+            if (SafeRead((void*)p, b, octets)) {
+                Indenter(profondeur + 1); printf("[REFGRP] +0x%02X tableau en ligne de %d : ", off, n);
+                for (int i = 0; i < octets; ++i) printf("%02X%s", b[i], (i % 4 == 3) ? " " : "");
+                printf("\n");
+            }
+        }
+        off += 8;
+    }
+}
+
+void EvenementsReleveGroupesRefugies()
+{
+    static unsigned generation = 0xFFFFFFFF;
+    if (!PartiePrete() || PartieGeneration() == generation) return;
+    generation = PartieGeneration();
+    const char* scn = ScenarioVictoryId();
+    if (!scn || _stricmp(scn, "REFUGEES") != 0) return;
+
+    static const char* const MOTIFS[] = { "OurPeople", "Lords", "FirstRefugees", "Refugees-Scenario", "Refugees spawn" };
+    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr), reps = 0;
+    int32_t nr = 0;
+    if (!SafeRead((void*)(base + Adr(0x406DDA8)), &reps, 8) || !SafeRead((void*)(base + Adr(0x406DDA8) + 8), &nr, 4) ||
+        reps <= 0x10000 || nr <= 0 || nr > 1024) {
+        printf("[REFGRP] repertoires d'evenements illisibles\n");
+        return;
+    }
+    g_lignesRefgrp = 0;
+    int vus = 0;
+    for (int r = 0; r < nr; ++r) {
+        uintptr_t rep = 0, evts = 0, pRep = 0;
+        int32_t ne = 0;
+        char nomRep[96] = "?";
+        if (!SafeRead((void*)(reps + (uintptr_t)r * 8), &rep, 8) || rep <= 0x10000 ||
+            !SafeRead((void*)(rep + 0x18), &evts, 8) || !SafeRead((void*)(rep + 0x20), &ne, 4) ||
+            evts <= 0x10000 || ne <= 0 || ne > 8192) continue;
+        if (SafeRead((void*)rep, &pRep, 8) && pRep > 0x10000) ReadAscii(pRep, nomRep, sizeof(nomRep));
+        for (int e = 0; e < ne; ++e) {
+            uintptr_t evt = 0, p = 0;
+            char n[128] = "";
+            if (!SafeRead((void*)(evts + (uintptr_t)e * 8), &evt, 8) || evt <= 0x10000) continue;
+            if (!SafeRead((void*)(evt + EVT_NOM), &p, 8) || p <= 0x10000 || !ReadAscii(p, n, sizeof(n))) continue;
+            bool garde = false;
+            for (const char* m : MOTIFS) if (strstr(n, m)) { garde = true; break; }
+            if (!garde) continue;
+            ++vus;
+            printf("[REFGRP] ===== evenement \"%s\" (repertoire \"%s\", entree 0x%llX) =====\n",
+                n, nomRep, (unsigned long long)evt);
+            uintptr_t tab = 0;
+            int32_t nEff = 0;
+            SafeRead((void*)(evt + EVT_EFFETS), &tab, 8);
+            SafeRead((void*)(evt + EVT_EFFETS + 8), &nEff, 4);
+            for (int i = 0; i < nEff && i < 32 && tab; ++i) {
+                uintptr_t eff = 0;
+                if (SafeRead((void*)(tab + (uintptr_t)i * 8), &eff, 8)) DecrireObjetBrut(eff, 1);
+            }
+        }
+    }
+    printf("[REFGRP] releve termine : %d evenement(s), %d ligne(s)%s\n", vus, g_lignesRefgrp,
+        g_lignesRefgrp > 6000 ? " (TRONQUE)" : "");
+}
+#else
+void EvenementsReleveGroupesRefugies() {}
+#endif
 
 bool EvenementsInvoquerParNom(const char* nom)
 {

@@ -37,6 +37,10 @@ const char* const CLE_PREVAIL     = "@AP/Prevail";
 
 // Choix force par dilemme (numero 1..N du choix dans le jeu). Scenario =
 // nom interne (g_run.scenario).
+// 2026-11-11 (demande de l'auteur) : jamais de choix portant la tache
+// "Dismantle outpost" (13) : il detruit le site ou l'on peut construire un
+// avant-poste (ex. Coal Mine de Refugees). Coal Mine et Fishermen Village
+// (A New Home, Refugees) : choix 1 (Retrieve base resources) au lieu de 2.
 struct ChoixForce { const char* scenario; const char* dilemme; int choix; };
 const ChoixForce CHOIX_FORCES[] = {
     // A New Home
@@ -50,10 +54,10 @@ const ChoixForce CHOIX_FORCES[] = {
     { "DEFAULT", "[Frostland] C0. Deep Hollow", 1 },
     { "DEFAULT", "[Frostland] 017 Inventors End", 1 },
     { "DEFAULT", "[Frostland] A1. Camp Vulcan", 1 },
-    { "DEFAULT", "[Frostland] 018 Fishermen Village", 2 },
+    { "DEFAULT", "[Frostland] 018 Fishermen Village", 1 },   // 2 = Dismantle outpost
     { "DEFAULT", "[Frostland] 010 Children Hideout", 1 },
     { "DEFAULT", "[Frostland] B0. Snow Burrows", 1 },
-    { "DEFAULT", "[Frostland] 015 Coal Mine", 2 },
+    { "DEFAULT", "[Frostland] 015 Coal Mine", 1 },           // 2 = Dismantle outpost
     { "DEFAULT", "[Frostland] 001 Lost Expedition", 1 },
     { "DEFAULT", "[Frostland] 012gc Bear Cave", 2 },
     { "DEFAULT", "[Frostland] 007 Winterhome Ruins", 1 },
@@ -65,12 +69,12 @@ const ChoixForce CHOIX_FORCES[] = {
     // The Refugees
     { "REFUGEES", "[Lore] Iron Bank", 2 },
     { "REFUGEES", "[Survivors] Red Flag Camp", 2 },
-    { "REFUGEES", "[Frostland] 015 Coal Mine", 2 },
+    { "REFUGEES", "[Frostland] 015 Coal Mine", 1 },          // 2 = Dismantle outpost
     { "REFUGEES", "White Pass", 1 },
     { "REFUGEES", "[Lore] Hangman's Hill", 2 },
     { "REFUGEES", "[Survivors] Trail Bands", 1 },
     { "REFUGEES", "[Survivors] Black Spire", 1 },
-    { "REFUGEES", "[Outpost] Fishermen Village", 2 },
+    { "REFUGEES", "[Outpost] Fishermen Village", 1 },        // 2 = Dismantle outpost
     // Fall of Winterhome
     { "WINTERHOME", "[lore03] Steel Bridge", 1 },
     { "WINTERHOME", "[lore04] Storm Shelter", 2 },

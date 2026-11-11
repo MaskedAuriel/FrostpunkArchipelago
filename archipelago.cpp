@@ -769,6 +769,42 @@ bool ReceiveResource(const char* resource, int amount, const char* fromPlayer)
     return true;
 }
 
+// Plusieurs ressources d'un coup (cargaison d'un groupe AP) : chaque credit
+// comme ReceiveResource, mais UN seul message pour le tout (demande de
+// l'auteur, 2026-11-10 : plus un message par type de ressource).
+bool ReceiveResources(const char* const* resources, const int* amounts, int n, const char* fromPlayer)
+{
+    const char* de = fromPlayer ? fromPlayer : "?";
+    if (!PartiePrete()) {
+        printf("[AP RECU] %d ressource(s) de %s : partie pas prete, ignore\n", n, de);
+        return false;
+    }
+
+    // 1. Effet : credits mis en attente, appliques par le hook du setter.
+    char cle[256] = "";
+    int credites = 0;
+    for (int i = 0; i < n; ++i) {
+        if (!resources[i] || amounts[i] == 0) continue;
+        if (!Res_Add(resources[i], amounts[i])) {
+            printf("[AP RECU] %d %s de %s : credit refuse\n", amounts[i], resources[i], de);
+            continue;
+        }
+        printf("[AP RECU] %+d %s (de %s)\n", amounts[i], resources[i], de);
+        char morceau[48];
+        sprintf_s(morceau, "%s%s %d", cle[0] ? ";" : "", resources[i], amounts[i]);
+        strncat_s(cle, morceau, _TRUNCATE);
+        ++credites;
+    }
+    if (!credites) return false;
+
+    // 2. Un seul message : "698 Coal, 86 Wood, 1 Steam Core (from X)".
+    char liste[200], texte[260];
+    if (!ApTexteContenu(cle, liste, sizeof(liste))) strncpy_s(liste, cle, _TRUNCATE);
+    sprintf_s(texte, "%s (from %s)", liste, de);
+    AfficherNotificationAP(credites > 1 ? "Resources received" : "Resource received", texte);
+    return true;
+}
+
 bool ReceiveLawProgressive(const char* tree, const char* fromPlayer)
 {
     if (!PartiePrete()) {
@@ -945,9 +981,42 @@ void SendRefugeesCheck(int groupe)
     printf("[AP CHECK] refugies : groupe %d a la porte\n", groupe);
     EnvoyerLocation(l);
     char check[64], texte[256];
-    sprintf_s(check, "Refugees arrival #%d", groupe);
+    // The Refugees (2026-11-10) : groupes 1..10 = [OurPeople], 11..13 = Lords.
+    const char* scn = ScenarioVictoryId();
+    bool refugees = scn && _stricmp(scn, "REFUGEES") == 0;
+    if (refugees && groupe > 10) sprintf_s(check, "Lords arrival #%d", groupe - 10);
+    else if (refugees)           sprintf_s(check, "Our people arrival #%d", groupe);
+    else                         sprintf_s(check, "Refugees arrival #%d", groupe);
     TexteCheckEnvoye(l, check, texte, sizeof(texte));
     AfficherNotificationAP("Check sent", texte);
+}
+
+bool ApRefugiesDejaCoche(int groupe)
+{
+    char cle[8];
+    sprintf_s(cle, "%d", groupe);
+    const ApLocationInfo* l = LocationAP(ApLocGenre::Refugies, cle);
+    return l && ReseauLocationFaite(l->id);
+}
+
+bool ApNomDuCheckRefugies(int groupe, char* out, size_t taille)
+{
+    char cle[8];
+    sprintf_s(cle, "%d", groupe);
+    const ApLocationInfo* l = LocationAP(ApLocGenre::Refugies, cle);
+    if (!l || !out || taille < 2) return false;
+    if (ApNomDuCheckLocation(l->id, out, taille)) return true;
+    // Pas encore scoutee : nom de la location sans le prefixe du scenario.
+    const char* tiret = strstr(l->nom, " - ");
+    strncpy_s(out, taille, tiret ? tiret + 3 : l->nom, _TRUNCATE);
+    return true;
+}
+
+bool ApRefugiesLocationExiste(int groupe)
+{
+    char cle[8];
+    sprintf_s(cle, "%d", groupe);
+    return LocationAP(ApLocGenre::Refugies, cle) != nullptr;
 }
 
 int ApRangsDeLoi(const char* arbre, const char* loi, int* rangs, int max)

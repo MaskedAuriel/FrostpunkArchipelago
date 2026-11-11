@@ -1319,3 +1319,29 @@ et les checks de ressources doivent afficher leur contenu exact
   `custom_worlds\frostpunk.apworld` reconstruit, génération OK avec
   l'exe 0.6.7 et le YAML The Arks. **La graine en cours n'est pas
   concernée** : il faut régénérer.
+
+### 2026-11-10 — The Refugees : groupes arrivants = checks
+
+- **Demande de l'auteur** : le contenu des groupes [OurPeople] (10,
+  premiers réfugiés compris) et des 3 groupes de Lords devient des checks à
+  leur arrivée en ville ; leurs gens deviennent des items. La condition
+  « 250 survivants » de `001 SAVE YOUR PEOPLE` est ignorée (quête finie par
+  l'exploration des 3 sites) : aucune règle ajoutée.
+- `generer.py`, `REFUGIES["REFUGEES"]` (nouvelle forme `familles`, A New
+  Home inchangé) : `The Refugees - Our People Arrival 1..10` (région 0),
+  `Lords Arrival 1..3` (région 1), ids `loc_refugies|REFUGEES|1..13` ;
+  items `Our People (Group 1..10)`, `Lords (Group 1..3)` (`useful`,
+  `item_site|REFUGEES|refugies_1..13`). Compositions : tableau dans
+  `docs/chantiers/groupes.md` (relevé `[REFGRP]` + `templates.dat`).
+- 865 → 878 locations, 409 → 422 items ; aucun id existant changé.
+  `custom_worlds\frostpunk.apworld` reconstruit ; génération de contrôle
+  (exe 0.6.7, YAML Refugees seul) : 167 locations, OK. Banc 0.6.8 non
+  relancé. **La graine en cours n'est pas concernée** : il faut régénérer.
+- **Régions revues (même jour, décision de l'auteur)** : `Our People
+  Arrival 1..5` en Start (région 0), `6..10` après Save Our People
+  (région 1), `Lords Arrival 1..3` après Face The Lords (région 2).
+  `region` d'une famille de `REFUGIES` : nombre ou liste par groupe. Ids
+  inchangés ; mod non concerné (les régions ne sont pas dans
+  `known_ap_ids.h`). Apworld réinstallé, génération de contrôle OK.
+  Répartition Refugees : Start 48, After Save our people 46, After Face
+  the lords 30, After Resolve the class conflict 43.

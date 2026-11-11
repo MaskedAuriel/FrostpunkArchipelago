@@ -895,6 +895,19 @@ loc_temp|Reconquest|9	7747500031
 loc_refugies|DEFAULT|1	7747600001
 loc_refugies|DEFAULT|2	7747600002
 loc_refugies|DEFAULT|3	7747600003
+loc_refugies|REFUGEES|1	7747600004
+loc_refugies|REFUGEES|2	7747600005
+loc_refugies|REFUGEES|3	7747600006
+loc_refugies|REFUGEES|4	7747600007
+loc_refugies|REFUGEES|5	7747600008
+loc_refugies|REFUGEES|6	7747600009
+loc_refugies|REFUGEES|7	7747600010
+loc_refugies|REFUGEES|8	7747600011
+loc_refugies|REFUGEES|9	7747600012
+loc_refugies|REFUGEES|10	7747600013
+loc_refugies|REFUGEES|11	7747600014
+loc_refugies|REFUGEES|12	7747600015
+loc_refugies|REFUGEES|13	7747600016
 item_arbre|DEFAULT|0	7748100001
 item_arbre|DEFAULT|1	7748100002
 item_arbre|DEFAULT|2	7748100003
@@ -1297,6 +1310,19 @@ item_site|Reconquest|22. Fortified Hut	7748500132
 item_site|DEFAULT|refugies_1	7748500133
 item_site|DEFAULT|refugies_2	7748500134
 item_site|DEFAULT|refugies_3	7748500135
+item_site|REFUGEES|refugies_1	7748500136
+item_site|REFUGEES|refugies_2	7748500137
+item_site|REFUGEES|refugies_3	7748500138
+item_site|REFUGEES|refugies_4	7748500139
+item_site|REFUGEES|refugies_5	7748500140
+item_site|REFUGEES|refugies_6	7748500141
+item_site|REFUGEES|refugies_7	7748500142
+item_site|REFUGEES|refugies_8	7748500143
+item_site|REFUGEES|refugies_9	7748500144
+item_site|REFUGEES|refugies_10	7748500145
+item_site|REFUGEES|refugies_11	7748500146
+item_site|REFUGEES|refugies_12	7748500147
+item_site|REFUGEES|refugies_13	7748500148
 item_filler|Wood Crate	7748600001
 item_filler|Coal Crate	7748600002
 item_filler|Steel Crate	7748600003

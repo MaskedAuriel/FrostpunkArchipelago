@@ -887,3 +887,170 @@ non testé.
   `StoryModeRefugeesK` (`[EVT] … ignore pour un groupe de refugies`) ;
   `U: Refugees in the City1/2/3` reste (bulle de la porte, check, 006).
   Compilé, déployé Epic + Steam, non testé.
+
+### 2026-11-10 — Refugees : crash à l'arrivée d'un convoi de ressources
+
+- **Test de l'auteur (Steam, The Refugees)** : crash à l'arrivée du convoi
+  `The Refugees - Coal Mine Supplies` (698 Coal, 86 Wood, 1 Steam Core,
+  aucun survivant). Journal Windows : `0xc0000005`, Steam `+0x15334EF`.
+  Fonction Steam `0x1532810` (.pdata) = Epic **`FUN_141697870`** (exécution
+  des effets ; mêmes octets de tête), décalage `+0xCDF` des deux côtés →
+  Epic `0x14169854F` : branche de `CreateSurvivoursDilemmaEffect` prise
+  quand le composant du groupe a un dilemme en **`+0x80`** :
+  `R9 = *FUN_1418b0e10(DAT_14409b698, entité)` puis `MOV R9,[R9]` sans
+  test. `FUN_1418b0e10` = données du groupe dans le SurvivorGroupSystem
+  `+0x88` (survivants secourus) : nul pour un groupe sans survivants.
+  Événement en cause : `S: Survivors - universal` (bulle d'arrivée).
+- **Correctif** (`hkGroupeArrive`) : `comp +0x80` n'est posé que si le
+  contenu du groupe (`comp +0x48`, compte `+0x50`) a au moins un survivant ;
+  sinon notre bulle passe par le remplacement à la création
+  (`EvenementsRemplacerDilemme`, `hkCreerDilemme`), seul mécanisme vraiment
+  nécessaire (test du 2026-10-28). Journal : `[GRP] dilemme d'arrivee du
+  slot N : copie … (remplacement a la creation[ + comp +0x80], K
+  survivant(s))`.
+- **Un seul message pour la cargaison** (demande de l'auteur) :
+  `ReceiveResources` (archipelago.h/.cpp) crédite chaque ressource comme
+  `ReceiveResource` et affiche un seul message `Resources received` :
+  `698 Coal, 86 Wood, 1 Steam Core (from X)` (noms d'`ApTexteContenu`).
+  `hkGroupeArrive` l'appelle à la place de la boucle de `ReceiveResource`.
+- **À surveiller** : dans Refugees, l'arrivée d'un convoi AP
+  (`SurvivorsFromExpeditionSite`) invoque aussi les événements du scénario
+  attachés à ce gabarit (`[Lords] U: Lords in rags - HungryLords01`,
+  `[OurPeople] U: Survivors03…10`, `U: FirstRefugees - Survivors01`,
+  `[Lords] U: Lords02 spawn2`, `Lords03 spawn3`), conditions vérifiées par
+  le jeu (`forcer 1`). Aucun effet visible relevé avant le crash.
+- Compilé, déployé Epic + Steam, **non testé**.
+
+### 2026-11-10 — Refugees : groupes arrivants = checks (relevé)
+
+- **Demande de l'auteur** : le contenu des groupes qui arrivent en ville
+  dans The Refugees devient des checks (comme les réfugiés de l'après-005
+  de A New Home) : **les 3 groupes de Lords, les premiers réfugiés et les
+  groupes [OurPeople]** ; check **à l'arrivée en ville**, groupe du jeu
+  vidé, contenu dans le pool d'items.
+- **Constat** : dans `templates.dat`, seuls `SurvivorGroups/Refugees/
+  RefugeeScenarioSurvivors01` et `02` sont propres au scénario. Les autres
+  groupes sont des `SurvivorsFromExpeditionSite` remplis par les effets des
+  événements qui les créent (`[OurPeople] U: Refugees spawn` : 9
+  `FrostpunkTimedEffect` ; `U: FirstRefugees - Survivors01` : séquence
+  `[Refugees-Scenario]First_refugees` + `FrostpunkCreateWorldMapEntityEffect`
+  « Case2 » ; `[Lords] U: Lords0K spawn…`). Composition = donnée du jeu en
+  mémoire, pas lisible hors jeu.
+- **Relevé ajouté** (hors `AP_RELEASE`) :
+  - `EvenementsReleveGroupesRefugies` (evenements.cpp, appelé par
+    `DilemmesPompe`) : une fois par partie de REFUGEES, arbre des effets de
+    tout événement dont le nom contient `OurPeople`, `Lords`,
+    `FirstRefugees`, `Refugees-Scenario` ou `Refugees spawn` ; par objet,
+    qwords bruts `+0x08..+0x80` et contenu brut des tableaux en ligne.
+    Journal `[REFGRP]`.
+  - `hkInvoquerEvenement` : tout événement dont le contexte est un groupe
+    de survivants **du jeu** est journalisé hors budget (`[EVT] GROUPE DU
+    JEU …`).
+  - `hkGroupeArrive` : nom de l'entité d'un groupe du jeu qui arrive
+    (`[GRP] groupe du jeu arrive en ville : "<nom>" …`, puis la
+    composition, déjà relevée).
+- Compilé, déployé Epic + Steam. **À faire** : lancer une partie Refugees
+  (le `[REFGRP]` suffit pour les effets) ; les arrivées en ville donnent la
+  composition réelle et l'identifiant de chaque groupe. Ensuite : locations
+  et items dans l'apworld (`generer.py`, ids nouveaux), mod (check à
+  l'arrivée, groupe vidé).
+- **Relevé reçu (2026-11-10, 61 événements)** : les
+  `FrostpunkCreateWorldMapEntityEffect` portent en `+0x18` le GUID d'un
+  `FrostpunkSurvivorGroupComponentTemplate` ; le blob de `templates.dat`
+  commence par ce GUID (recherche hors jeu, scratchpad
+  `decoder_groupes.py`). Format : GUID, nom de classe, 16 octets, `u32`
+  nombre d'entrées, puis entrées de 0x24 (`u32` nombre, GUID de classe,
+  16 octets de santé). Compositions :
+
+  | Groupe | Gabarit (GUID, 1er qword) | Contenu |
+  |---|---|---|
+  | Premiers réfugiés (`FirstRefugees`) | `9C4F77273A737E6D` | 10 ouvriers, 20 enfants |
+  | `RefugeeScenarioSurvivors01` | `992252BEFFBEB0E0` | 15 ouvriers |
+  | `RefugeeScenarioSurvivors02` | `A36612B67007C19C` | 10 ingénieurs |
+  | [OurPeople] | `A6320EFCCA44A59D` | 10 ingénieurs, 10 enfants |
+  | [OurPeople] | `AC26ACB5495AEC10` | 15 ouvriers |
+  | [OurPeople] | `AEBD8A3F2621A437` | 15 ouvriers |
+  | [OurPeople] | `9DC30EEC1180DA53` | 20 ouvriers, 20 enfants |
+  | [OurPeople] | `B0E2B852CE5B3375` | 10 ingénieurs, 10 ouvriers |
+  | [OurPeople] | `B6FE7714002708A3` | 15 ouvriers |
+  | [OurPeople] | `BCAB7CCE003B8114` | 15 ouvriers |
+  | Lords01 | `8F59EBF7A9B8E764` | 50 ouvriers, 35 enfants, 15 ingénieurs |
+  | Lords02 | `AEC2CEB0C53DF017` | 60 ouvriers, 35 enfants, 5 ingénieurs |
+  | Lords03 | `AD8D1B7D68664E72` | 30 ingénieurs, 70 enfants |
+
+  Les gabarits [OurPeople] ont la clé `@Expeditions/SurvivorPanelHeader/
+  [RefugeesScenario]OurPeople`, ceux des Lords `…]Lords`.
+- **Décision de l'auteur** : la condition « 250 survivants » de `001 SAVE
+  YOUR PEOPLE` est ignorée (la quête est déjà finie par l'exploration des 3
+  sites, `QUETES_SANS_SURVIVANTS`, quetes.cpp) ; aucune règle de logique
+  ajoutée, items `useful`.
+- **apworld** : `REFUGIES["REFUGEES"]` (generer.py, familles) : locations
+  `The Refugees - Our People Arrival 1..10` (région 0) et `Lords Arrival
+  1..3` (région 1 ; **revu le même jour** : Our People 1..5 en Start, 6..10
+  après Save Our People, Lords après Face The Lords, voir apworld.md),
+  clés `1..13` (genre `refugies`), items `Our People
+  (Group 1..10)` / `Lords (Group 1..3)`. 13 locations + 13 items nouveaux,
+  aucun id existant changé. Apworld réinstallé ; génération de contrôle
+  Refugees seul : 167 locations, OK.
+- **Mod** :
+  - `NumeroGroupeRefugees(comp)` (groupes.cpp) : scénario REFUGEES ;
+    famille lue dans le gabarit du composant (`comp +0x20`, pointeurs de
+    `+0x08` à `+0x200` vers la clé `[RefugeesScenario]OurPeople` /
+    `Lords`) ; [OurPeople] = premier numéro 1..10 pas encore coché ; Lords
+    = 11/12/13 d'après les ouvriers du contenu (50 / 60 / 0), sinon premier
+    libre.
+  - `hkGroupeArrive`, groupe du jeu : si numéro, contenu vidé (compte à 0),
+    dilemme en `comp +0x80` retiré s'il y en a un (même crash que le convoi
+    vide), `SendRefugeesCheck(numéro)` ; message `Our people arrival #k` /
+    `Lords arrival #k`.
+  - `ApRefugiesDejaCoche`, `ApRefugiesLocationExiste` (archipelago.h).
+- Compilé, déployé Epic + Steam, **non testé**. Risques : groupes
+  [OurPeople] morts en route (check perdu : le dernier numéro) ; bulle des
+  Lords (« Let them in ») avec un groupe vide.
+
+### 2026-11-11 — Refugees : item AP dans l'inventaire des groupes
+
+- **Demande de l'auteur** : l'inventaire des groupes [OurPeople] et Lords
+  en route montre un item Archipelago, pas leurs survivants (comme les
+  réfugiés de l'après-005 de A New Home).
+- **Numéro fixe par gabarit** (`NumeroGroupeRefugees`, réécrit) : le GUID
+  du gabarit de composant (`comp +0x20`) est cherché dans ses 0x200
+  premiers octets parmi les 13 GUID relevés (`GABARITS_REFUGEES`, même
+  ordre que `REFUGIES["REFUGEES"]` de generer.py) ; journal `[GRP]
+  gabarit de Refugees (GUID a +0xN) -> groupe K` (offset à confirmer).
+  L'inventaire et l'arrivée donnent donc le même check ; un rechargement ne
+  décale rien. Les [OurPeople] ne sont **plus numérotés dans l'ordre
+  d'arrivée** : 1 = premiers réfugiés, 2 = `RefugeeScenarioSurvivors01`,
+  3 = `…02`, 4..10 = les autres, d'où Start = groupes 1..5. Repli sans
+  GUID : clé du panneau ; Lords d'après les ouvriers du **gabarit**
+  (`TPL_SURVIVANTS`), [OurPeople] = premier libre. Cache par composant.
+- **Inventaire** : `VagueRefugiesDuComposant` renvoie aussi ce numéro dans
+  Refugees ; même chemin que A New Home (`hkUICargaison` : survivants
+  retirés dès le 1er affichage, case de l'item AP par `PoserCaseRefugies`,
+  porteur `ApPorteurDef`).
+- **Texte de l'item** (hooks_loc.cpp, modifié en cp1252) : `ApLocRefugies`
+  accepte 1..13 et cherche la location par sa clé dans le scénario courant
+  (`ApNomDuCheckRefugies`, archipelago.h : scout « <joueur> - <item> »,
+  sinon nom de la location) au lieu des ids codés en dur de A New Home ;
+  `AP_SLOTS` = 4 + 16 + 13.
+- Compilé, déployé Epic + Steam le 2026-11-11. Non testé.
+
+### 2026-11-11 — Groupes AP : tous en bonne santé
+
+- **Demande de l'auteur** (tout le mod) : les groupes de réfugiés qui
+  arrivent ne sont plus malades, tous en bonne santé. Remplace la règle du
+  2026-11-06 (« gravement malade → malade », `StatsSansGravite`, gardée
+  mais sans effet final).
+- `StatsBonneSante` (sites_contenu.h/.cpp) : lien des statistiques
+  initiales `Survivors` (relevé du 2026-11-04), sinon `Default`, refusé si
+  son niveau de santé (`+0x7C`) est celui de `SurvivorsIll` ou
+  `SurvivorsGravelyIll` ; cache. Journal `[SCONT] statistiques en bonne
+  sante : "<nom>" (sante XXXXXXXX...)`.
+- `hkGroupeArrive`, convoi AP : avant l'original (création des citoyens),
+  statistiques de **chaque** entrée du contenu (`+0x14`) remplacées ;
+  journal `[GRP] slot N : K entree(s) de survivants en bonne sante`. Vaut
+  aussi pour les groupes déjà en route ou relus d'une sauvegarde. Groupes
+  du jeu non touchés (ceux de A New Home / Refugees arrivent vides, leurs
+  gens étant des items AP).
+- Compilé, déployé Epic + Steam. Non testé (à vérifier : `Survivors` est
+  bien « en bonne santé » en jeu).

@@ -27,6 +27,7 @@
 #include "sites_contenu.h"  // SitesEntreeSurvivants (survivants par classe)
 #include "quetes.h"         // QuetesDemanderFinQuete (refugies de 006)
 #include "ap_ressources.h"  // ApPorteurDef (item AP de l'inventaire des refugies)
+#include "scenario.h"       // ScenarioVictoryId (groupes de The Refugees)
 #include <cmath>
 #include <cstring>
 
@@ -776,6 +777,106 @@ void hkComposantAjoute(uintptr_t sys, uintptr_t entite, uintptr_t comp, uintptr_
     g_origComposantAjoute(sys, entite, comp, p4);
 }
 
+// Groupes de The Refugees (2026-11-10, demandes de l'auteur) : [OurPeople]
+// (10 groupes, premiers refugies compris) et Lords (3 groupes). Leurs gens
+// sont des items AP ; chaque groupe porte un check (location "refugies").
+// Numero FIXE par gabarit de composant (comp +0x20) : son GUID (le blob de
+// templates.dat commence par lui) est cherche dans les 0x200 premiers octets
+// du gabarit en memoire. Ordre = celui de REFUGIES["REFUGEES"] (generer.py) :
+// la carte (inventaire) et l'arrivee donnent le meme check, et un
+// rechargement ne decale rien.
+// Repli si aucun GUID n'est trouve : famille par la cle
+// "@Expeditions/SurvivorPanelHeader/[RefugeesScenario]OurPeople" / "...Lords"
+// du gabarit (les convois AP et les sites ne l'ont pas) ; Lords d'apres les
+// ouvriers du gabarit (50 / 60 / 0), [OurPeople] = premier numero libre.
+// 0 : pas un groupe de Refugees.
+static const uint8_t CLASSE_OUVRIERS[4] = { 0x35, 0xF2, 0x53, 0xD1 };
+
+struct GabaritRefugees { uint64_t q1, q2; int numero; };
+static const GabaritRefugees GABARITS_REFUGEES[] = {
+    { 0x9C4F77273A737E6DULL, 0x3F9141341EE742FAULL,  1 },   // premiers refugies : 10 ouvriers, 20 enfants
+    { 0x992252BEFFBEB0E0ULL, 0x2B9E07D723974DC3ULL,  2 },   // RefugeeScenarioSurvivors01 : 15 ouvriers
+    { 0xA36612B67007C19CULL, 0xEF97BB8B3D3946B8ULL,  3 },   // RefugeeScenarioSurvivors02 : 10 ingenieurs
+    { 0xA6320EFCCA44A59DULL, 0x3C11B61E7E3F4899ULL,  4 },   // 10 ingenieurs, 10 enfants
+    { 0xAC26ACB5495AEC10ULL, 0xEE16686456234A5BULL,  5 },   // 15 ouvriers
+    { 0xAEBD8A3F2621A437ULL, 0xBA5952C2F1774092ULL,  6 },   // 15 ouvriers
+    { 0x9DC30EEC1180DA53ULL, 0x902EA8154B7145D7ULL,  7 },   // 20 ouvriers, 20 enfants
+    { 0xB0E2B852CE5B3375ULL, 0xE996EE95EDB94FC4ULL,  8 },   // 10 ingenieurs, 10 ouvriers
+    { 0xB6FE7714002708A3ULL, 0xC0C93C31D99C4387ULL,  9 },   // 15 ouvriers
+    { 0xBCAB7CCE003B8114ULL, 0x2966C9B775ED40BBULL, 10 },   // 15 ouvriers
+    { 0x8F59EBF7A9B8E764ULL, 0xE0EE7DAA0779437BULL, 11 },   // Lords01 : 50 ouvriers, 35 enfants, 15 ingenieurs
+    { 0xAEC2CEB0C53DF017ULL, 0x0716757162784202ULL, 12 },   // Lords02 : 60 ouvriers, 35 enfants, 5 ingenieurs
+    { 0xAD8D1B7D68664E72ULL, 0x1143D2A8BB3A481BULL, 13 },   // Lords03 : 30 ingenieurs, 70 enfants
+};
+
+static int NumeroGroupeRefugeesCalcule(uintptr_t comp)
+{
+    uintptr_t tpl = 0;
+    if (!SafeRead((void*)(comp + COMP_TEMPLATE), &tpl, 8) || tpl <= 0x10000) return 0;
+
+    // 1. GUID du gabarit.
+    uint64_t q[0x200 / 8 + 1] = {};
+    if (SafeRead((void*)tpl, q, 0x200)) {
+        for (int i = 0; i < 0x200 / 8; ++i)
+            for (const GabaritRefugees& g : GABARITS_REFUGEES)
+                if (q[i] == g.q1 && q[i + 1] == g.q2) {
+                    printf("[GRP]   gabarit de Refugees (GUID a +0x%X) -> groupe %d\n", i * 8, g.numero);
+                    return g.numero;
+                }
+    }
+
+    // 2. Repli : famille par la cle du panneau.
+    int famille = 0;                              // 1 [OurPeople], 2 Lords
+    for (int off = 0x08; off < 0x200 && !famille; off += 8) {
+        uintptr_t p = 0;
+        char texte[160];
+        if (!SafeRead((void*)(tpl + off), &p, 8) || p <= 0x10000 || !ReadAscii(p, texte, sizeof(texte))) continue;
+        if (strstr(texte, "[RefugeesScenario]OurPeople")) famille = 1;
+        else if (strstr(texte, "[RefugeesScenario]Lords")) famille = 2;
+    }
+    if (!famille) return 0;
+    printf("[GRP]   gabarit de Refugees sans GUID connu (famille %s) : repli\n", famille == 1 ? "OurPeople" : "Lords");
+    if (famille == 2) {
+        // Ouvriers du gabarit (le contenu du composant peut deja etre vide).
+        uintptr_t tab = 0;
+        int32_t n = 0, ouvriers = 0;
+        if (SafeRead((void*)(tpl + TPL_SURVIVANTS), &tab, 8) && SafeRead((void*)(tpl + TPL_SURVIVANTS + 8), &n, 4) &&
+            tab > 0x10000 && n > 0 && n <= 16) {
+            for (int i = 0; i < n; ++i) {
+                uint8_t cls[4] = {};
+                int32_t nb = 0;
+                SafeRead((void*)(tab + (uintptr_t)i * ENTREE_SURVIVANTS), &nb, 4);
+                SafeRead((void*)(tab + (uintptr_t)i * ENTREE_SURVIVANTS + 4), cls, 4);
+                if (memcmp(cls, CLASSE_OUVRIERS, 4) == 0) ouvriers += nb;
+            }
+        }
+        int k = ouvriers == 50 ? 11 : ouvriers == 60 ? 12 : ouvriers == 0 ? 13 : 0;
+        printf("[GRP]   Lords : %d ouvrier(s) -> groupe %d\n", ouvriers, k);
+        if (k) return k;
+    }
+    int premier = famille == 1 ? 1 : 11, dernier = famille == 1 ? 10 : 13;
+    for (int k = premier; k <= dernier; ++k)
+        if (ApRefugiesLocationExiste(k) && !ApRefugiesDejaCoche(k)) return k;
+    return premier;
+}
+
+int NumeroGroupeRefugees(uintptr_t comp)
+{
+    const char* scn = ScenarioVictoryId();
+    if (!scn || _stricmp(scn, "REFUGEES") != 0 || !comp) return 0;
+    uintptr_t entite = 0;
+    SafeRead((void*)(comp + 0x18), &entite, 8);
+    // Cache par composant (appele a chaque remplissage de la liste de droite).
+    struct Connu { uintptr_t comp, entite; int numero; };
+    static Connu connus[32];
+    static int prochain = 0;
+    for (const Connu& c : connus) if (c.comp == comp && c.entite == entite) return c.numero;
+    int numero = NumeroGroupeRefugeesCalcule(comp);
+    connus[prochain] = { comp, entite, numero };
+    prochain = (prochain + 1) % 32;
+    return numero;
+}
+
 // Hook de FUN_1418b2870(systeme, entite) = groupe arrive en ville (decompile
 // du 2026-10-28) : cree les citoyens du contenu (comp +0x48, via
 // FUN_1418b7c00) a l'emplacement du drapeau d'arrivee, pose ReachedCity
@@ -794,7 +895,11 @@ void hkGroupeArrive(uintptr_t sys, uintptr_t entite, uintptr_t p3, uintptr_t p4)
     if (slot < 0) {
         char ctx[256] = "";
         DecrireEntiteContexte(entite, ctx, sizeof(ctx));
-        printf("[GRP] groupe du jeu arrive en ville : %s\n", ctx);
+        // Nom de l'entite (releve des groupes de Refugees, 2026-11-10).
+        uintptr_t pNomEnt = 0;
+        char nomEnt[96] = "?";
+        if (SafeRead((void*)(entite + ENT_NOM), &pNomEnt, 8) && pNomEnt > 0x10000) ReadAscii(pNomEnt, nomEnt, sizeof(nomEnt));
+        printf("[GRP] groupe du jeu arrive en ville : \"%s\" %s\n", nomEnt, ctx);
         const char* sm = strstr(ctx, "StoryModeRefugees");
         if (sm && sm[17] >= '1' && sm[17] <= '3') vagueRefugies = sm[17] - '0';
         uintptr_t comp = 0;
@@ -829,10 +934,44 @@ void hkGroupeArrive(uintptr_t sys, uintptr_t entite, uintptr_t p3, uintptr_t p4)
             printf("[GRP]   refugies du groupe %d retires (items AP)\n", vagueRefugies);
             EvenementsBullePorteCreee(true);
         }
+        // The Refugees (2026-11-10) : [OurPeople] et Lords. Check envoye a
+        // l'arrivee, groupe vide (ses gens sont des items AP).
+        int numero = vagueRefugies ? 0 : NumeroGroupeRefugees(comp);
+        if (numero) {
+            int32_t zero = 0;
+            SafeWrite((void*)(comp + COMP_CONTENU + 8), &zero, 4);
+            // Groupe vide + dilemme en comp +0x80 = crash du 2026-11-10
+            // (survivants secourus nuls, FUN_141697870) : dilemme retire,
+            // l'effet prend alors le dilemme de son propre lien.
+            uintptr_t dil = 0, nul = 0;
+            if (SafeRead((void*)(comp + COMP_DILEMME_ARRIVEE), &dil, 8) && dil) {
+                SafeWrite((void*)(comp + COMP_DILEMME_ARRIVEE), &nul, 8);
+                printf("[GRP]   dilemme d'arrivee du groupe (0x%llX) retire (groupe vide)\n", (unsigned long long)dil);
+            }
+            printf("[GRP]   groupe de Refugees %d : gens retires (items AP), check envoye\n", numero);
+            SendRefugeesCheck(numero);
+        }
     }
     if (slot >= 0) EvenementsArriveeConvoiAP(true);
     if (slot >= 0) {
         JournalImmediat("[GRP] groupe Archipelago slot %d : arrivee en ville ...\n", slot);
+        // Bonne sante (2026-11-11, demande de l'auteur) : les statistiques
+        // initiales de chaque entree du contenu (+0x14) deviennent celles de
+        // "Survivors" avant que l'original ne cree les citoyens ; vaut aussi
+        // pour les groupes partis avant ce correctif ou relus d'une sauvegarde.
+        {
+            uint8_t sain[16];
+            uintptr_t tab = 0;
+            int32_t n = 0;
+            GroupeSuivi& g = g_groupes[slot];
+            if (ClasseExacte(g.comp, "FrostpunkSurvivorGroupComponent") && StatsBonneSante(sain) &&
+                SafeRead((void*)(g.comp + COMP_CONTENU), &tab, 8) && SafeRead((void*)(g.comp + COMP_CONTENU + 8), &n, 4) &&
+                tab > 0x10000 && n > 0 && n <= 64) {
+                for (int i = 0; i < n; ++i)
+                    SafeWrite((void*)(tab + (uintptr_t)i * ENTREE_SURVIVANTS + 0x14), sain, 16);
+                printf("[GRP] slot %d : %d entree(s) de survivants en bonne sante\n", slot, n);
+            }
+        }
         // La bulle de l'arrivee est un evenement du jeu dont le contexte est
         // le groupe (releve detaille). Son effet CreateSurvivoursDilemmaEffect
         // ouvre le dilemme pose en comp +0x80 s'il y en a un : on y met une
@@ -850,10 +989,28 @@ void hkGroupeArrive(uintptr_t sys, uintptr_t entite, uintptr_t p3, uintptr_t p4)
             // de l'effet est sans doute un survivant secouru, pas le groupe).
             // On remplace donc aussi a la creation du dilemme.
             EvenementsRemplacerDilemme(entite, orig, dilemme);
-            if (ClasseExacte(s.comp, "FrostpunkSurvivorGroupComponent"))
-                SafeWrite((void*)(s.comp + COMP_DILEMME_ARRIVEE), &dilemme, 8);
-            printf("[GRP] dilemme d'arrivee du slot %d : copie 0x%llX (remplacement a la creation + comp +0x80)\n",
-                slot, (unsigned long long)dilemme);
+            // Crash du 2026-11-10 (Refugees, Steam +0x15334EF = Epic
+            // 0x14169854F) : avec un dilemme en comp +0x80,
+            // CreateSurvivoursDilemmaEffect (FUN_141697870) lit les survivants
+            // secourus du groupe (*(*FUN_1418b0e10(...))) sans test ; un convoi
+            // sans survivants n'en a aucun -> pointeur nul. comp +0x80 n'est
+            // donc pose que si le groupe porte des survivants ; sinon la bulle
+            // passe par le lien du dilemme, remplace a la creation.
+            int32_t entrees = 0, survivants = 0;
+            uintptr_t tab = 0;
+            if (ClasseExacte(s.comp, "FrostpunkSurvivorGroupComponent") &&
+                SafeRead((void*)(s.comp + COMP_CONTENU), &tab, 8) &&
+                SafeRead((void*)(s.comp + COMP_CONTENU + 8), &entrees, 4) && tab > 0x10000 &&
+                entrees > 0 && entrees <= 64) {
+                for (int i = 0; i < entrees; ++i) {
+                    int32_t nb = 0;
+                    SafeRead((void*)(tab + (uintptr_t)i * ENTREE_SURVIVANTS), &nb, 4);
+                    if (nb > 0) survivants += nb;
+                }
+            }
+            if (survivants > 0) SafeWrite((void*)(s.comp + COMP_DILEMME_ARRIVEE), &dilemme, 8);
+            printf("[GRP] dilemme d'arrivee du slot %d : copie 0x%llX (remplacement a la creation%s, %d survivant(s))\n",
+                slot, (unsigned long long)dilemme, survivants > 0 ? " + comp +0x80" : "", survivants);
         }
         else printf("[GRP] dilemme d'arrivee non remplace (original 0x%llX, copie 0x%llX)\n",
             (unsigned long long)orig, (unsigned long long)dilemme);
@@ -881,9 +1038,18 @@ void hkGroupeArrive(uintptr_t sys, uintptr_t entite, uintptr_t p3, uintptr_t p4)
     printf("[GRP] slot %d \"%s\" arrive en ville : ReachedCity %d, %d citoyen(s) secouru(s)\n",
         slot, s.nom, atteint, secourus);
     // Livraison de la cargaison (celle que montre l'inventaire), comme un scout
-    // qui decharge en ville.
-    for (int i = 0; i < s.nCargaison; ++i)
-        ReceiveResource(s.cargaison[i].ressource, s.cargaison[i].quantite, s.expediteur[0] ? s.expediteur : s.nom);
+    // qui decharge en ville : un seul message pour toutes les ressources
+    // (2026-11-10, demande de l'auteur).
+    if (s.nCargaison > 0) {
+        const char* noms[MAX_CARGAISON_AP];
+        int quantites[MAX_CARGAISON_AP];
+        int n = 0;
+        for (int i = 0; i < s.nCargaison && n < MAX_CARGAISON_AP; ++i, ++n) {
+            noms[n] = s.cargaison[i].ressource;
+            quantites[n] = s.cargaison[i].quantite;
+        }
+        ReceiveResources(noms, quantites, n, s.expediteur[0] ? s.expediteur : s.nom);
+    }
     if (s.surArrivee) s.surArrivee(slot);
 }
 
@@ -1664,8 +1830,8 @@ uintptr_t PoserCaseRefugies(int k, uintptr_t suivante)
         return 0;
     }
     g_vagueAffichee = 0;
-    static bool dit[4] = {};
-    if (g_rafr.vague >= 1 && g_rafr.vague <= 3 && !dit[g_rafr.vague]) {
+    static bool dit[16] = {};
+    if (g_rafr.vague >= 1 && g_rafr.vague <= 13 && !dit[g_rafr.vague]) {
         dit[g_rafr.vague] = true;
         printf("[GRP] inventaire des refugies %d : case de l'item AP posee (layout %d)\n", g_rafr.vague, k);
     }
@@ -1801,6 +1967,9 @@ int VagueRefugiesDuComposant(uintptr_t comp)
     DecrireEntiteContexte(entite, ctx, sizeof(ctx));
     const char* sm = strstr(ctx, "StoryModeRefugees");
     int vague = (sm && sm[17] >= '1' && sm[17] <= '3') ? sm[17] - '0' : 0;
+    // The Refugees (2026-11-10) : [OurPeople] 1..10, Lords 11..13 (numero
+    // du check, NumeroGroupeRefugees) ; inventaire = item AP comme ci-dessus.
+    if (!vague) vague = NumeroGroupeRefugees(comp);
     connus[prochain] = { comp, entite, vague };
     prochain = (prochain + 1) % 16;
     return vague;
