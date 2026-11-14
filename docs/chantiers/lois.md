@@ -990,3 +990,36 @@ location de ce rang dans le slot. `PorteUnCheck(i)` (lois_ap.cpp) : sinon
 pas d'icône AP (`IconeDeLoi` → nullptr), case `+0x80` rendue d'origine
 (`RafraichirIcones`), nom vanilla dans le panneau (`hkInfoLoi`).
 Déployé à 13:31 (Steam : release, Epic : dev). **Non testé.**
+
+### 2026-11-11 — Last Autumn : paire Extended Shift / Two Shifts sans icône AP
+
+- **Vu en jeu** (Steam, release) : la paire du livre Labour
+  (`Builders [Labour - level 0] Hard work rigor` / `Double Shift`,
+  exclusion `Work`) n'a pas le logo Archipelago.
+- Ce qui est vérifié : la loi est dans `AP_LOIS_RANGS` (rang 1 de l'arbre
+  `Builders [Labour - level 0] Hard work rigor`), et le scout de la
+  location `7747200100` est présent dans `scouts.txt` (progression →
+  `icon_progressive`). `ApLoiAUnCheck` doit donc être vrai.
+- Le journal n'a pas pu trancher : `[LOIUI]` ne journalisait que les
+  4 premières constructions du livre, toutes celles de LifeConditions.
+- **Diagnostic ajouté** (`DiagNoeudsLivre`) : journal des 2 premières
+  constructions de **chaque** livre (reconnu par nombre de nœuds + GUID du
+  1er nœud), et raison de l'absence d'icône pour chaque nœud (GUID hors
+  table, états illisibles, pas de check, icône inconnue) avec arbre, loi,
+  exclusion et rangs fixes. Déployé (Steam : release, Epic : dev).
+  À faire : ouvrir le livre Labour et renvoyer les lignes `[LOIUI]`.
+- **Test de l'auteur (18:10)** : paire toujours vide, et **toutes** les
+  icônes des lois simples décentrées. Journal : le livre Labour a été
+  ouvert en premier dans la partie, et construit deux fois de suite.
+  - 1re construction : nœuds simples avec translations nulles (pas encore
+    mis en page) → `circle_inside` relevé en `(0, 0)` au lieu de
+    `(-13, -28)`, géométrie globale (`g_geoInside`) réutilisée pour toute
+    la partie → décalage de 13 unités partout.
+  - 2e construction : toutes les racines en `(0, 0)` → la copie de la
+    paire (bien posée en `(1500.7, 1098.1)` à la 1re) détruite et reposée
+    en `(0.7, -1.9)`, hors du rond.
+- **Correctifs** : translation nulle → géométrie de référence 87 × 87 en
+  `(-13, -28)` ; position de chaque paire retenue par GUID
+  (`PositionPaire`) et reprise quand la racine est en `(0, 0)` (sinon,
+  icône non posée, journalisé). Déployé (Steam : release 18:20, Epic :
+  dev 18:20), **non testé**.

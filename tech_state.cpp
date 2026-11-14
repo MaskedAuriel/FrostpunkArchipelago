@@ -287,7 +287,7 @@ bool TechLocKey(uintptr_t techPtr, char* out, int maxlen)
     if (!SafeRead((void*)(techPtr + TECH_LOCKEY_OFF), &p, 8) || p <= 0x10000)
         return false;
 
-    char raw[96] = { 0 };
+    char raw[192] = { 0 };   // 2026-11-11 : cles "Generated/..." de plus de 95 caracteres
     if (!SafeRead((void*)p, raw, sizeof(raw) - 1)) return false;
 
     const char* s = raw;
@@ -310,7 +310,11 @@ bool TechLocKeyAt(uintptr_t techPtr, int off, char* out, int maxlen)
     if (techPtr <= 0x10000 || maxlen < 2) return false;
     uintptr_t p = 0;
     if (!SafeRead((void*)(techPtr + off), &p, 8) || p <= 0x10000) return false;
-    char raw[96] = { 0 };
+    // Bug du 2026-11-11 (Last Autumn, "Finer mesh") : raw[96] tronquait
+    // "Generated/TechnologiesConfig/Technologies/[Builders] FH 2_Fishing
+    // Harbor_efficiencyBoost/Description" (100 caracteres) : cle introuvable,
+    // description vanilla.
+    char raw[192] = { 0 };
     if (!SafeRead((void*)p, raw, sizeof(raw) - 1)) return false;
     const char* s = (raw[0] == '@') ? raw + 1 : raw;
     if (!*s) return false;
@@ -322,7 +326,7 @@ bool TechLocKeyAt(uintptr_t techPtr, int off, char* out, int maxlen)
 // --- Table cle -> (techno, emplacement) ------------------------------------
 // Construite une fois par partie. Les comparaisons passent d'abord par un
 // hash 32 bits, la chaine n'est comparee qu'en cas de collision.
-struct LocKeyEntry { uint32_t h32; uint64_t techHash; int slot; char key[96]; };
+struct LocKeyEntry { uint32_t h32; uint64_t techHash; int slot; char key[192]; };
 
 static LocKeyEntry g_locKeys[600];
 static int         g_locKeyCount = 0;
@@ -378,7 +382,7 @@ static void BuildLocKeyTable()
         bool duScenario = TechDuScenario(th, scn);
 
         for (int s = 0; s < 3; ++s) {
-            char k[96];
+            char k[192];
             if (!TechLocKeyAt(tech, offs[s], k, sizeof(k))) continue;
             uint32_t h = Fnv32(k);
 
@@ -400,7 +404,7 @@ static void BuildLocKeyTable()
 
             if (g_locKeyCount >= 600) break;
             LocKeyEntry* e = &g_locKeys[g_locKeyCount++];
-            int j = 0; for (; k[j] && j < 95; ++j) e->key[j] = k[j]; e->key[j] = 0;
+            int j = 0; for (; k[j] && j < 191; ++j) e->key[j] = k[j]; e->key[j] = 0;
             e->h32 = h;
             e->techHash = th;
             e->slot = s;                    // 0 = Name, 1 = Description, 2 = Short

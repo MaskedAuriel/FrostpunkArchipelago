@@ -35,7 +35,7 @@ static Translate_t oTranslate = nullptr;
 volatile bool g_apTexteActif = true;
 // --- Cache : un buffer "<nom> [Researched]" par segment de cle ---------------
 struct NameCache {
-    char    key[96];
+    char    key[192];       // cle complete (2026-11-11 : les cles "Generated/.../[Builders] ..." depassent 95 caracteres)
     uint8_t entete[0x14];   // en-tete de chaine du moteur (regles 2 et 3), juste avant buf
     wchar_t buf[128];
     bool    used;
@@ -122,7 +122,7 @@ static wchar_t* GetResearchedName(const char* seg, uintptr_t origChars)
     if (!PoserEnteteFigee(c->entete, origChars)) return nullptr;   // pas d'en-tete valide : texte du jeu
     ++g_cacheCount;
 
-    int s = 0; for (; seg[s] && s < 95; ++s) c->key[s] = seg[s]; c->key[s] = 0;
+    int s = 0; for (; seg[s] && s < 191; ++s) c->key[s] = seg[s]; c->key[s] = 0;
 
     int i = 0;
     for (; i < 100; ++i) {
@@ -613,7 +613,7 @@ static bool EndsWith(const char* s, const char* suf)
 // l'etat Archipelago et du reglage on/off, donc on ne peut pas le figer.
 static wchar_t* ApDescBuffer(const char* seg, uint64_t hash, uintptr_t origChars)
 {
-    struct Slot { char key[96]; uint8_t entete[0x14]; wchar_t buf[256]; bool used; };   // en-tete juste avant buf
+    struct Slot { char key[192]; uint8_t entete[0x14]; wchar_t buf[256]; bool used; };   // en-tete juste avant buf
     // 256 au depart : test grandeur nature du 2026-11-04, "passe un certain
     // point les textes ne sont plus remplaces" (pool plein, nullptr -> texte
     // vanilla : Generator efficiency upgrade, Improved Heater 2). Une entree par
@@ -631,7 +631,10 @@ static wchar_t* ApDescBuffer(const char* seg, uint64_t hash, uintptr_t origChars
         if (poolN >= 2048) { static bool dit = false; if (!dit) { dit = true; printf("[TECHDESC] pool des descriptions plein (2048)\n"); } return nullptr; }
         if (!PoserEnteteFigee(pool[poolN].entete, origChars)) return nullptr;   // regles 2 et 3 (2026-11-10)
         s = &pool[poolN++];
-        int j = 0; for (; seg[j] && j < 63; ++j) s->key[j] = seg[j]; s->key[j] = 0;
+        // Cle COMPLETE (bug du 2026-11-11, Last Autumn) : tronquee a 63 caracteres,
+        // une cle longue ("Generated/TechnologiesConfig/Technologies/[Builders] ...")
+        // ne retrouvait jamais son emplacement et en prenait un neuf a chaque appel.
+        int j = 0; for (; seg[j] && j < 191; ++j) s->key[j] = seg[j]; s->key[j] = 0;
     }
 
     char txt[256];

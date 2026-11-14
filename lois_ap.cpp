@@ -1217,12 +1217,24 @@ uintptr_t PoserIconeNoeud(uintptr_t elem, const TechIcons* ic)
             float t[2] = {}, tr[2] = {};
             SafeRead((void*)(original + ELEM_TAILLE), t, sizeof(t));
             SafeRead((void*)(original + ELEM_TRANSLATION), tr, sizeof(tr));
+            // Bug du 2026-11-11 (Last Autumn, livre Labour ouvert en premier) :
+            // noeud pas encore mis en page, translation (0, 0) relevee puis
+            // reutilisee pour toute la partie -> toutes les icones des noeuds
+            // simples decalees. Translation nulle : geometrie de reference
+            // (87 x 87 en (-13, -28), relevee dans tous les livres mis en page).
+            bool misEnPage = tr[0] != 0.f || tr[1] != 0.f;
             if (t[0] > 0.f) {
                 g_geoInside.vue = true;
-                g_geoInside.taille[0] = t[0]; g_geoInside.taille[1] = t[1];
-                g_geoInside.tr[0] = tr[0];    g_geoInside.tr[1] = tr[1];
-                printf("[LOIUI] \"%s\" : taille d'origine %.1f x %.1f, translation (%.1f, %.1f)\n",
-                    IMAGE_NOEUD, t[0], t[1], tr[0], tr[1]);
+                if (misEnPage) {
+                    g_geoInside.taille[0] = t[0]; g_geoInside.taille[1] = t[1];
+                    g_geoInside.tr[0] = tr[0];    g_geoInside.tr[1] = tr[1];
+                } else {
+                    g_geoInside.taille[0] = 87.f; g_geoInside.taille[1] = 87.f;
+                    g_geoInside.tr[0] = -13.f;    g_geoInside.tr[1] = -28.f;
+                }
+                printf("[LOIUI] \"%s\" : taille d'origine %.1f x %.1f, translation (%.1f, %.1f)%s\n",
+                    IMAGE_NOEUD, t[0], t[1], tr[0], tr[1],
+                    misEnPage ? "" : " : noeud pas mis en page, geometrie de reference 87 x 87 en (-13, -28)");
             }
         }
         if (!g_geoInside.vue || !g_modeleInside[0]) return 0;
@@ -1318,7 +1330,38 @@ void DetruireCopiesPaires()
     g_nCopiesPaires = 0;
 }
 
-uintptr_t PoserIconePaire(uintptr_t racine, const TechIcons* ic)
+// Bug du 2026-11-11 (Last Autumn, livre Labour ouvert en premier) : le livre
+// est construit deux fois de suite ; a la 2e construction, les racines des
+// noeuds sont encore en (0, 0) (pas mises en page). L'icone de la paire,
+// detruite puis reposee en (0.7, -1.9), sortait du rond : emplacement vide.
+// La position de chaque paire (GUID de la loi du demi-rond gauche) est
+// retenue quand elle est connue et reprise quand la racine est en (0, 0).
+// Renvoie false si la racine n'est pas mise en page et la position inconnue.
+struct PositionLoi { Guid g; float tr[2]; };
+PositionLoi g_positionsPaires[128];
+int g_nPositionsPaires = 0;
+
+bool PositionPaire(const Guid& g, uintptr_t racine, float tr[2], bool& forcee)
+{
+    forcee = false;
+    SafeRead((void*)(racine + ELEM_TRANSLATION), tr, 2 * sizeof(float));
+    PositionLoi* p = nullptr;
+    for (int k = 0; k < g_nPositionsPaires && !p; ++k)
+        if (GuidEgal(g_positionsPaires[k].g, g)) p = &g_positionsPaires[k];
+    if (tr[0] != 0.f || tr[1] != 0.f) {
+        if (!p && g_nPositionsPaires < 128) { p = &g_positionsPaires[g_nPositionsPaires++]; p->g = g; }
+        if (p) { p->tr[0] = tr[0]; p->tr[1] = tr[1]; }
+        return true;
+    }
+    if (!p) return false;
+    tr[0] = p->tr[0]; tr[1] = p->tr[1];
+    forcee = true;
+    return true;
+}
+
+// trForce : translation de la racine a utiliser a la place de la sienne
+// (racine pas encore mise en page, voir PositionPaire), nullptr sinon.
+uintptr_t PoserIconePaire(uintptr_t racine, const TechIcons* ic, const float* trForce)
 {
     if (!g_modeleInside[0] || !g_geoInside.vue) return 0;
     float centre[2];
@@ -1327,6 +1370,7 @@ uintptr_t PoserIconePaire(uintptr_t racine, const TechIcons* ic)
     if (!SafeRead((void*)(racine + ELEM_PARENT), &parent, 8) || parent <= 0x10000) return 0;
     float tr[16] = {}, taille[2] = {}, tPanneau[2] = {};
     SafeRead((void*)(racine + ELEM_TRANSLATION), tr, sizeof(tr));
+    if (trForce) { tr[0] = trForce[0]; tr[1] = trForce[1]; }
     SafeRead((void*)(racine + ELEM_TAILLE), taille, sizeof(taille));
     SafeRead((void*)(parent + ELEM_TAILLE), tPanneau, sizeof(tPanneau));
     // 7e test : en tr + (101, 35) l'icone n'est plus du tout centree.
@@ -1596,11 +1640,28 @@ void DiagNoeudsLivre(uintptr_t livre)
     Accessibilite acc;
     acc.e = &e;
     memset(acc.etat, 0, sizeof(acc.etat));
-    bool journal = nAppels <= 4;
+    // Journal : les 2 premieres constructions de CHAQUE livre (2026-11-11,
+    // Last Autumn : les 4 premieres constructions etaient toutes celles du
+    // livre LifeConditions, rien sur le livre Labour). Livre reconnu par son
+    // nombre de noeuds et le GUID de son premier noeud.
+    bool journal = false;
+    {
+        struct LivreVu { int n; Guid g; int fois; };
+        static LivreVu vus[16];
+        static int nVus = 0;
+        Guid g0{};
+        if (n > 0) SafeRead((void*)tab, &g0, sizeof(g0));
+        LivreVu* v = nullptr;
+        for (int x = 0; x < nVus && !v; ++x)
+            if (vus[x].n == n && GuidEgal(vus[x].g, g0)) v = &vus[x];
+        if (!v && nVus < 16) { v = &vus[nVus++]; v->n = n; v->g = g0; v->fois = 0; }
+        journal = v && v->fois++ < 2;
+    }
     if (journal) printf("[LOIUI] construction du livre #%d (0x%llX) : %d noeud(s)\n", nAppels, (unsigned long long)livre, n);
     bool signeVu = false, nonSigneVu = false;
     uintptr_t paires[64];
     const TechIcons* iconesPaires[64];
+    Guid guidsPaires[64];
     int nPaires = 0;
     // Demi-ronds portant un nom (0 gauche) ou vides (1 droite), pour recentrer
     // le texte de chaque paire (CentrerNomPaire).
@@ -1629,6 +1690,21 @@ void DiagNoeudsLivre(uintptr_t livre)
         if (ic && !Accessible(acc, i)) {
             ic = nullptr;
             if (journal) printf("[LOIUI]   noeud %d : \"%s\" inaccessible (branche exclue) : pas d'icone\n", k, nom);
+        }
+        // Diagnostic (2026-11-11, Last Autumn : paire Extended Shift / Two
+        // Shifts sans icone) : raison de l'absence d'icone.
+        else if (!ic && journal) {
+            printf("[LOIUI]   noeud %d : \"%s\" (%s) sans icone : %s\n", k, nom, racine,
+                i < 0 ? "GUID du noeud hors de la table des lois" :
+                !etats ? "etats des lois illisibles" :
+                !PorteUnCheck(i) ? "pas de check (ApLoiAUnCheck faux)" : "icone du check inconnue");
+            if (i >= 0) {
+                int rangs[4];
+                int nr = RangsFixes(i, rangs);
+                printf("[LOIUI]     arbre \"%s\", loi \"%s\", exclusion \"%s\", %d rang(s) fixe(s)%s\n",
+                    g_arbres[g_lois[i].arbre].nom, g_lois[i].nom, g_lois[i].exclusion, nr,
+                    nr > 0 ? "" : " (absente de AP_LOIS_RANGS pour ce scenario)");
+            }
         }
         // Nom du noeud : celui de la loi, vanilla (changement de plan de
         // l'auteur, 2026-11-04 : le nom du check n'est plus que dans le
@@ -1677,7 +1753,7 @@ void DiagNoeudsLivre(uintptr_t livre)
         // Plus d'icone de paire dans ce cas.
         if (gauchePaire) {
             bool partenaireSigne = i >= 0 && etats && IconeDePaire(i, e) != IconeDeLoi(i, e);
-            if (ic && !partenaireSigne && nPaires < 64) { paires[nPaires] = elem; iconesPaires[nPaires++] = ic; }
+            if (ic && !partenaireSigne && nPaires < 64) { paires[nPaires] = elem; guidsPaires[nPaires] = g; iconesPaires[nPaires++] = ic; }
             if (journal) printf("[LOIUI]   noeud %d : \"%s\" (%s) etat %d -> %s (paire%s), racine en (%.1f, %.1f)\n",
                 k, nom, racine, etat, ic ? ic->nom : "(aucune icone)",
                 partenaireSigne ? " dont l'autre loi est signee : pas d'icone" : ", posee apres",
@@ -1713,8 +1789,17 @@ void DiagNoeudsLivre(uintptr_t livre)
         }
     }
     int posees = 0;
-    for (int p = 0; p < nPaires; ++p)
-        if (PoserIconePaire(paires[p], iconesPaires[p])) ++posees;
+    for (int p = 0; p < nPaires; ++p) {
+        float tr[2];
+        bool forcee = false;
+        if (!PositionPaire(guidsPaires[p], paires[p], tr, forcee)) {
+            if (journal) printf("[LOIUI]   paire %d : racine pas mise en page, position encore inconnue : icone non posee\n", p);
+            continue;
+        }
+        if (forcee && journal)
+            printf("[LOIUI]   paire %d : racine pas mise en page, position retenue (%.1f, %.1f)\n", p, tr[0], tr[1]);
+        if (PoserIconePaire(paires[p], iconesPaires[p], forcee ? tr : nullptr)) ++posees;
+    }
     if (journal && nPaires)
         printf("[LOIUI]   paires : %d icone(s) posee(s) sur %d (modele circle_inside %s)\n",
             posees, nPaires, g_modeleInside[0] ? "connu" : "INCONNU");

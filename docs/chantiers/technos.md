@@ -1120,3 +1120,23 @@ réponse du jeu change : réponse, technos élevées, parent recherché / reçu
   refus sont légitimes). Déployé à 17:00 (Epic dev, Steam release). **Non
   testé** : vérifier qu'une techno reçue se recherche normalement avec les
   ressources, et qu'elle est refusée (sans crash) sans elles.
+
+### 2026-11-11 — Last Autumn : « Finer mesh » garde sa description vanilla
+
+- **Vu en jeu** (Steam, release) : la techno « Finer mesh » =
+  `[Builders] FH 2_Fishing Harbor_efficiencyBoost` (`8F721C114E1F5EA1`,
+  nom affiché trouvé dans `localizations.dat`) affiche sa description de
+  base. Journal : aucune ligne `[TECHDESC]` pour cette techno, alors que
+  toutes les autres en ont.
+- **Cause** : ses clés font 100 et 101 caractères
+  (`Generated/TechnologiesConfig/Technologies/[Builders] FH 2_Fishing
+  Harbor_efficiencyBoost/Description`, `.../Display name`). `TechLocKeyAt`
+  les lisait dans `raw[96]` et `LocKeyEntry.key[96]` : clés tronquées,
+  introuvables par `LookupLocKey` → texte vanilla.
+- Même défaut dans `hooks_loc.cpp` : `ApDescBuffer` ne gardait que 63
+  caractères de la clé (une clé plus longue ne retrouvait jamais son
+  emplacement et en prenait un neuf à chaque appel, la réserve de 2048
+  pouvait se remplir), `GetResearchedName` 95.
+- **Correctif** : clés à 192 partout (`TechLocKey`, `TechLocKeyAt`,
+  `LocKeyEntry`, `BuildLocKeyTable`, `NameCache`, `ApDescBuffer`).
+  Déployé (Steam : release, Epic : dev), **non testé**.
