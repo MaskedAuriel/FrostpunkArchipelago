@@ -8,6 +8,9 @@ GAME = "Frostpunk"
 
 CLASSES = {
     "progression": ItemClassification.progression,
+    # Temperature Rise (2026-11-14) : requis par les goulots, mais exclus de
+    # l'equilibrage de progression (sinon tires vers les premieres spheres).
+    "progression_skip_balancing": ItemClassification.progression_skip_balancing,
     "useful": ItemClassification.useful,
     "filler": ItemClassification.filler,
     "trap": ItemClassification.trap,

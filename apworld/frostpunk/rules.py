@@ -7,7 +7,10 @@
 #   - quete GOULOT de la region k : tous les items Progressive Tree
 #     "progression" de la region k recus (seuil et items calcules par
 #     generer.py ; decision de l'auteur du 2026-11-04) ;
-#   - autre quete, loi, montee : rien (Q4.2, Q4.4, Q4.5).
+#   - quete GOULOT de la region k, en plus : les Temperature Rise reparties
+#     sur les regions 0..k (regions_montees) ; victoire : toutes les montees
+#     (posees dans regions.py, decision de l'auteur du 2026-11-14) ;
+#   - autre quete, loi : rien (Q4.2, Q4.4).
 # Entrees : scenario = Scenario Unlock ; region k = goulot k fini.
 
 from worlds.generic.Rules import set_rule

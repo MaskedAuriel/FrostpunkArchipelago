@@ -298,3 +298,12 @@ déployé Epic + Steam, non testé.
 - **Correctif** : substitution seulement si la date de `precedente` (+0)
   est passée et celle de l'entrée à venir (`Maintenant()`). Compilé ; non
   déployé (jeu lancé) ; non testé.
+
+### 2026-11-14 — apworld : Temperature Rise dans le pool commun
+
+- Les items `Temperature Rise` ne sont plus verrouillés dans le monde du
+  joueur (`placer_montees` supprimée) : classe `progression` sans
+  équilibrage, chez n'importe quel joueur. Chaque goulot exige les montées
+  prévues pour les régions précédentes, la victoire toutes (détail :
+  `docs/chantiers/apworld.md`, 2026-11-14). Côté mod : rien ne change
+  (chaque item rend toujours un niveau).

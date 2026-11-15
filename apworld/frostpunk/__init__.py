@@ -2,12 +2,11 @@
 # Les tables (technos, lois, sites, quetes, ids) sont dans data.py, GENERE par
 # apworld/outils/generer.py depuis les tables du mod.
 
-from BaseClasses import LocationProgressType
 from worlds.AutoWorld import WebWorld, World
 
 from .data import DIFFICULTIES, SCENARIOS
 from .items import FILLER_GENERIQUE, PIEGES, ITEM_PAR_NOM, creer_item, item_name_to_id, noms_pool
-from .locations import location_name_to_id, regions_montees
+from .locations import location_name_to_id
 from .options import NOMS_SCENARIOS, FrostpunkOptions
 from .regions import creer_regions
 
@@ -48,31 +47,6 @@ class FrostpunkWorld(World):
     def get_filler_item_name(self):
         return self.random.choice(FILLER_GENERIQUE)
 
-    def placer_montees(self, noms):
-        """Repartition equitable des Temperature Rise (Q4.5 a, decision de
-        l'auteur du 2026-11-10) : dans chaque scenario, la k-ieme montee va
-        dans une location libre et non exclue, tiree au hasard, de la region
-        regions_montees(n, nombre de regions)[k] (le reste aux premieres
-        regions). Items useful : aucun effet sur la logique. Les items places
-        sont retires de 'noms'."""
-        for s in self.scenarios:
-            nom = "%s - Temperature Rise" % s["nom"]
-            n = noms.count(nom)
-            if not n:
-                continue
-            regions = [self.multiworld.get_region(r, self.player) for r in s["regions"]]
-            for r in regions_montees(n, len(regions)):
-                # Region visee, a defaut la plus proche avant elle, puis apres.
-                ordre = list(range(r, -1, -1)) + list(range(r + 1, len(regions)))
-                for k in ordre:
-                    libres = [l for l in regions[k].locations
-                              if l.item is None and l.address is not None
-                              and l.progress_type != LocationProgressType.EXCLUDED]
-                    if libres:
-                        self.random.choice(libres).place_locked_item(self.create_item(nom))
-                        noms.remove(nom)
-                        break
-
     def create_items(self):
         cles = {s["cle"] for s in self.scenarios}
         montees = {s["cle"]: s["montees"][self.difficulte] for s in self.scenarios}
@@ -83,8 +57,10 @@ class FrostpunkWorld(World):
         noms.remove(unlock)
         self.multiworld.push_precollected(self.create_item(unlock))
 
-        # Temperature Rise : places d'office, repartis entre les regions
-        self.placer_montees(noms)
+        # Temperature Rise : dans le pool commun ; leur repartition par region
+        # vient des regles des goulots (regions.py, 2026-11-14). Le placement
+        # d'office dans le monde du joueur (placer_montees, 2026-11-10) est
+        # retire : il les verrouillait tous chez lui.
 
         places = len(self.multiworld.get_unfilled_locations(self.player))
         # Trop d'items : on retire d'abord le contenu des sites (filler, puis useful)

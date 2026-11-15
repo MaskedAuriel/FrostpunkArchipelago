@@ -629,12 +629,14 @@ def main():
         # frise etant masquee, le joueur ne peut plus situer ces checks). Les
         # ids "loc_temp|..." restent dans ids.tsv (jamais retires). Les ITEMS
         # Temperature Rise restent : le mod retire toujours les montees du
-        # jeu, chaque item rend un niveau.
+        # jeu, chaque item rend un niveau. Classe progression sans equilibrage
+        # (decision de l'auteur, 2026-11-14) : chaque goulot exige les montees
+        # des regions precedentes (regions.py), sans les verrouiller chez soi.
         maxi = max(MONTEES[scn])
         temp_noms = []
         if maxi:
             items.append(dict(id=ids("item_temp", scn), nom="%s - Temperature Rise" % affiche, scn=scn,
-                              genre="temperature", classe="useful", nombre=0, cle=scn))
+                              genre="temperature", classe="progression_skip_balancing", nombre=0, cle=scn))
 
         items.append(dict(id=ids("item_scenario", scn), nom="Scenario Unlock %s" % affiche, scn=scn,
                           genre="scenario", classe="progression", nombre=1, cle=scn))

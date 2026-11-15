@@ -1345,3 +1345,42 @@ et les checks de ressources doivent afficher leur contenu exact
   `known_ap_ids.h`). Apworld réinstallé, génération de contrôle OK.
   Répartition Refugees : Start 48, After Save our people 46, After Face
   the lords 30, After Resolve the class conflict 43.
+
+### 2026-11-14 — Temperature Rise : progression, pool commun, minimum par goulot
+
+- **Constat (vrai multiworld de l'auteur)** : tous ses `Temperature Rise`
+  étaient chez lui. Cause : `placer_montees` (2026-11-10) les posait par
+  `place_locked_item` dans les locations de son propre slot et les sortait
+  du pool. **Non voulu** (auteur : l'objectif était « plus ou moins 2
+  Temperature Rise » par région, pas un verrou dans son monde).
+- **Décision de l'auteur : option A.** `Temperature Rise` =
+  `progression_skip_balancing` (`generer.py`, `items.py`) ; dans le pool
+  commun, chez n'importe quel joueur. `placer_montees` supprimée.
+- **Règles** (`regions.py`) : la quête goulot de la région k exige les
+  montées que `regions_montees(n, nombre de régions)` attribue aux régions
+  0..k ; la victoire du scénario les exige **toutes**. Ex. Winterhome
+  Medium 6 → [2, 1, 1, 1, 1] : goulots 2, 3, 4, 5, victoire 6 ; Refugees
+  Medium 4 : 1, 2, 3, victoire 4 ; On the Edge 9 → [3, 2, 2, 2] : 3, 5, 7,
+  victoire 9.
+- **Ce que ça garantit** : en logique, jamais moins que ce minimum cumulé à
+  la fin d'un goulot (plus d'entassement en fin de partie). **Pas de
+  plafond** : une règle Archipelago ne peut pas en poser, les montées
+  peuvent arriver plus tôt. `skip_balancing` évite que l'équilibrage de
+  progression les tire vers les premières sphères. La règle ne bloque rien
+  en jeu (elle ne dicte que le remplissage). Icône des montées en jeu =
+  progression (drapeaux du scout).
+- Données : seule la classe des 5 items change (`data.py`) ; ids,
+  `ids.tsv` et `known_ap_ids.h` inchangés ; **mod non recompilé** (il ne
+  lit pas la classe).
+- Tests (sources 0.6.8, Python 3.15 ; modules tiers absents remplacés par
+  des factices, mondes autres que `generic` / `frostpunk` retirés de la
+  copie) : banc habituel 5 × 5 OK ; contrôle des montées (4 difficultés ×
+  5 scénarios × 10 graines, 3 joueurs) OK : aucune montée verrouillée,
+  minimum respecté à chaque goulot, **71 %** des montées chez un autre
+  joueur (2/3 attendu). Montées reçues en moyenne à la fin des goulots,
+  ex. A New Home Medium [3,9 ; 5,2 ; 6,6] pour un minimum [2 ; 4 ; 6] :
+  plutôt en avance.
+- `custom_worlds\frostpunk.apworld` reconstruit ; génération de contrôle
+  avec l'exe 0.6.7 (2 slots Frostpunk, YAML de test hors `Players`) : OK,
+  montées croisées entre les slots. **La graine en cours n'est pas
+  concernée** : il faut régénérer.
