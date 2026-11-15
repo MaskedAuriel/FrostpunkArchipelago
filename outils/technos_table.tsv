@@ -381,8 +381,8 @@ BUILDERS	8BA655C00C38E5DB	[Builders] RD 0_Docksv1	RD Docksv1	Builders_Resources	
 BUILDERS	BC42749C23D732DE	[Builders] RD 2_Docksv2	RD Docksv2	Builders_Resources	61	1	2	8BA655C00C38E5DB	[Builders] RD 0_Docksv1	0	
 BUILDERS	A45EC7F7C4042BA7	[Builders] RD 4_Docksv3	RD Docksv3	Builders_Resources	61	2	4	BC42749C23D732DE	[Builders] RD 2_Docksv2	0	
 BUILDERS	AB3378C1C0F63FDF	[Builders] RU 1_URS	RU URS	Builders_Resources	62	0	1	8BA655C00C38E5DB	[Builders] RD 0_Docksv1	0	
-BUILDERS	9DA9438616748A1B	[Builders] RU 3_URS_Steam	RU URS_Steam	Builders_Resources	63	0	3	AB3378C1C0F63FDF	[Builders] RU 1_URS	0	
-BUILDERS	A189AA1BA1E45B98	[Builders] RU 2_URS_Faster gathering	RU URS_Faster gathering	Builders_Resources	63	1	4	9DA9438616748A1B	[Builders] RU 3_URS_Steam	0	
+BUILDERS	9DA9438616748A1B	[Builders] RU 3_URS_Steam	RU URS_Steam	Builders_Resources	62	1	3	AB3378C1C0F63FDF	[Builders] RU 1_URS	0	
+BUILDERS	A189AA1BA1E45B98	[Builders] RU 2_URS_Faster gathering	RU URS_Faster gathering	Builders_Resources	63	0	4	9DA9438616748A1B	[Builders] RU 3_URS_Steam	0	
 BUILDERS	A4A3B3D1583AE97D	[Builders] RD 1_Docks faster reload	RD Docks faster reload	Builders_Resources	64	0	1	8BA655C00C38E5DB	[Builders] RD 0_Docksv1	0	
 BUILDERS	8EDC34ADC0A71BD9	[Builders] RG 0_Gathering Upgrade	RG Gathering Upgrade	Builders_Resources	65	0	0			0	
 BUILDERS	A383E8E076BDAC46	[Builders] RG 2_Gathering upgrade 2	RG Gathering upgrade 2	Builders_Resources	65	1	2	8EDC34ADC0A71BD9	[Builders] RG 0_Gathering Upgrade	0	
@@ -395,7 +395,7 @@ BUILDERS	9222D9DF836D090A	[Builders] RW 3_Sawmill Upgrade - range	RW Sawmill Upg
 BUILDERS	9D93FA7554513F8D	[Builders] RC 2_CharcoalKiln	RC CharcoalKiln	Builders_Resources	69	0	2			0	
 BUILDERS	9A9531B0F90E6D29	[Builders] RC 3_Kiln upgrade	RC Kiln upgrade	Builders_Resources	69	1	3	9D93FA7554513F8D	[Builders] RC 2_CharcoalKiln	0	
 BUILDERS	9A8EA035E1F6BD7D	[Builders] RC 4_Kiln upgrade 2	RC Kiln upgrade 2	Builders_Resources	69	2	4	9A9531B0F90E6D29	[Builders] RC 3_Kiln upgrade	0	
-BUILDERS	82F3957C59928F95	[Builders] RU 5_URS_Advanced	RU URS_Advanced	Builders_Resources	81	0	5	9DA9438616748A1B	[Builders] RU 3_URS_Steam	0	
+BUILDERS	82F3957C59928F95	[Builders] RU 5_URS_Advanced	RU URS_Advanced	Builders_Resources	62	2	5	9DA9438616748A1B	[Builders] RU 3_URS_Steam	0	
 Reconquest	85BCE42D5F9E4F3B	H 1_Boilers	Boilers	Heating	5	0	0			0	
 Reconquest	B2366AD179BD4D26	H 3_Boiler Upgrade	Boiler Upgrade	Heating	5	1	2	85BCE42D5F9E4F3B	H 1_Boilers	0	
 Reconquest	BA712FF32CF9CAAE	H 5_Boiler Upgrade 2	Boiler Upgrade 2	Heating	5	2	4	B2366AD179BD4D26	H 3_Boiler Upgrade	0	

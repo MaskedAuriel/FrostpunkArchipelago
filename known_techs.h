@@ -426,8 +426,8 @@ static const TechInfo KNOWN_TECHS_BUILDERS[] = {
 { 0xBC42749C23D732DEULL, "RD Docksv2",                              61, 1, 2, 0x8BA655C00C38E5DBULL },
 { 0xA45EC7F7C4042BA7ULL, "RD Docksv3",                              61, 2, 4, 0xBC42749C23D732DEULL },
 { 0xAB3378C1C0F63FDFULL, "RU URS",                                  62, 0, 1, 0x8BA655C00C38E5DBULL },
-{ 0x9DA9438616748A1BULL, "RU URS_Steam",                            63, 0, 3, 0xAB3378C1C0F63FDFULL },
-{ 0xA189AA1BA1E45B98ULL, "RU URS_Faster gathering",                 63, 1, 4, 0x9DA9438616748A1BULL },
+{ 0x9DA9438616748A1BULL, "RU URS_Steam",                            62, 1, 3, 0xAB3378C1C0F63FDFULL },
+{ 0xA189AA1BA1E45B98ULL, "RU URS_Faster gathering",                 63, 0, 4, 0x9DA9438616748A1BULL },
 { 0xA4A3B3D1583AE97DULL, "RD Docks faster reload",                  64, 0, 1, 0x8BA655C00C38E5DBULL },
 { 0x8EDC34ADC0A71BD9ULL, "RG Gathering Upgrade",                    65, 0, 0, 0 },
 { 0xA383E8E076BDAC46ULL, "RG Gathering upgrade 2",                  65, 1, 2, 0x8EDC34ADC0A71BD9ULL },
@@ -440,7 +440,7 @@ static const TechInfo KNOWN_TECHS_BUILDERS[] = {
 { 0x9D93FA7554513F8DULL, "RC CharcoalKiln",                         69, 0, 2, 0 },
 { 0x9A9531B0F90E6D29ULL, "RC Kiln upgrade",                         69, 1, 3, 0x9D93FA7554513F8DULL },
 { 0x9A8EA035E1F6BD7DULL, "RC Kiln upgrade 2",                       69, 2, 4, 0x9A9531B0F90E6D29ULL },
-{ 0x82F3957C59928F95ULL, "RU URS_Advanced",                         81, 0, 5, 0x9DA9438616748A1BULL },
+{ 0x82F3957C59928F95ULL, "RU URS_Advanced",                         62, 2, 5, 0x9DA9438616748A1BULL },
 };
 
 // On the Edge

@@ -582,8 +582,9 @@ Technos de départ (exclues) : aucune.
 | 61 | 1 | [Builders] RD 2_Docksv2 | 2 | [Builders] RD 0_Docksv1 | Builders_Resources |  | `BC42749C23D732DE` |
 | 61 | 2 | [Builders] RD 4_Docksv3 | 4 | [Builders] RD 2_Docksv2 | Builders_Resources |  | `A45EC7F7C4042BA7` |
 | 62 | 0 | [Builders] RU 1_URS | 1 | [Builders] RD 0_Docksv1 | Builders_Resources |  | `AB3378C1C0F63FDF` |
-| 63 | 0 | [Builders] RU 3_URS_Steam | 3 | [Builders] RU 1_URS | Builders_Resources |  | `9DA9438616748A1B` |
-| 63 | 1 | [Builders] RU 2_URS_Faster gathering | 4 | [Builders] RU 3_URS_Steam | Builders_Resources |  | `A189AA1BA1E45B98` |
+| 62 | 1 | [Builders] RU 3_URS_Steam | 3 | [Builders] RU 1_URS | Builders_Resources |  | `9DA9438616748A1B` |
+| 62 | 2 | [Builders] RU 5_URS_Advanced | 5 | [Builders] RU 3_URS_Steam | Builders_Resources |  | `82F3957C59928F95` |
+| 63 | 0 | [Builders] RU 2_URS_Faster gathering | 4 | [Builders] RU 3_URS_Steam | Builders_Resources |  | `A189AA1BA1E45B98` |
 | 64 | 0 | [Builders] RD 1_Docks faster reload | 1 | [Builders] RD 0_Docksv1 | Builders_Resources |  | `A4A3B3D1583AE97D` |
 | 65 | 0 | [Builders] RG 0_Gathering Upgrade | 0 |  | Builders_Resources |  | `8EDC34ADC0A71BD9` |
 | 65 | 1 | [Builders] RG 2_Gathering upgrade 2 | 2 | [Builders] RG 0_Gathering Upgrade | Builders_Resources |  | `A383E8E076BDAC46` |
@@ -596,7 +597,6 @@ Technos de départ (exclues) : aucune.
 | 69 | 0 | [Builders] RC 2_CharcoalKiln | 2 |  | Builders_Resources |  | `9D93FA7554513F8D` |
 | 69 | 1 | [Builders] RC 3_Kiln upgrade | 3 | [Builders] RC 2_CharcoalKiln | Builders_Resources |  | `9A9531B0F90E6D29` |
 | 69 | 2 | [Builders] RC 4_Kiln upgrade 2 | 4 | [Builders] RC 3_Kiln upgrade | Builders_Resources |  | `9A8EA035E1F6BD7D` |
-| 81 | 0 | [Builders] RU 5_URS_Advanced | 5 | [Builders] RU 3_URS_Steam | Builders_Resources |  | `82F3957C59928F95` |
 
 ### On the Edge (`Reconquest`) — 60 technos
 
@@ -845,7 +845,7 @@ Table générée par `outils\technos_classification.py` depuis `technos_table.ts
 | 39 | E RC Less workers | 1 | useful | depend d'un autre arbre |  | 37 E RepairStation |
 | 79 | Automaton Engineers | 1 | useful | depend d'un autre arbre |  | 13 Automaton Efficiency |
 
-### The Last Autumn (`BUILDERS`) — 32 arbres : 16 progression, 16 useful
+### The Last Autumn (`BUILDERS`) — 31 arbres : 16 progression, 15 useful
 
 | Arbre | Item | Technos | Classification | Raison | Arbres enfants | Arbres parents |
 |---:|---|---:|---|---|---|---|
@@ -872,15 +872,14 @@ Table générée par `outils\technos_classification.py` depuis `technos_table.ts
 | 59 | FM MedPost Upgrade | 3 | **progression** | arbre principal | 60 FM Infirmary Upgrade |  |
 | 60 | FM Infirmary Upgrade | 1 | useful | depend d'un autre arbre |  | 59 FM MedPost Upgrade |
 | 61 | RD Docksv1 | 3 | **progression** | arbre principal | 62 RU URS, 64 RD Docks faster reload |  |
-| 62 | RU URS | 1 | useful | depend d'un autre arbre | 63 RU URS_Steam | 61 RD Docksv1 |
-| 63 | RU URS_Steam | 2 | useful | depend d'un autre arbre | 81 RU URS_Advanced | 62 RU URS |
+| 62 | RU URS | 3 | useful | depend d'un autre arbre | 63 RU URS_Faster gathering | 61 RD Docksv1 |
+| 63 | RU URS_Faster gathering | 1 | useful | depend d'un autre arbre |  | 62 RU URS |
 | 64 | RD Docks faster reload | 1 | useful | depend d'un autre arbre |  | 61 RD Docksv1 |
 | 65 | RG Gathering Upgrade | 2 | **progression** | arbre principal | 66 RG ResourceDepotUpgrade |  |
 | 66 | RG ResourceDepotUpgrade | 2 | useful | depend d'un autre arbre |  | 65 RG Gathering Upgrade |
 | 67 | RW Sawmill | 2 | **progression** | arbre principal | 68 RW Sawmill Upgrade |  |
 | 68 | RW Sawmill Upgrade | 2 | useful | depend d'un autre arbre |  | 67 RW Sawmill |
 | 69 | RC CharcoalKiln | 3 | **progression** | arbre principal |  |  |
-| 81 | RU URS_Advanced | 1 | useful | depend d'un autre arbre |  | 63 RU URS_Steam |
 
 ### On the Edge (`Reconquest`) — 30 arbres : 14 progression, 16 useful
 
@@ -1140,3 +1139,25 @@ réponse du jeu change : réponse, technos élevées, parent recherché / reçu
 - **Correctif** : clés à 192 partout (`TechLocKey`, `TechLocKeyAt`,
   `LocKeyEntry`, `BuildLocKeyTable`, `NameCache`, `ApDescBuffer`).
   Déployé (Steam : release, Epic : dev), **non testé**.
+
+### 2026-11-15 — Last Autumn : Reloading Station en un seul arbre
+
+- **Vu en jeu** : « Progressive URS Advanced » (arbre 81, une seule
+  techno) a donné directement le palier 5 `RU URS_Advanced`.
+- **Décision de l'auteur** : Reloading Station (`RU URS`, palier 1),
+  Steam Reloading Station (`RU URS_Steam`, 3) et Advanced Reloading Station
+  (`RU URS_Advanced`, 5) sont **un seul arbre sur une seule colonne** →
+  arbre 62, rangs 0 / 1 / 2. L'arbre 63 ne garde que « Gathering
+  optimisation » (`RU URS_Faster gathering`, rang 0, parent URS_Steam).
+  L'arbre 81 n'existe plus (`ARBRES_FORCES` de `technos_table.py` ne sert
+  qu'au premier lancement).
+- Modifié à la main (pas de relevé F4 disponible pour relancer
+  `technos_table.py`) : `outils\technos_arbres.tsv`, `outils\technos_table.tsv`,
+  `known_techs.h`, tableau ci-dessus ; régénérés :
+  `technos_classification.tsv` (62 : 3, 63 : 1, tous deux useful),
+  `data.py`, `known_ap_ids.h`. Noms des items (`NOMS_ARBRES`) :
+  62 « Progressive Reloading Station » (id 7748100176), 63 « Progressive
+  Reloading Gathering Optimisation » (7748100177) ; l'item 81
+  (7748100184) n'est plus généré, son id reste réservé dans `ids.tsv`.
+- **Les graines déjà générées ne sont plus compatibles** pour ces arbres
+  (un item 81 reçu est refusé, « arbre épuisé »).

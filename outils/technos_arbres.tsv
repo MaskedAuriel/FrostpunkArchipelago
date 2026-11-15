@@ -141,7 +141,7 @@ A6C2C6A453C1036F	59	FM Infirmary Upgrade - less workers	[Builders] FM 5_Infirmar
 BC42749C23D732DE	61	RD Docksv2	[Builders] RD 2_Docksv2
 A45EC7F7C4042BA7	61	RD Docksv3	[Builders] RD 4_Docksv3
 AB3378C1C0F63FDF	62	RU URS	[Builders] RU 1_URS
-9DA9438616748A1B	63	RU URS_Steam	[Builders] RU 3_URS_Steam
+9DA9438616748A1B	62	RU URS_Steam	[Builders] RU 3_URS_Steam
 A189AA1BA1E45B98	63	RU URS_Faster gathering	[Builders] RU 2_URS_Faster gathering
 A4A3B3D1583AE97D	64	RD Docks faster reload	[Builders] RD 1_Docks faster reload
 8EDC34ADC0A71BD9	65	RG Gathering Upgrade	[Builders] RG 0_Gathering Upgrade
@@ -170,4 +170,4 @@ A0606FEF83CB14C8	77	R VaultSteamCoresUpgrade	[Reconquest] R 6_VaultSteamCoresUpg
 95E69640FB2830D4	78	E Transport Depot	[Reconquest] E 1_Transport Depot
 A01F9F7DBAB21917	79	Automaton Engineers	E 5_Automaton Engineers
 A1C4DF5688B79B2A	80	Storm_research	E X_Storm_research
-82F3957C59928F95	81	RU URS_Advanced	[Builders] RU 5_URS_Advanced
+82F3957C59928F95	62	RU URS_Advanced	[Builders] RU 5_URS_Advanced

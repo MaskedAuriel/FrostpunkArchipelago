@@ -287,7 +287,10 @@ NOMS_ARBRES = {
     51: "Air Scrubbers", 52: "Air Scrubber Optimization", 53: "Generator, Final Optimizations",
     54: "Foragers", 55: "Forager Capacity", 56: "Forager Speed", 57: "Fishing Harbor",
     58: "Fishing Harbor Efficiency", 59: "Healthcare", 60: "Infirmary Upgrade",
-    61: "Docks", 62: "URS", 63: "URS Steam", 64: "Docks Reload Speed",
+    # 62 / 63 (2026-11-15, decision de l'auteur) : Reloading Station, Steam
+    # Reloading Station et Advanced Reloading Station = un seul arbre (62) ;
+    # 63 ne garde que Gathering optimisation ; 81 (URS Advanced) n'existe plus.
+    61: "Docks", 62: "Reloading Station", 63: "Reloading Gathering Optimisation", 64: "Docks Reload Speed",
     65: "Gathering Upgrade", 66: "Resource Depot", 67: "Sawmill", 68: "Sawmill Upgrade",
     69: "Charcoal Kiln", 70: "Brazier", 71: "Brazier Range", 72: "Brazier Coal Efficiency",
     73: "Vault Efficiency", 74: "Vault Upgrade", 75: "Vault Multitasking",

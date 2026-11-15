@@ -174,15 +174,14 @@ BUILDERS	58	The Last Autumn - Progressive FH Fishing Harbor_efficiencyBoost	1	us
 BUILDERS	59	The Last Autumn - Progressive FM MedPost Upgrade	3	progression	arbre principal	60	
 BUILDERS	60	The Last Autumn - Progressive FM Infirmary Upgrade	1	useful	depend d'un autre arbre		59
 BUILDERS	61	The Last Autumn - Progressive RD Docksv1	3	progression	arbre principal	62, 64	
-BUILDERS	62	The Last Autumn - Progressive RU URS	1	useful	depend d'un autre arbre	63	61
-BUILDERS	63	The Last Autumn - Progressive RU URS_Steam	2	useful	depend d'un autre arbre	81	62
+BUILDERS	62	The Last Autumn - Progressive RU URS	3	useful	depend d'un autre arbre	63	61
+BUILDERS	63	The Last Autumn - Progressive RU URS_Faster gathering	1	useful	depend d'un autre arbre		62
 BUILDERS	64	The Last Autumn - Progressive RD Docks faster reload	1	useful	depend d'un autre arbre		61
 BUILDERS	65	The Last Autumn - Progressive RG Gathering Upgrade	2	progression	arbre principal	66	
 BUILDERS	66	The Last Autumn - Progressive RG ResourceDepotUpgrade	2	useful	depend d'un autre arbre		65
 BUILDERS	67	The Last Autumn - Progressive RW Sawmill	2	progression	arbre principal	68	
 BUILDERS	68	The Last Autumn - Progressive RW Sawmill Upgrade	2	useful	depend d'un autre arbre		67
 BUILDERS	69	The Last Autumn - Progressive RC CharcoalKiln	3	progression	arbre principal		
-BUILDERS	81	The Last Autumn - Progressive RU URS_Advanced	1	useful	depend d'un autre arbre		63
 Reconquest	5	On the Edge - Progressive Boilers	3	progression	arbre principal	6	
 Reconquest	6	On the Edge - Progressive Boiler Upgrade - less coal	1	useful	depend d'un autre arbre		5
 Reconquest	9	On the Edge - Progressive ScoutsLimit	2	progression	arbre principal	10	
