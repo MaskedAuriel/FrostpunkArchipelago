@@ -1215,7 +1215,7 @@ static const ApItemInfo AP_ITEMS[] = {
     { 7748100164LL, ApItemGenre::Arbre, "BUILDERS", "50", "The Last Autumn - Progressive Supercharge" },
     { 7748100165LL, ApItemGenre::Arbre, "BUILDERS", "51", "The Last Autumn - Progressive Air Scrubbers" },
     { 7748100166LL, ApItemGenre::Arbre, "BUILDERS", "52", "The Last Autumn - Progressive Air Scrubber Optimization" },
-    { 7748100167LL, ApItemGenre::Arbre, "BUILDERS", "53", "The Last Autumn - Progressive Generator Upgrade" },
+    { 7748100167LL, ApItemGenre::Arbre, "BUILDERS", "53", "The Last Autumn - Progressive Generator, Final Optimizations" },
     { 7748100168LL, ApItemGenre::Arbre, "BUILDERS", "54", "The Last Autumn - Progressive Foragers" },
     { 7748100169LL, ApItemGenre::Arbre, "BUILDERS", "55", "The Last Autumn - Progressive Forager Capacity" },
     { 7748100170LL, ApItemGenre::Arbre, "BUILDERS", "56", "The Last Autumn - Progressive Forager Speed" },

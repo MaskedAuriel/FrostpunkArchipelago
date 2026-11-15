@@ -166,3 +166,27 @@ groupe pour contexte (gabarit `SurvivorsFromExpeditionSite`).
   déjà exploré n'est toujours pas touché (New Manchester reste un dépôt).
 - Compilé, déployé Epic + Steam (10:42, remplace la DLL déployée à 10:04
   sur Steam). Non testé.
+
+### 2026-11-15 — Last Autumn : checks perdus sur un site de nourriture
+
+- **Vu en jeu** (Steam, release) : l'expédition 3, porteuse de 8 checks,
+  arrive à « 04. [food] Moose Hunting Grounds » ; le jeu la **détruit**
+  (`0 dans la liste du jeu (avant 1), une des notres invalide`) et en
+  **crée une autre** (expédition 4, autre composant, cargaison vide).
+  `ScootingChargerEnAttente` ne retrouvait aucune expédition d'id 3
+  (`0 item(s) restaure(s)`), puis la sauvegarde du ramassage suivant a
+  réécrit `ap_pending_<GameId>.txt` avec le seul check de l'expédition 4 :
+  les 8 checks étaient perdus pour de bon.
+- **Correctif** (scooting.cpp) : **checks orphelins**. Une ligne du fichier
+  dont l'expédition n'existe plus devient un orphelin (`g_orphelins`),
+  réécrit dans le fichier sous son ancien id (`ScootingSauverEnAttente`)
+  et rendu à la première **nouvelle** expédition sans check porté
+  (`ExpCache.nouvelle`, posé par `RescanExpeditions` pour un composant
+  inconnu à la relecture précédente ; faux pour les expéditions présentes
+  au chargement). Le fichier est alors réécrit sous le nouvel id, et
+  l'item porteur est réinjecté comme après un rechargement. Journal :
+  `[PERSIST] N check(s) orphelin(s) ... repris par la nouvelle expedition K`
+  ou `... en attente d'une nouvelle expedition`.
+- Le « crash » à la fin du même journal (`+0x1C31259` Steam, lecture de
+  `0x28`) était un Alt+F4 de l'auteur : sans objet.
+- Compilé, déployé (Steam release, Epic dev, 17:33). **Non testé.**

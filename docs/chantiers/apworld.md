@@ -1384,3 +1384,37 @@ et les checks de ressources doivent afficher leur contenu exact
   avec l'exe 0.6.7 (2 slots Frostpunk, YAML de test hors `Players`) : OK,
   montées croisées entre les slots. **La graine en cours n'est pas
   concernée** : il faut régénérer.
+
+### 2026-11-15 — `scenarios` vide par défaut, avertissement sur le départ ajouté
+
+- **Constat** (session des bugs Last Autumn) : YAML avec
+  `starting_scenario: the_last_autumn` et la liste `scenarios` par défaut
+  (`{"A New Home"}`) → slot `["DEFAULT", "BUILDERS"]`, goal = gagner les
+  deux ; l'auteur trouvait des items « A New Home - Progressive Generator
+  Range » dans Last Autumn.
+- **Décision de l'auteur** (les deux) :
+  - `Scenarios.default = frozenset()` : sans liste, le slot n'a que le
+    scénario de départ ; `random_included` avec liste vide tire parmi les
+    six scénarios (avant : A New Home d'office).
+  - départ absent d'une liste **non vide** : toujours ajouté, avec un
+    `logging.warning` à la génération (nom du joueur, liste, nombre de
+    scénarios à gagner).
+- Aide des options, `release\Frostpunk.yaml` et `release\README.md` mis à
+  jour (pas les paquets des versions publiées).
+- `custom_worlds\frostpunk.apworld` reconstruit (l'ancien était identique
+  à HEAD). **Génération non testée** : le venv du banc
+  (`...cede1c94...\scratchpad\ap\venv`) a perdu les `.py` de presque tous
+  ses paquets (nettoyage du dossier temporaire) ; syntaxe seule vérifiée.
+
+### 2026-11-15 — Last Autumn : arbre 53 renommé « Generator, Final Optimizations »
+
+- « The Last Autumn - Progressive Generator Upgrade » portait à confusion
+  (avec Generator Range / Generator Power des autres scénarios). L'arbre
+  53 = `GU GeneratorUpgrade1/2/3` = « Generator upgrade: Riser System »
+  (portée), « Overdrive », « Heat Vents » (chauffage max), paliers 3 à 5.
+- Nom choisi par l'auteur : **« The Last Autumn - Progressive Generator,
+  Final Optimizations »** (`NOMS_ARBRES[53]`, `generer.py`). Id inchangé
+  (`7748100167`, la clé d'id est le numéro d'arbre) ; `data.py` et
+  `known_ap_ids.h` régénérés (seul ce nom change). DLL recompilées
+  (16:46), apworld installé reconstruit. Les graines déjà générées
+  gardent l'ancien nom (le serveur envoie le nom de sa graine).

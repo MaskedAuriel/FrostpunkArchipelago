@@ -2,6 +2,8 @@
 # Les tables (technos, lois, sites, quetes, ids) sont dans data.py, GENERE par
 # apworld/outils/generer.py depuis les tables du mod.
 
+import logging
+
 from worlds.AutoWorld import WebWorld, World
 
 from .data import DIFFICULTIES, SCENARIOS
@@ -29,9 +31,16 @@ class FrostpunkWorld(World):
     def generate_early(self):
         noms = set(self.options.scenarios.value)
         if self.options.starting_scenario == self.options.starting_scenario.option_random_included:
-            depart = self.random.choice(sorted(noms)) if noms else "A New Home"
+            depart = self.random.choice(sorted(noms) if noms else NOMS_SCENARIOS)
         else:
             depart = NOMS_SCENARIOS[self.options.starting_scenario.value]
+        # Depart hors d'une liste non vide : ajoute, avec un avertissement
+        # (2026-11-15 : le slot contient alors un scenario de plus a gagner).
+        if noms and depart not in noms:
+            logging.warning(
+                f"Frostpunk ({self.player_name}): starting scenario '{depart}' is not in "
+                f"scenarios {sorted(noms)}; it is added, and the goal requires winning "
+                f"{len(noms) + 1} scenarios.")
         noms.add(depart)
         self.depart = depart
         self.scenarios = [s for s in SCENARIOS if s["nom"] in noms]

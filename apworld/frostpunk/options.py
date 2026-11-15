@@ -10,15 +10,21 @@ NOMS_SCENARIOS = [s["nom"] for s in SCENARIOS]
 
 
 class Scenarios(OptionSet):
-    """Scenarios included in the multiworld. Winning all of them is the goal."""
+    """Scenarios included in the multiworld. Winning all of them is the goal.
+    Empty (default): only the starting scenario."""
     display_name = "Scenarios"
     valid_keys = NOMS_SCENARIOS
-    default = frozenset({"A New Home"})
+    # Vide par defaut (decision de l'auteur, 2026-11-15) : l'ancien defaut
+    # {"A New Home"} s'ajoutait au scenario de depart (YAML avec seulement
+    # starting_scenario: the_last_autumn -> slot A New Home + Last Autumn).
+    default = frozenset()
 
 
 class StartingScenario(Choice):
-    """Scenario unlocked from the start. If it is not in Scenarios, it is added.
-    random_included: a random scenario among Scenarios."""
+    """Scenario unlocked from the start. If it is not in Scenarios, it is added
+    (a warning is printed at generation).
+    random_included: a random scenario among Scenarios (among all scenarios if
+    Scenarios is empty)."""
     display_name = "Starting Scenario"
     option_a_new_home = 0
     option_the_arks = 1

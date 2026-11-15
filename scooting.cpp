@@ -35,7 +35,21 @@ struct ExpCache {
     // cargaison, elle, est deja videe. Oubliee au depart suivant.
     const SitePayload* retour[MAX_EN_ATTENTE];
     int                nRetour;
+    // Apparue depuis la relecture precedente (composant inconnu avant) :
+    // peut recevoir les checks orphelins (voir g_orphelins).
+    bool               nouvelle;
 };
+
+// Checks orphelins (bug du 2026-11-15, Last Autumn) : sur un site de
+// nourriture, le jeu detruit l'expedition et en cree une autre (autre
+// composant, autre id) ; les checks portes, notes sous l'ancien id dans
+// ap_pending_<GameId>.txt, ne correspondaient plus a rien, puis la sauvegarde
+// suivante les effacait (8 checks perdus). Les lignes du fichier dont
+// l'expedition n'existe plus deviennent des orphelins, gardes dans le
+// fichier sous leur ancien id, et rendus a la prochaine NOUVELLE expedition.
+struct Orphelin { int32_t idExp; const SitePayload* p; };
+static Orphelin g_orphelins[MAX_EN_ATTENTE];
+static int      g_nOrphelins = 0;
 
 struct SiteCache {
     uintptr_t comp;
@@ -597,9 +611,11 @@ static void RescanExpeditions()
         SafeRead((void*)(objs[i] + 0x30), &e.id, 4);
         e.dernierLieu = 0; e.dernierTarget = 0; e.dernierSite = 0; e.derniereCargo = 0;
         e.nEnAttente = 0; e.nRetour = 0; e.valide = true;
+        e.nouvelle = true;
 
         for (int j = 0; j < nAnciens; ++j) {
             if (anciens[j].comp != e.comp) continue;
+            e.nouvelle = false;
             e.dernierLieu = anciens[j].dernierLieu;
             e.dernierTarget = anciens[j].dernierTarget;
             e.dernierSite = anciens[j].dernierSite;
@@ -692,6 +708,7 @@ void ScootingInit()
         SafeRead((void*)(bufExp[i] + 0x30), &e.id, 4);
         e.dernierLieu = 0; e.dernierTarget = 0; e.dernierSite = 0;
         e.derniereCargo = 0; e.nEnAttente = 0; e.nRetour = 0; e.valide = true;
+        e.nouvelle = false;   // deja la au chargement : pas une remplacante
         g_nExps++;
     }
     g_compteListeExp = CompteDuSysteme(IdSysteme::Expedition);
@@ -739,6 +756,7 @@ static void OublierPartie()
     g_nSites = 0;
     g_compteListeExp = 0;
     g_persistChargee = false;
+    g_nOrphelins = 0;
 }
 
 void ScootingTick()
@@ -1239,8 +1257,15 @@ void ScootingSauverEnAttente()
             n++;
         }
     }
+    // Orphelins (expedition remplacee par le jeu) : gardes sous leur ancien
+    // id jusqu'a ce qu'une nouvelle expedition les reprenne.
+    for (int k = 0; k < g_nOrphelins; ++k) {
+        fprintf(f, "%d %d\n", g_orphelins[k].idExp, g_orphelins[k].p->locationId);
+        n++;
+    }
     fclose(f);
-    printf("[PERSIST] %d item(s) en attente sauvegarde(s)\n", n);
+    printf("[PERSIST] %d item(s) en attente sauvegarde(s)%s\n", n,
+        g_nOrphelins ? " (dont orphelins)" : "");
 }
 
 // Retrouve l'entree de table correspondant a une location.
@@ -1266,6 +1291,7 @@ void ScootingChargerEnAttente()
     }
 
     for (int i = 0; i < g_nExps; ++i) g_exps[i].nEnAttente = 0;
+    g_nOrphelins = 0;
 
     int lus = 0, idExp = 0, idLoc = 0;
     while (fscanf_s(f, "%d %d", &idExp, &idLoc) == 2) {
@@ -1278,17 +1304,45 @@ void ScootingChargerEnAttente()
         }
 
         //Ce bloc charge dans l'exp�dition les location dans l'inventaire du scout.
+        bool place = false;
         for (int i = 0; i < g_nExps; ++i) {
             if (!g_exps[i].valide || g_exps[i].id != idExp) continue;
 
+            place = true;
             if (g_exps[i].nEnAttente >= MAX_EN_ATTENTE) break;
 
             g_exps[i].enAttente[g_exps[i].nEnAttente++] = location;
             lus++;
             break;
         }
+        // Expedition disparue (remplacee par le jeu) : orphelin.
+        if (!place && g_nOrphelins < MAX_EN_ATTENTE)
+            g_orphelins[g_nOrphelins++] = { idExp, location };
     }
     fclose(f);
+
+    // Orphelins rendus a une NOUVELLE expedition sans check porte (celle qui
+    // remplace l'ancienne) ; sinon gardes jusqu'a la prochaine.
+    if (g_nOrphelins > 0) {
+        int cible = -1;
+        for (int i = 0; i < g_nExps && cible < 0; ++i)
+            if (g_exps[i].valide && g_exps[i].nouvelle && g_exps[i].nEnAttente == 0) cible = i;
+        if (cible < 0) {
+            printf("[PERSIST] %d check(s) orphelin(s) (expedition %d disparue) : en attente d'une nouvelle expedition\n",
+                g_nOrphelins, g_orphelins[0].idExp);
+        } else {
+            ExpCache& e = g_exps[cible];
+            int repris = 0;
+            for (int k = 0; k < g_nOrphelins && e.nEnAttente < MAX_EN_ATTENTE; ++k, ++repris)
+                e.enAttente[e.nEnAttente++] = g_orphelins[k].p;
+            printf("[PERSIST] %d check(s) orphelin(s) de l'expedition %d repris par la nouvelle expedition %d\n",
+                repris, g_orphelins[0].idExp, e.id);
+            lus += repris;
+            g_nOrphelins = 0;
+            e.nouvelle = false;
+            ScootingSauverEnAttente();   // le fichier passe sous le nouvel id
+        }
+    }
 
     //On reinject 
     for (int i = 0; i < g_nExps; ++i) {

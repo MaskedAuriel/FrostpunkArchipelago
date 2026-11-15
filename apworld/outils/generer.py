@@ -282,7 +282,9 @@ NOMS_ARBRES = {
     40: "Brazier", 41: "Brazier Range", 42: "Brazier Coal Efficiency", 43: "Heater",
     44: "Healthcare Insulation", 45: "Scaffolding Manufacture", 46: "Protective Structure",
     47: "Steel Plate Forge", 48: "Cheaper Forge", 49: "Steam Mill", 50: "Supercharge",
-    51: "Air Scrubbers", 52: "Air Scrubber Optimization", 53: "Generator Upgrade",
+    # 53 : "Generator Upgrade" portait a confusion (Riser System, Overdrive,
+    # Heat Vents) ; nom choisi par l'auteur le 2026-11-15.
+    51: "Air Scrubbers", 52: "Air Scrubber Optimization", 53: "Generator, Final Optimizations",
     54: "Foragers", 55: "Forager Capacity", 56: "Forager Speed", 57: "Fishing Harbor",
     58: "Fishing Harbor Efficiency", 59: "Healthcare", 60: "Infirmary Upgrade",
     61: "Docks", 62: "URS", 63: "URS Steam", 64: "Docks Reload Speed",
