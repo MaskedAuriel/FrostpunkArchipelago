@@ -64,7 +64,7 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
 ## 3. Environnement et compilation
 
 - Visual Studio, **x64 Native Tools Command Prompt**, MSVC.
-  Solution : `FrostpunkArchopelago.sln` / `FrostpunkArchopelago.vcxproj`.
+  Solution : `FrostpunkArchipelago.sln` / `FrostpunkArchipelago.vcxproj`.
 - Cible : DLL proxy nommée `version.dll`, déposée à côté de `Frostpunk.exe`.
 - **La compilation se fait par `cl` en ligne de commande**, pas par le
   `.vcxproj` (configuré en `Application` et incomplet : il lui manque
