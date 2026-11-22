@@ -448,7 +448,6 @@ uintptr_t ClonerTemplateGroupe(uintptr_t orig, int slot)
         char texte[128];
         texte[0] = '-'; texte[1] = 0;
         if (modele > 0x10000) ReadAscii(modele, texte, sizeof(texte));
-        printf("[GRP] template %s = 0x%llX \"%s\"\n", c.libelle, (unsigned long long)modele, texte);
         if (!cleNom && modele > 0x10000) {
             cleNom = CleMoteur(cleN, modele);
             cleDesc = CleMoteur(cleD, modele);
@@ -464,7 +463,6 @@ uintptr_t ClonerTemplateGroupe(uintptr_t orig, int slot)
         uintptr_t self = 0;
         if (v <= 0x10000 || !SafeRead((void*)(v - 0x0C), &self, 8) || self != v - 0x14) continue;
         SafeWrite((void*)(clone + c.off), c.nom ? &cleNom : &cleDesc, 8);
-        printf("[GRP] copie : %s remplace\n", c.libelle);
     }
     return clone;
 }
@@ -473,31 +471,16 @@ uintptr_t ClonerTemplateGroupe(uintptr_t orig, int slot)
 // tpl + 0x70 + variante x 0x18 (FUN_141a0f2a0) dans le composant de carte de
 // l'entite (+0x40..+0x58). On met dans les deux variantes de la copie
 // (+0x70, +0x88) la case de l'icone dans l'atlas des bulles (#2350, nos
-// icones), la seule texture que l'on sache afficher pour l'instant. +0xA0
-// (Image) est seulement journalisee.
+// icones), la seule texture que l'on sache afficher pour l'instant.
 void PoserIconeGroupe(uintptr_t clone, const char* icone)
 {
     static const int VARIANTES[] = { TPL_ICONE, TPL_ICONE + TAILLE_TUILE_GRP };
-    static const int RELEVES[] = { TPL_ICONE, TPL_ICONE + TAILLE_TUILE_GRP, TPL_IMAGE };
-    for (int off : RELEVES) {
-        uintptr_t tex = 0;
-        int32_t v[4] = {};
-        char nom[128] = "";
-        SafeRead((void*)(clone + off), &tex, 8);
-        SafeRead((void*)(clone + off + 8), v, sizeof(v));
-        if (tex > 0x10000) ReadAscii(tex, nom, sizeof(nom));
-        printf("[GRP] tuile d'origine +0x%X : texture 0x%llX \"%s\" case (%d,%d) sur (%d,%d)\n", off,
-            (unsigned long long)tex, nom, v[0], v[1], v[2], v[3]);
-    }
     uint8_t tuile[TAILLE_TUILE_GRP];
     if (!TuileAtlasBulles(icone, tuile)) {
         printf("[GRP] icone \"%s\" non posee (atlas des bulles indisponible)\n", icone);
         return;
     }
     for (int off : VARIANTES) SafeWrite((void*)(clone + off), tuile, TAILLE_TUILE_GRP);
-    int32_t v[4];
-    memcpy(v, tuile + 8, sizeof(v));
-    printf("[GRP] icone \"%s\" posee sur les 2 variantes : case (%d,%d) sur (%d,%d)\n", icone, v[0], v[1], v[2], v[3]);
 }
 
 // --- Sauvegarde AP des groupes (2026-10-29) ----------------------------------
@@ -632,8 +615,6 @@ uintptr_t PoserCopieTemplate(uintptr_t comp, int slot, uintptr_t survivants, int
             int32_t compte[2] = { nSurvivants, nSurvivants };   // compte, capacite
             SafeWrite((void*)(clone + TPL_SURVIVANTS), &survivants, 8);
             SafeWrite((void*)(clone + TPL_SURVIVANTS + 8), compte, 8);
-            printf("[GRP] copie : survivants remplaces par nos %d entree(s) 0x%llX\n", nSurvivants,
-                (unsigned long long)survivants);
         }
         // Pas de dilemme a l'arrivee : lien "City reached dilemma" (GUID
         // de 16 octets, compare au GUID nul par FUN_140e1a930) efface dans
@@ -644,14 +625,13 @@ uintptr_t PoserCopieTemplate(uintptr_t comp, int slot, uintptr_t survivants, int
         SafeWrite((void*)(clone + TPL_DILEMME_ARRIVEE), nul, sizeof(nul));
         SafeRead((void*)(comp + COMP_DILEMME_ARRIVEE), &dilemme, 8);
         SafeWrite((void*)(comp + COMP_DILEMME_ARRIVEE), nul, 8);
-        printf("[GRP] dilemme d'arrivee supprime (composant : 0x%llX -> 0)\n", (unsigned long long)dilemme);
 
         PoserIconeGroupe(clone, g_groupes[slot].icone);
         SafeWrite((void*)(comp + COMP_TEMPLATE), &clone, 8);
         g_groupes[slot].clone = clone;
     }
-    printf("[GRP] composant 0x%llX : template 0x%llX -> copie 0x%llX (slot %d)\n",
-        (unsigned long long)comp, (unsigned long long)orig, (unsigned long long)clone, slot);
+    else printf("[GRP] copie du template impossible (composant 0x%llX, template 0x%llX, slot %d)\n",
+        (unsigned long long)comp, (unsigned long long)orig, slot);
     return clone;
 }
 
@@ -1088,8 +1068,6 @@ void hkGroupeArrive(uintptr_t sys, uintptr_t entite, uintptr_t p3, uintptr_t p4)
                 }
             }
             if (survivants > 0) SafeWrite((void*)(s.comp + COMP_DILEMME_ARRIVEE), &dilemme, 8);
-            printf("[GRP] dilemme d'arrivee du slot %d : copie 0x%llX (remplacement a la creation%s, %d survivant(s))\n",
-                slot, (unsigned long long)dilemme, survivants > 0 ? " + comp +0x80" : "", survivants);
         }
         else printf("[GRP] dilemme d'arrivee non remplace (original 0x%llX, copie 0x%llX)\n",
             (unsigned long long)orig, (unsigned long long)dilemme);
@@ -1220,7 +1198,6 @@ bool PreparerSurvivants(const GroupeAP& g)
             }
             int32_t nb = g.classes[i].nombre;
             memcpy(e, &nb, 4);
-            printf("[GRP] entree %d : %d %s\n", n, nb, g.classes[i].classe);
             ++n;
         }
         if (n == 0) {
@@ -1268,14 +1245,12 @@ bool PreparerSurvivants(const GroupeAP& g)
         uintptr_t apres[256];
         int nApres = CaptureLire(g_capTpl, apres, 256);
         uintptr_t tpl = tplConnu;
-        if (tpl) printf("[GRP]   template deja connu : 0x%llX\n", (unsigned long long)tpl);
         for (int a = 0; a < nApres && !tpl; ++a) {
             bool deja = false;
             for (int b = 0; b < nAvant && !deja; ++b) deja = apres[a] == avant[b];
             if (!deja) tpl = apres[a];
         }
         if (tpl && !tplConnu) {
-            printf("[GRP]   template construit pendant le chargement : 0x%llX\n", (unsigned long long)tpl);
             int c = nConnus < 8 ? nConnus++ : 7;
             strncpy_s(connus[c].chemin, liste[i], _TRUNCATE);
             connus[c].tpl = tpl;
@@ -1307,35 +1282,11 @@ bool PreparerSurvivants(const GroupeAP& g)
     return false;
 }
 
-void DecrireContenu(uintptr_t comp)
-{
-    uintptr_t tab = 0;
-    int32_t n = 0;
-    if (!SafeRead((void*)(comp + COMP_CONTENU), &tab, 8) || !SafeRead((void*)(comp + COMP_CONTENU + 8), &n, 4) ||
-        !tab || n < 0 || n > 64) {
-        printf("[GRP] contenu illisible (0x%llX, %d)\n", (unsigned long long)tab, n);
-        return;
-    }
-    printf("[GRP] contenu : %d entree(s)\n", n);
-    for (int i = 0; i < n; ++i) {
-        uint8_t e[ENTREE_SURVIVANTS] = {};
-        SafeRead((void*)(tab + i * ENTREE_SURVIVANTS), e, ENTREE_SURVIVANTS);
-        int32_t nb;
-        memcpy(&nb, e, 4);
-        printf("   [%d] %d survivant(s), classe sociale", i, nb);
-        for (int j = 4; j < 0x14; ++j) printf(" %02X", e[j]);
-        printf(", statistiques");
-        for (int j = 0x14; j < 0x24; ++j) printf(" %02X", e[j]);
-        printf("\n");
-    }
-}
-
 // survivants >= 0 : tout dans la premiere entree (sa classe sociale), les
 // autres a 0. sansMorts : taux de mort du groupe a 0 (le tick de mortalite
 // FUN_1418b2f70 ne fait rien si le taux est nul).
 void AppliquerContenu(uintptr_t comp, int survivants, bool sansMorts)
 {
-    DecrireContenu(comp);
     uintptr_t tab = 0;
     int32_t n = 0;
     if (survivants >= 0 && SafeRead((void*)(comp + COMP_CONTENU), &tab, 8) &&
@@ -1349,7 +1300,6 @@ void AppliquerContenu(uintptr_t comp, int survivants, bool sansMorts)
     if (sansMorts) {
         float zero = 0.0f;
         SafeWrite((void*)(comp + COMP_TAUX_MORT), &zero, 4);
-        printf("[GRP] taux de mort mis a 0\n");
     }
 }
 
@@ -1401,7 +1351,6 @@ bool ReglerDuree(uintptr_t entite, float heures, uintptr_t clone)
     if (clone && restantAvant > 0.01 && heures > 0.01f && SafeRead((void*)(clone + TPL_VITESSE), &vitesse, 4)) {
         float nouvelleVitesse = (float)(vitesse * restantAvant / heures);
         SafeWrite((void*)(clone + TPL_VITESSE), &nouvelleVitesse, 4);
-        printf("[GRP] vitesse de la copie : %.1f -> %.1f\n", vitesse, nouvelleVitesse);
     }
     JournalImmediat("[GRP] duree : %.2f h -> %.2f h restantes (mouvement 0x%llX, %d s par heure, "
                     "position %.1f / %.1f)\n", restantAvant, heures, (unsigned long long)mouv,
@@ -1427,8 +1376,7 @@ void ReleverUnGroupe(const char* quand, uintptr_t comp)
     if (tpl > 0x10000 && SafeRead((void*)(tpl + 0x58), &cle, 8) && cle > 0x10000) ReadAscii(cle, cleNom, sizeof(cleNom));
     bool notreCopie = false;
     for (const GroupeSuivi& s : g_groupes) if (s.actif && s.clone && s.clone == tpl) notreCopie = true;
-    uint8_t guid[16] = {}, atteint = 0;
-    if (tpl > 0x10000) SafeRead((void*)(tpl + 0xD0), guid, 16);
+    uint8_t atteint = 0;
     SafeRead((void*)(comp + COMP_ARRIVE), &atteint, 1);
     uintptr_t contenu = 0;
     int32_t nContenu = 0, premierCount = 0;
@@ -1436,12 +1384,10 @@ void ReleverUnGroupe(const char* quand, uintptr_t comp)
     SafeRead((void*)(comp + COMP_CONTENU + 8), &nContenu, 4);
     if (contenu > 0x10000 && nContenu > 0) SafeRead((void*)contenu, &premierCount, 4);
 
-    printf("[SAV] groupe %s : composant 0x%llX, entite 0x%llX \"%s\"\n", quand, (unsigned long long)comp,
-        (unsigned long long)e, nomEnt);
-    printf("[SAV]   template 0x%llX%s, cle du nom \"%s\", GUID", (unsigned long long)tpl,
-        notreCopie ? " (NOTRE COPIE)" : "", cleNom);
-    for (int i = 0; i < 16; ++i) printf(" %02X", guid[i]);
-    printf("\n[SAV]   contenu : %d entree(s), 1re Count %d ; ReachedCity %d\n", nContenu, premierCount, atteint);
+    printf("[SAV] groupe %s : composant 0x%llX, entite 0x%llX \"%s\", template 0x%llX%s \"%s\", "
+        "contenu %d entree(s) (1re Count %d), ReachedCity %d\n", quand, (unsigned long long)comp,
+        (unsigned long long)e, nomEnt, (unsigned long long)tpl, notreCopie ? " (NOTRE COPIE)" : "", cleNom,
+        nContenu, premierCount, atteint);
 
     uintptr_t sysMouv = 0, horloge = 0, mouv = 0;
     int32_t secParHeure = 0;
@@ -1462,15 +1408,6 @@ void ReleverUnGroupe(const char* quand, uintptr_t comp)
             (unsigned long long)maintenant, (double)(arrivee - maintenant) / tph);
     }
     else printf("[SAV]   mouvement illisible (0x%llX)\n", (unsigned long long)mouv);
-
-    // Premiers champs de l'entite : un identifiant stable y est peut-etre.
-    printf("[SAV]   entite :");
-    for (int off = 0x08; off < 0x48 && e > 0x10000; off += 8) {
-        uint64_t q = 0;
-        SafeRead((void*)(e + off), &q, 8);
-        printf(" +%02X=%llX", off, (unsigned long long)q);
-    }
-    printf("\n");
 }
 
 // Tous les groupes de la partie (apres un chargement).
@@ -1558,15 +1495,12 @@ FonctionTpl_t g_origTpl[MAX_FONCTIONS_TPL] = {};
 uintptr_t     g_tplObjets[256];
 ListeCaptures g_capTpl = { SRWLOCK_INIT, g_tplObjets, 256, 0,
                            "FrostpunkSurvivorGroupComponentTemplate", 0 };
-volatile long g_traceTpl = 0;
 
 uintptr_t CaptureTpl(int i, uintptr_t a, uintptr_t b, uintptr_t c, uintptr_t d)
 {
     uintptr_t r = g_origTpl[i](a, b, c, d);
     if (ClasseExacte(a, "FrostpunkSurvivorGroupComponentTemplate")) {
         CaptureAjouter(g_capTpl, a);
-        long n = InterlockedIncrement(&g_traceTpl);
-        if (n <= 3) TracerPile("SurvivorGroupComponentTemplate", a, n);
     }
     return r;
 }
@@ -2265,7 +2199,6 @@ void DiagGroupes()
     printf("[GRP] groupe : entite 0x%llX, composant 0x%llX, template 0x%llX, CompoundTemplate 0x%llX\n",
         (unsigned long long)e, (unsigned long long)comp,
         (unsigned long long)tplComp, (unsigned long long)tplCompose);
-    DecrireContenu(comp);
 
     // Ou le CompoundTemplate range-t-il ses templates de composant ?
     static bool compoundDecrit = false;
@@ -2363,10 +2296,6 @@ int GroupeCreer(const GroupeAP& g)
 
     // Par classe : comptes deja poses dans les entrees de la copie du template.
     AppliquerContenu(s.comp, g.classes[0].classe ? -1 : g.survivants, g.sansMorts);
-    uintptr_t dilemme = 0;
-    SafeRead((void*)(s.comp + COMP_DILEMME_ARRIVEE), &dilemme, 8);
-    printf("[GRP] dilemme d'arrivee apres Creer : 0x%llX%s\n", (unsigned long long)dilemme,
-        dilemme ? " (REPOSE par le jeu apres le hook)" : "");
 
     uint8_t init = 0;
     SafeRead((void*)(s.comp + COMP_INITIALISE), &init, 1);

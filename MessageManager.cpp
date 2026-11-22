@@ -23,61 +23,18 @@ static PoseTexte_t oPoseTexte = nullptr;      // +0x1AA9C00 -> message+?
 
 
 
-typedef uintptr_t(*CreerNotif_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
-static CreerNotif_t oCreerNotifA = nullptr, oCreerNotifB = nullptr;
-
 typedef void (*CreerMsg_t)(uintptr_t, uintptr_t*, uintptr_t, uintptr_t);
 static CreerMsg_t oCreerMessage = nullptr;
-
-static uintptr_t hkCreerNotifA(uintptr_t a, uintptr_t b, uintptr_t c, uintptr_t d)
-{
-    if (c == 0x60) {
-        static int n = 0;
-        if (++n <= 4)
-            printf("[MSG] ctor 0x60 : a=%llX  b=%llX  c=%llX  d=%llX\n",
-                (unsigned long long)a, (unsigned long long)b,
-                (unsigned long long)c, (unsigned long long)d);
-    }
-    return oCreerNotifA(a, b, c, d);
-}
 
 static uintptr_t g_msgSystemeFab = 0;
 static uintptr_t g_msgEntreeRef = 0;
 static uintptr_t g_msgParamsRef = 0;
-
-static uintptr_t hkCreerNotifB(uintptr_t a, uintptr_t b, uintptr_t c, uintptr_t d)
-{
-    static int n = 0;
-    if (++n <= 3) {
-        uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
-        IMAGE_DOS_HEADER dos; IMAGE_NT_HEADERS64 nt;
-        SafeRead((void*)base, &dos, sizeof(dos));
-        SafeRead((void*)(base + dos.e_lfanew), &nt, sizeof(nt));
-        uintptr_t fin = base + nt.OptionalHeader.SizeOfImage;
-    }
-    return oCreerNotifB(a, b, c, d);
-}
-
-
 
 static void hkCreerMessage(uintptr_t systeme, uintptr_t* sortie,
     uintptr_t entree, uintptr_t params)
 {
     oCreerMessage(systeme, sortie, entree, params);
     NoterThread("CreerMessage");
-
-    // Comparaison ponctuelle entre l'appel reel du jeu et nos references.
-    static int n = 0;
-    if (++n <= 3) {
-        uintptr_t pn = 0; char nom[64] = {};
-        if (entree > 0x10000 && SafeRead((void*)(entree + 0x18), &pn, 8) && pn > 0x10000)
-            SafeRead((void*)pn, nom, sizeof(nom) - 1);
-        printf("[CREE] reel : producteur=%llX entree=%llX (\"%s\")\n",
-            (unsigned long long)systeme, (unsigned long long)entree, nom);
-        printf("[CREE] nous : producteur=%llX entree=%llX\n",
-            (unsigned long long)g_msgSystemeFab, (unsigned long long)g_msgEntreeRef);
-        fflush(stdout);
-    }
 
     // Filet de securite : ne remplit que si le balayage n'a rien donne.
     if (!g_msgSystemeFab) g_msgSystemeFab = systeme;
@@ -87,14 +44,6 @@ static void hkCreerMessage(uintptr_t systeme, uintptr_t* sortie,
 
 void InstallNotifHooks(uintptr_t modBase)
 {
-    void* p = (void*)(modBase + Adr(0x1685A50));
-    if (MH_CreateHook(p, (void*)&hkCreerNotifA, (void**)&oCreerNotifA) == MH_OK &&
-        MH_EnableHook(p) == MH_OK) printf("[MSG] hook +1685A50 OK\n");
-
-    void* q = (void*)(modBase + Adr(0x1AA9DF0));
-    if (MH_CreateHook(q, (void*)&hkCreerNotifB, (void**)&oCreerNotifB) == MH_OK &&
-        MH_EnableHook(q) == MH_OK) printf("[MSG] hook +1AA9DF0 OK\n");
-
     void* f = (void*)(modBase + Adr(0x167C580));
     if (MH_CreateHook(f, (void*)&hkCreerMessage, (void**)&oCreerMessage) == MH_OK &&
         MH_EnableHook(f) == MH_OK) printf("[CREE] hook OK\n");
@@ -103,7 +52,6 @@ void InstallNotifHooks(uintptr_t modBase)
 
     oPoseTitre = (PoseTexte_t)(modBase + Adr(0x1AA9D70));
     oPoseTexte = (PoseTexte_t)(modBase + Adr(0x1AA9C00));
-    printf("[POSE] poseurs resolus\n");
 }
 
 
@@ -128,9 +76,10 @@ static bool ModeleCleValide(uintptr_t modele)
     if (!SafeRead((void*)(modele - 0x0C), &self, 8)) return false;
     if (!SafeRead((void*)(modele - 0x04), &refs, 4)) return false;
     bool ok = (self == modele - 0x14) && refs > 0 && refs < 100000;
-    printf("[CLE] modele 0x%llX : self=0x%llX (attendu 0x%llX) refs=%u -> %s\n",
-        (unsigned long long)modele, (unsigned long long)self,
-        (unsigned long long)(modele - 0x14), refs, ok ? "OK" : "REFUSE");
+    if (!ok)
+        printf("[CLE] modele 0x%llX REFUSE : self=0x%llX (attendu 0x%llX) refs=%u\n",
+            (unsigned long long)modele, (unsigned long long)self,
+            (unsigned long long)(modele - 0x14), refs);
     return ok;
 }
 
@@ -277,30 +226,6 @@ void MessageSetReferences(uintptr_t* systemes, int nSys,
     uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
     g_msgParamsRef = base + Adr(0x40B1B30);
 
-    // Plusieurs producteurs et plusieurs entrees de meme nom coexistent :
-    // on affiche tout pour pouvoir choisir sur un critere sur.
-    printf("[MSG] %d producteur(s) :\n", nSys);
-    for (int i = 0; i < nSys && i < 8; ++i) {
-        uintptr_t v = 0;
-        SafeRead((void*)systemes[i], &v, 8);
-        printf("   [%d] %llX  vtable=%llX\n", i,
-            (unsigned long long)systemes[i], (unsigned long long)v);
-    }
-
-    printf("[MSG] entrees nommees CitizensDied :\n");
-    for (int i = 0; i < nEnt; ++i) {
-        uintptr_t pn = 0; char nom[64] = {};
-        if (!SafeRead((void*)(entrees[i] + 0x18), &pn, 8) || pn <= 0x10000) continue;
-        SafeRead((void*)pn, nom, sizeof(nom) - 1);
-        if (!StrEq(nom, "CitizensDied")) continue;
-
-        uintptr_t titre = 0;
-        SafeRead((void*)(entrees[i] + 0x50), &titre, 8);
-        char cle[96] = {};
-        if (titre > 0x10000) SafeRead((void*)titre, cle, sizeof(cle) - 1);
-        printf("   %llX  titre=\"%s\"\n", (unsigned long long)entrees[i], cle);
-    }
-
     g_msgSystemeFab = (nSys > 0) ? systemes[0] : 0;
     g_msgEntreeRef = 0;
     for (int i = 0; i < nEnt && !g_msgEntreeRef; ++i) {
@@ -411,25 +336,10 @@ static EntreeAP g_entreesAP[MAX_ENTREES_AP];
 static int      g_nEntreesAP = 0;
 static uintptr_t g_entreeRefCopiee = 0;   // l'entree d'origine des copies (change si la reference change)
 
-static void DecrireTuileMsg(const char* libelle, uintptr_t t)
-{
-    uintptr_t tex = 0;
-    int32_t v[4] = {};
-    char nom[128] = "";
-    SafeRead((void*)t, &tex, 8);
-    SafeRead((void*)(t + 8), v, sizeof(v));
-    if (tex > 0x10000) ReadAscii(tex, nom, sizeof(nom));
-    printf("[MSG]   %s : texture 0x%llX \"%s\" case (%d,%d) sur (%d,%d)\n", libelle,
-        (unsigned long long)tex, nom, v[0], v[1], v[2], v[3]);
-}
-
-// --- Diagnostic : popups reellement affichees -------------------------------
-// Hook de FUN_141aab820(panneau, notification) (ajout d'une popup au panneau
-// des notifications). Releve : classe de la notification, message
-// (notification +0x18), entree (message +0x80), son nom, Important (+0xAC),
-// et la tuile d'icone (FUN_141687ac0 : entree +0x78, ou message +0x28 si
-// message +0x20). Test du 2026-10-28 : notre copie d'entree ne changeait
-// rien a l'affichage.
+// --- Ajout d'une popup au panneau des notifications ------------------------
+// Hook de FUN_141aab820(panneau, notification) : message = notification
+// +0x18, entree = message +0x80. Icone et couleurs de nos messages, entree
+// rendue aux messages AP recharges.
 typedef void(*AjouterPopup_t)(uintptr_t panneau, uintptr_t notification, uintptr_t p3, uintptr_t p4);
 static const uintptr_t UICONFIG_ICONE_DEFAUT = Adr(0x40615C0) + 0x258;   // FrostpunkUIConfig "Default notification icon"
 static AjouterPopup_t oAjouterPopup = nullptr;
@@ -439,48 +349,10 @@ static uintptr_t EntreeDeNotre(const char* icone);
 
 // Pose d'une tuile sur un enfant d'un controle : FUN_1410260c0(controle,
 // &nom, tuile, x, y, nx, ny) (le panneau l'appelle avec "ICON" et la tuile
-// de FUN_141687ac0). Releve limite a l'ajout de NOS messages : nom de
-// l'enfant, texture et case transmises, et controle trouve (retour non nul).
+// de FUN_141687ac0). Appelee directement pour l'icone de nos messages.
 typedef uintptr_t(*PoserTuileEnfant_t)(uintptr_t controle, uintptr_t nom, uintptr_t tuile, uintptr_t x,
                                        uintptr_t y, uintptr_t nx, uintptr_t ny, uintptr_t p8);
 static PoserTuileEnfant_t oPoserTuileEnfant = nullptr;
-static bool g_dansAjoutAP = false;
-
-static uintptr_t hkPoserTuileEnfant(uintptr_t controle, uintptr_t nom, uintptr_t tuile, uintptr_t x,
-                                    uintptr_t y, uintptr_t nx, uintptr_t ny, uintptr_t p8)
-{
-    uintptr_t r = oPoserTuileEnfant(controle, nom, tuile, x, y, nx, ny, p8);
-    if (g_dansAjoutAP) {
-        char n[64] = "?", tex[128] = "";
-        uintptr_t pn = 0, pt = 0;
-        if (nom && SafeRead((void*)nom, &pn, 8) && pn > 0x10000) ReadAscii(pn, n, sizeof(n));
-        if (tuile && SafeRead((void*)tuile, &pt, 8) && pt > 0x10000) ReadAscii(pt, tex, sizeof(tex));
-        printf("[POPUP]   pose de tuile sur l'enfant \"%s\" : texture \"%s\" case (%d,%d) sur (%d,%d) -> controle 0x%llX\n",
-            n, tex, (int)x, (int)y, (int)nx, (int)ny, (unsigned long long)r);
-    }
-    return r;
-}
-
-// Arbre d'un controle d'interface (FUN_141025ff0, recherche d'un enfant par
-// nom) : +0x1D8 nom, +0x220 premier enfant, enfant +0x240 frere suivant.
-// Test du 2026-10-28 : l'enfant "ICON" n'existe dans AUCUN message (pose de
-// tuile toujours refusee) ; l'icone du cercle vient du preset
-// (BASIC_NOTIFICATION : bulle de dialogue, WORLD_MAP_NOTIFICATION : pioches).
-// On liste l'arbre pour trouver l'element image du preset.
-static void DecrireArbreControle(uintptr_t c, int profondeur, int* budget)
-{
-    for (; c > 0x10000 && *budget > 0; --*budget) {
-        char nom[64] = "", cls[96] = "?";
-        uintptr_t pn = 0, enfant = 0, frere = 0;
-        if (SafeRead((void*)(c + 0x1D8), &pn, 8) && pn > 0x10000) ReadAscii(pn, nom, sizeof(nom));
-        GetClassNameFP(c, cls, sizeof(cls));
-        printf("[POPUP]     %*s\"%s\" %s 0x%llX\n", profondeur * 2, "", nom, cls, (unsigned long long)c);
-        SafeRead((void*)(c + 0x220), &enfant, 8);
-        if (enfant && profondeur < 8) DecrireArbreControle(enfant, profondeur + 1, budget);
-        if (!SafeRead((void*)(c + 0x240), &frere, 8)) return;
-        c = frere;
-    }
-}
 
 // Controle d'un message ajoute : enregistrements de 0x30 en panneau +0x190
 // (compte +0x198) : +0x00 controle, +0x28 notification (FUN_141aad120).
@@ -542,8 +414,8 @@ static void PoserIconeSurControle(uintptr_t ctrl, uintptr_t ent)
         printf("[POPUP]   EXCEPTION 0x%08lX a la pose de l'icone du cercle\n", GetExceptionCode());
         return;
     }
-    printf("[POPUP]   icone du cercle posee sur \"icon\" : case (%d,%d) sur (%d,%d) -> element 0x%llX\n",
-        v[0], v[1], v[2], v[3], (unsigned long long)r);
+    if (!r) printf("[POPUP]   icone du cercle : enfant \"icon\" introuvable (controle 0x%llX)\n",
+        (unsigned long long)ctrl);
 }
 
 // ---------------------------------------------------------------------------
@@ -662,8 +534,6 @@ static void CouleurAvantAjoutJeu(uintptr_t panneau)
         if (!cc) continue;
         static const float BLANC[4] = { 1, 1, 1, 1 };
         for (uintptr_t e : cc->elem) if (e) PoserCouleurMoteur(e, BLANC);
-        printf("[POPUP]   controle 0x%llX (colore par nous) repris par un message du jeu : elements remis en blanc\n",
-            (unsigned long long)ctrl);
         *cc = ControleColore();
     }
     ReleaseSRWLockExclusive(&g_verrouCouleurs);
@@ -695,8 +565,9 @@ static void CouleurApresAjoutAP(uintptr_t panneau, uintptr_t notif, uintptr_t en
     cc->deriveVue = false;
     cc->entree = ent;
     ReleaseSRWLockExclusive(&g_verrouCouleurs);
-    printf("[POPUP]   couleur : %d/%d element(s) colore(s) a l'ajout (controle 0x%llX)\n", poses, N_COULEURS_AP,
-        (unsigned long long)ctrl);
+    if (poses < N_COULEURS_AP)
+        printf("[POPUP]   couleur : %d/%d element(s) colore(s) a l'ajout (controle 0x%llX)\n", poses, N_COULEURS_AP,
+            (unsigned long long)ctrl);
 }
 
 // Sauvegarde AP (2026-10-29) : les messages AP recharges sont ajoutes au
@@ -755,54 +626,16 @@ void CouleursMessagesTick()
             if (CouleurProche(actuel, COULEURS_AP[i].c)) continue;
             if (SafeWrite((void*)(c.elem[i] + ELEM_COULEUR), (void*)COULEURS_AP[i].c, 16)) ++reposees;
         }
-        if (reposees && !c.deriveVue) {
-            c.deriveVue = true;
-            printf("[POPUP]   couleur : le preset a repris la main %llu ms apres l'ajout (%d element(s) reposes)\n",
-                (unsigned long long)(maintenant - c.quand), reposees);
-        }
+        if (reposees && !c.deriveVue) c.deriveVue = true;
     }
     ReleaseSRWLockExclusive(&g_verrouCouleurs);
 }
 
-static void DecrireControleDuMessage(uintptr_t panneau, uintptr_t notif)
-{
-    static int releves = 0;
-    if (releves >= 12) return;
-    uintptr_t tab = 0;
-    int32_t n = 0;
-    SafeRead((void*)(panneau + 0x190), &tab, 8);
-    SafeRead((void*)(panneau + 0x198), &n, 4);
-    for (int i = 0; i < n && i < 64 && tab; ++i) {
-        uintptr_t ctrl = 0, nt = 0;
-        SafeRead((void*)(tab + i * 0x30), &ctrl, 8);
-        SafeRead((void*)(tab + i * 0x30 + 0x28), &nt, 8);
-        if (nt != notif) continue;
-        ++releves;
-        printf("[POPUP]   arbre du controle du message :\n");
-        int budget = 60;
-        uintptr_t enfant = 0;
-        char nom[64] = "";
-        uintptr_t pn = 0;
-        if (SafeRead((void*)(ctrl + 0x1D8), &pn, 8) && pn > 0x10000) ReadAscii(pn, nom, sizeof(nom));
-        printf("[POPUP]     racine \"%s\" 0x%llX\n", nom, (unsigned long long)ctrl);
-        SafeRead((void*)(ctrl + 0x220), &enfant, 8);
-        DecrireArbreControle(enfant, 1, &budget);
-        return;
-    }
-    printf("[POPUP]   controle du message introuvable (%d enregistrement(s))\n", n);
-}
-
 static void hkAjouterPopup(uintptr_t panneau, uintptr_t notif, uintptr_t p3, uintptr_t p4)
 {
-    char cls[96] = "?", nom[96] = "?";
     uintptr_t msg = 0, ent = 0, pn = 0;
-    uint8_t imp = 0, propre = 0;
-    GetClassNameFP(notif, cls, sizeof(cls));
     SafeRead((void*)(notif + 0x18), &msg, 8);
-    if (msg > 0x10000) {
-        SafeRead((void*)(msg + 0x80), &ent, 8);
-        SafeRead((void*)(msg + 0x20), &propre, 1);
-    }
+    if (msg > 0x10000) SafeRead((void*)(msg + 0x80), &ent, 8);
     // Sauvegarde AP (2026-10-29) : un message AP recharge pointe l'entree
     // d'ORIGINE (CitizensDied : importante, icone du jeu ; notre copie n'est
     // pas sauvegardee). On le reconnait a sa cle de titre (message +0x98,
@@ -828,32 +661,6 @@ static void hkAjouterPopup(uintptr_t panneau, uintptr_t notif, uintptr_t p3, uin
                 (unsigned long long)g_msgEntreeRef);
         }
     }
-    if (ent > 0x10000) {
-        SafeRead((void*)(ent + ENT_IMPORTANTE), &imp, 1);
-        if (SafeRead((void*)(ent + 0x18), &pn, 8) && pn > 0x10000) ReadAscii(pn, nom, sizeof(nom));
-    }
-    printf("[POPUP] %s : message 0x%llX, entree 0x%llX \"%s\"%s, importante %d, icone propre au message %d\n",
-        cls, (unsigned long long)msg, (unsigned long long)ent, nom, EstNotreEntree(ent) ? " (NOTRE COPIE)" : "",
-        imp, propre);
-    if (ent > 0x10000) DecrireTuileMsg("icone lue", propre ? msg + 0x28 : ent + ENT_ICONE);
-    // Test du 2026-10-28 : toutes les entrees du jeu ont la meme icone (case
-    // (1,9)) alors que les icones affichees varient (site d'exploration...) :
-    // l'icone du cercle vient d'une donnee du MESSAGE. On vide le message
-    // (0xF0 octets, FUN_141aa9780) pour comparer un message a loupe et un
-    // message a icone.
-    if (msg > 0x10000) {
-        for (int off = 0; off < 0xF0; off += 8) {
-            uintptr_t q = 0;
-            if (!SafeRead((void*)(msg + off), &q, 8) || !q) continue;
-            char t[96] = "", c2[96] = "";
-            if (q > 0x10000) {
-                if (!GetClassNameFP(q, c2, sizeof(c2))) c2[0] = 0;
-                if (!c2[0] && ReadAscii(q, t, sizeof(t)) && (strlen(t) < 3 || (unsigned char)t[0] < 0x20)) t[0] = 0;
-            }
-            printf("[POPUP]     msg+0x%02X = 0x%016llX %s%s\n", off, (unsigned long long)q, c2, t);
-        }
-    }
-
     // Icone par defaut des messages : FrostpunkUIConfig (instance statique
     // DAT_1440615C0, reflexion FUN_14130ef90) +0x258 "Default notification
     // icon". Hypothese du 2026-10-28 : la loupe ((12,4) de Icons.dds) est
@@ -863,25 +670,15 @@ static void hkAjouterPopup(uintptr_t panneau, uintptr_t notif, uintptr_t p3, uin
     // panneau, puis restauree.
     uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
     uintptr_t defaut = base + UICONFIG_ICONE_DEFAUT;
-    static bool decrite = false;
-    if (!decrite) { decrite = true; DecrireTuileMsg("icone par defaut des messages (UIConfig +0x258)", defaut); }
     int32_t caseOrigine[2] = {}, caseNotre[2] = {};
     bool remplacee = false;
     if (EstNotreEntree(ent) && SafeRead((void*)(defaut + 8), caseOrigine, 8) &&
         SafeRead((void*)(ent + ENT_ICONE + 8), caseNotre, 8)) {
         // La case de notre entree est celle de l'atlas des icones (Icons.dds).
         remplacee = SafeWrite((void*)(defaut + 8), caseNotre, 8);
-        printf("[POPUP]   icone par defaut (%d,%d) -> (%d,%d) le temps de l'ajout\n",
-            caseOrigine[0], caseOrigine[1], caseNotre[0], caseNotre[1]);
     }
-    // Test du 2026-10-28 : pour nos messages, l'enfant "ICON" n'existe pas
-    // (retour 0). On releve maintenant les poses de tuile pendant l'ajout de
-    // TOUS les messages, pour voir quel enfant recoit l'icone variable d'un
-    // message du jeu (ex. pioches de SiteExplored).
-    g_dansAjoutAP = EstNotreEntree(ent);
     if (!EstNotreEntree(ent)) CouleurAvantAjoutJeu(panneau);
     oAjouterPopup(panneau, notif, p3, p4);
-    g_dansAjoutAP = false;
     if (remplacee) SafeWrite((void*)(defaut + 8), caseOrigine, 8);
     if (EstNotreEntree(ent)) {
         PoserIconeCercle(panneau, notif, ent);
@@ -889,54 +686,12 @@ static void hkAjouterPopup(uintptr_t panneau, uintptr_t notif, uintptr_t p3, uin
     }
 }
 
-// Clic sur une popup : FUN_141aad120(panneau, evenement d'interface) ;
-// evenement +0x18 = controle, +0x24 = bouton (0x10000 gauche, 0x10001 droit).
-// Il retrouve la notification du controle puis emet l'evenement du panneau
-// +0xD0 (gauche) ou +0x108 (droit) avec la notification. Les ecouteurs de
-// ces evenements (pas de 0x10 = {objet, fonction}, compte en +8, comme
-// l'evenement des ressources) decident de l'ouverture du detail : on les
-// liste pour les decompiler.
-static AjouterPopup_t oClicPopup = nullptr;
-
-static void ListerEcouteurs(const char* libelle, uintptr_t evt)
-{
-    uintptr_t tab = 0;
-    int32_t n = 0;
-    uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
-    SafeRead((void*)evt, &tab, 8);
-    SafeRead((void*)(evt + 8), &n, 4);
-    printf("[POPUP]   %s : %d ecouteur(s)\n", libelle, n);
-    for (int i = 0; i < n && i < 16 && tab; ++i) {
-        uintptr_t ent[2] = {};
-        char cls[96] = "?";
-        SafeRead((void*)(tab + i * 0x10), ent, 16);
-        if (ent[0] > 0x10000) GetClassNameFP(ent[0], cls, sizeof(cls));
-        printf("[POPUP]     [%d] objet 0x%llX (%s) fonction Ghidra 0x%llX\n", i, (unsigned long long)ent[0], cls,
-            (unsigned long long)(ent[1] - base + 0x140000000ULL));
-    }
-}
-
-static void hkClicPopup(uintptr_t panneau, uintptr_t evt, uintptr_t p3, uintptr_t p4)
-{
-    int32_t bouton = 0;
-    SafeRead((void*)(evt + 0x24), &bouton, 4);
-    printf("[POPUP] clic (bouton 0x%X) sur une popup\n", bouton);
-    ListerEcouteurs("evenement clic gauche (panneau +0xD0)", panneau + 0xD0);
-    ListerEcouteurs("evenement clic droit (panneau +0x108)", panneau + 0x108);
-    oClicPopup(panneau, evt, p3, p4);
-}
-
 void InstallTracePopups(uintptr_t modBase)
 {
     void* c = (void*)(modBase + Adr(0x1AAB820));
     bool ok = MH_CreateHook(c, (void*)&hkAjouterPopup, (void**)&oAjouterPopup) == MH_OK && MH_EnableHook(c) == MH_OK;
     printf("[POPUP] hook ajout au panneau des notifications (+1AAB820) %s\n", ok ? "OK" : "KO");
-    void* k = (void*)(modBase + Adr(0x1AAD120));
-    bool okK = MH_CreateHook(k, (void*)&hkClicPopup, (void**)&oClicPopup) == MH_OK && MH_EnableHook(k) == MH_OK;
-    printf("[POPUP] hook clic sur une popup (+1AAD120) %s\n", okK ? "OK" : "KO");
-    void* t = (void*)(modBase + Adr(0x10260C0));
-    bool okT = MH_CreateHook(t, (void*)&hkPoserTuileEnfant, (void**)&oPoserTuileEnfant) == MH_OK && MH_EnableHook(t) == MH_OK;
-    printf("[POPUP] hook pose de tuile sur un enfant (+10260C0) %s\n", okT ? "OK" : "KO");
+    oPoserTuileEnfant = (PoserTuileEnfant_t)(modBase + Adr(0x10260C0));
 }
 
 static bool EstNotreEntree(uintptr_t e)
@@ -1012,7 +767,6 @@ static void PoserIconeMessage(uintptr_t message, const char* icone)
     SafeWrite((void*)(message + MSG_ICONE + 8), caseEtNombre, 16);
     uint8_t un = 1;
     SafeWrite((void*)(message + MSG_ICONE_PROPRE), &un, 1);
-    DecrireTuileMsg("icone propre posee sur le message", message + MSG_ICONE);
 }
 
 static uintptr_t EntreeDeNotre(const char* icone)
@@ -1023,17 +777,6 @@ static uintptr_t EntreeDeNotre(const char* icone)
 
     uintptr_t e = (uintptr_t)MoteurAlloc(ENT_TAILLE);
     if (!e || !SafeRead((void*)g_msgEntreeRef, (void*)e, ENT_TAILLE)) return g_msgEntreeRef;
-
-    int32_t type = 0;
-    uint8_t imp = 0, cat[16] = {};
-    SafeRead((void*)(g_msgEntreeRef + ENT_TYPE), &type, 4);
-    SafeRead((void*)(g_msgEntreeRef + ENT_IMPORTANTE), &imp, 1);
-    SafeRead((void*)(g_msgEntreeRef + ENT_CATEGORIE), cat, 16);
-    printf("[MSG] entree d'origine 0x%llX : type %d, importante %d, categorie", (unsigned long long)g_msgEntreeRef, type, imp);
-    for (int i = 0; i < 16; ++i) printf(" %02X", cat[i]);
-    printf("\n");
-    DecrireTuileMsg("image d'origine (+0x60)", g_msgEntreeRef + ENT_IMAGE);
-    DecrireTuileMsg("icone d'origine (+0x78)", g_msgEntreeRef + ENT_ICONE);
 
     uint8_t zero[16] = {}, nonImportante = 0;
     SafeWrite((void*)(e + ENT_IMPORTANTE), &nonImportante, 1);
@@ -1052,17 +795,12 @@ static uintptr_t EntreeDeNotre(const char* icone)
     // donc la texture et le nombre de cases de l'entree d'origine et on ne
     // change que la case (celle de l'icone dans l'atlas des bulles).
     uint8_t tuile[0x18];
-    if (TuileAtlasBulles(icone, tuile)) {
-        SafeWrite((void*)(e + ENT_ICONE + 8), tuile + 8, 8);
-        DecrireTuileMsg("icone de notre entree", e + ENT_ICONE);
-    }
+    if (TuileAtlasBulles(icone, tuile)) SafeWrite((void*)(e + ENT_ICONE + 8), tuile + 8, 8);
     else printf("[MSG] icone \"%s\" indisponible : icone d'origine gardee\n", icone);
 
     EntreeAP& n = g_entreesAP[g_nEntreesAP++];
     strncpy_s(n.icone, icone, _TRUNCATE);
     n.entree = e;
-    printf("[MSG] entree AP \"%s\" = 0x%llX (copie de 0x%llX)\n", icone, (unsigned long long)e,
-        (unsigned long long)g_msgEntreeRef);
     return e;
 }
 
@@ -1109,15 +847,13 @@ static void EmettreNotificationMaintenant(const char* titre, const char* texte, 
     uintptr_t base = (uintptr_t)GetModuleHandleW(nullptr);
     uintptr_t file = 0;
     SafeRead((void*)(base + Adr(0x408E390)), &file, 8);
-    printf("[MSG] 1. file=%llX\n", (unsigned long long)file); fflush(stdout);
-    if (!file) return;
+    if (!file) { printf("[MSG] file de messages absente\n"); return; }
 
     uintptr_t entree = EntreeDeNotre(icone);
     uintptr_t message = 0;
     oCreerMessage(g_msgSystemeFab, &message, entree, g_msgParamsRef);
     if (message) PoserIconeMessage(message, icone);
-    printf("[MSG] 2. message=%llX\n", (unsigned long long)message); fflush(stdout);
-    if (!message) return;
+    if (!message) { printf("[MSG] creation du message impossible\n"); return; }
 
     uintptr_t modele = 0;
     SafeRead((void*)(g_msgEntreeRef + 0x50), &modele, 8);
@@ -1154,18 +890,15 @@ static void EmettreNotificationMaintenant(const char* titre, const char* texte, 
     // auraient reecrit la cle d'un message encore affiche... et sauvegarde.
     char* ct = (char*)CleMoteur(cleT, modele);
     char* cd = (char*)CleMoteur(cleD, modele);
-    printf("[MSG] 3. cles pretes\n"); fflush(stdout);
 
     uintptr_t transfert = message;
     message = 0;
 
     if (ct) { uintptr_t p = (uintptr_t)ct; oPoseTitre(transfert, &p); }
-    printf("[MSG] 4. titre pose\n"); fflush(stdout);
     if (cd) { uintptr_t p = (uintptr_t)cd; oPoseTexte(transfert, &p); }
-    printf("[MSG] 5. texte pose\n"); fflush(stdout);
 
     EmettreMessage(file, &transfert);
-    printf("[MSG] 6. notification %d emise\n", id); fflush(stdout);
+    printf("[MSG] message %d emis : \"%s\"\n", id, titre);
 }
 
 

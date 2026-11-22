@@ -104,9 +104,7 @@ uintptr_t hkEcrireSauvegarde(uintptr_t profil, uintptr_t nom, uintptr_t p3, uint
         char journal[MAX_NOM];
         PourJournal(w, journal, sizeof(journal));
         int n = LireNoms(g_noms, 1024);
-        if (NomConnu(w, g_noms, n)) {
-            printf("[SAV] sauvegarde \"%s\" : deja notee dans la session\n", journal);
-        } else {
+        if (!NomConnu(w, g_noms, n)) {
             char chemin[MAX_PATH], utf8[MAX_NOM * 4];
             FILE* f = nullptr;
             if (WideCharToMultiByte(CP_UTF8, 0, w, -1, utf8, sizeof(utf8), nullptr, nullptr) > 0 &&

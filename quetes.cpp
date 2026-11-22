@@ -930,156 +930,13 @@ void Releve()
 // --- Trace des demarrages de quete en jeu ----------------------------------------
 // FUN_1416e8570(systeme des quetes DAT_14408f0e8, quete, &contexte) -> char :
 // demarrer une quete (appelee par la commande console StartQuest,
-// FUN_1413abc00). Chaque demarrage est journalise avec l'evenement en cours
-// et, pour les 40 premiers, la pile d'appels (adresses Ghidra) : on voit ainsi
-// les lancements que les donnees ne montrent pas (sequences, code).
+// FUN_1413abc00). Chaque demarrage (hors succes Steam) est journalise avec
+// l'evenement en cours.
 static const uintptr_t OFF_DEMARRER_QUETE = Adr(0x16E8570);
 typedef uintptr_t (*Fonction4_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
 Fonction4_t oDemarrerQuete = nullptr;
 volatile LONG g_nDemarrages = 0;
 
-// --- Tableaux d'effets en cours d'execution --------------------------------------
-// FUN_14169aee0(executeur, &tableau d'effets, contexte, sortie, ...) : execute
-// une liste d'effets. Appelee par l'invocation d'evenement (evt +0x58), par les
-// effets de loi, et par la file des effets temporises (FUN_14169d890 :
-// "Executing scheduled timed effect...", tableau = TimedEffect + 0x40). Trace
-// du 2026-11-01 : 005 LONDONERS est lancee depuis cette file.
-static const uintptr_t OFF_EXECUTER_EFFETS = Adr(0x169AEE0);
-typedef uintptr_t (*Fonction6_t)(uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t);
-Fonction6_t oExecuterEffets = nullptr;
-thread_local uintptr_t t_tableaux[16];
-thread_local int       t_nTableaux = 0;
-
-// Test du 2026-11-01 : le TimedEffect execute par la file n'appartient a
-// aucune donnee parcourue (copie, ou structure non atteinte). On note donc,
-// a chaque liste executee, ses TimedEffect avec le contexte du moment de leur
-// programmation : evenement en cours et liste la plus exterieure.
-struct Programmation {
-    uintptr_t timed;           // objet FrostpunkTimedEffect
-    uintptr_t exterieur;       // liste d'effets la plus exterieure a ce moment
-    uintptr_t liste;           // liste qui contient le TimedEffect
-    char      evt[96];         // evenement en cours (g_nomEvtEnCours)
-};
-constexpr int MAX_PROGRAMMATIONS = 512;
-Programmation g_progs[MAX_PROGRAMMATIONS];
-int  g_nProgs = 0;
-SRWLOCK g_verrouProgs = SRWLOCK_INIT;
-
-void NoterTimedEffects(uintptr_t tab)
-{
-    uintptr_t t = 0; uint32_t n = 0;
-    if (!SafeRead((void*)tab, &t, 8) || !SafeRead((void*)(tab + 8), &n, 4) || t <= 0x10000 || n == 0 || n > 64) return;
-    for (uint32_t i = 0; i < n; ++i) {
-        uintptr_t e = 0; char cls[64] = "";
-        if (!SafeRead((void*)(t + (uintptr_t)i * 8), &e, 8) || e <= 0x10000 || !GetClassNameFP(e, cls, sizeof(cls))) continue;
-        if (strcmp(cls, "FrostpunkTimedEffect") != 0) continue;
-        AcquireSRWLockExclusive(&g_verrouProgs);
-        int k = 0;
-        while (k < g_nProgs && g_progs[k].timed != e) ++k;
-        if (k == g_nProgs) {
-            if (g_nProgs < MAX_PROGRAMMATIONS) ++g_nProgs;
-            else k = (int)(e % MAX_PROGRAMMATIONS);    // plein : on recycle
-        }
-        Programmation& p = g_progs[k];
-        p.timed = e;
-        p.exterieur = t_nTableaux > 0 ? t_tableaux[0] : tab;
-        p.liste = tab;
-        strncpy_s(p.evt, g_nomEvtEnCours[0] ? g_nomEvtEnCours : "(aucun)", _TRUNCATE);
-        ReleaseSRWLockExclusive(&g_verrouProgs);
-    }
-}
-
-uintptr_t hkExecuterEffets(uintptr_t ex, uintptr_t tab, uintptr_t ctx, uintptr_t sortie, uintptr_t p5, uintptr_t p6)
-{
-    if (t_nTableaux < 16) t_tableaux[t_nTableaux] = tab;
-    ++t_nTableaux;
-    NoterTimedEffects(tab);
-    uintptr_t r = oExecuterEffets(ex, tab, ctx, sortie, p5, p6);
-    --t_nTableaux;
-    return r;
-}
-
-// Recherche du proprietaire d'un tableau d'effets : objet "Frostpunk..." dont
-// un champ (+0x18..+0x60) est ce tableau, atteint par le parcours des
-// evenements, des quetes ou des lois ; ou evenement dont c'est le +0x58.
-uintptr_t g_tableauCherche = 0;
-int       g_nTrouvailles = 0;
-const char* g_ouCherche = "";
-
-// Repli (test du 2026-11-01 : la liste du TimedEffect qui lance 005 LONDONERS
-// n'appartient a aucun objet parcouru, mais elle est a 0x380 du TimedEffect
-// qui lance 004, dans "[Act 1 Arc 1] U: Step 3 controller") : objet parcouru
-// le plus proche en memoire juste en dessous du tableau cherche.
-uintptr_t g_plusProcheObj = 0;
-char      g_plusProcheDesc[256] = "";
-
-void VisiterProprietaire(uintptr_t obj, const char* cls, uintptr_t evt, const char* nomEvt, const char* nomRep)
-{
-    if (obj < g_tableauCherche && g_tableauCherche - obj < 0x2000 &&
-        (!g_plusProcheObj || obj > g_plusProcheObj)) {
-        g_plusProcheObj = obj;
-        sprintf_s(g_plusProcheDesc, "%s 0x%llX (-0x%llX), dans %s \"%s\" (%s)", SansPrefixe(cls),
-            (unsigned long long)obj, (unsigned long long)(g_tableauCherche - obj), g_ouCherche,
-            nomEvt ? nomEvt : "?", nomRep ? nomRep : "?");
-    }
-    if (g_nTrouvailles >= 6) return;
-    for (int off = 0x18; off <= 0x60; off += 8) {
-        if (obj + off != g_tableauCherche) continue;
-        ++g_nTrouvailles;
-        printf("[QUETE]     tableau d'effets = %s +0x%X, dans %s \"%s\" (%s)\n", SansPrefixe(cls), off,
-            g_ouCherche, nomEvt ? nomEvt : "?", nomRep ? nomRep : "?");
-        return;
-    }
-    if (evt && evt + 0x58 == g_tableauCherche && g_nTrouvailles < 6) {
-        ++g_nTrouvailles;
-        printf("[QUETE]     tableau d'effets = effets de l'evenement \"%s\" (%s)\n", nomEvt, nomRep);
-        g_tableauCherche = 0;   // un seul signalement par evenement
-    }
-}
-
-void ChercherProprietaire(uintptr_t tab)
-{
-    g_tableauCherche = tab;
-    g_nTrouvailles = 0;
-    g_plusProcheObj = 0;
-    g_plusProcheDesc[0] = 0;
-    g_ouCherche = "un evenement";
-    LoisParcourirEvenements(VisiterProprietaire);
-    g_ouCherche = "les effets de la quete";
-    for (int i = 0; i < g_nQuetes && g_nTrouvailles < 6; ++i) {
-        if (g_quetes[i].adr + QUE_INITIAUX == tab || g_quetes[i].adr + QUE_SUCCES == tab || g_quetes[i].adr + QUE_ECHEC == tab) {
-            printf("[QUETE]     tableau d'effets = effets directs de la quete \"%s\"\n", g_quetes[i].nom);
-            ++g_nTrouvailles;
-        }
-        const int offs[3] = { QUE_INITIAUX, QUE_SUCCES, QUE_ECHEC };
-        for (int k = 0; k < 3; ++k)
-            LoisParcourirEffets(g_quetes[i].adr + offs[k], VisiterProprietaire, g_quetes[i].nom, g_quetes[i].rep);
-    }
-    g_ouCherche = "les effets de la loi";
-    uintptr_t lois = 0; int nl = 0;
-    if (LireTableau(Base() + Adr(0x4070460) + 0xB0, lois, nl))
-        for (int i = 0; i < nl && g_nTrouvailles < 6; ++i) {
-            uintptr_t loi = 0; char nomLoi[128];
-            if (!SafeRead((void*)(lois + (uintptr_t)i * 8), &loi, 8) || loi <= 0x10000) continue;
-            LireTexte(loi + 0x18, nomLoi, sizeof(nomLoi));
-            if (loi + 0xE0 == tab) { printf("[QUETE]     tableau d'effets = effets directs de la loi \"%s\"\n", nomLoi); ++g_nTrouvailles; }
-            LoisParcourirEffets(loi + 0xE0, VisiterProprietaire, nomLoi, "Lois");
-        }
-    if (g_nTrouvailles == 0) {
-        printf("[QUETE]     tableau d'effets 0x%llX : proprietaire introuvable dans les donnees\n",
-            (unsigned long long)tab);
-        if (g_plusProcheObj) printf("[QUETE]     objet parcouru le plus proche en dessous : %s\n", g_plusProcheDesc);
-        // Contenu du tableau : classes des effets qu'il porte.
-        char classes[512];
-        ClassesDuTableau(tab, classes, sizeof(classes));
-        printf("[QUETE]     effets du tableau : [%s]\n", classes);
-    }
-}
-
-// Test du 2026-11-01 : les 40 premiers demarrages d'une partie neuve sont des
-// succes Steam (Achievements), et "evenement en cours" est toujours vide (les
-// effets de quete ne passent pas dans l'invocation hookee : effets differes).
-// La pile est donc tracee pour toute quete hors Achievements / CustomScenarios.
 uintptr_t hkDemarrerQuete(uintptr_t sys, uintptr_t quete, uintptr_t ctx, uintptr_t p4)
 {
     char nom[128] = "?";
@@ -1092,43 +949,13 @@ uintptr_t hkDemarrerQuete(uintptr_t sys, uintptr_t quete, uintptr_t ctx, uintptr
     uintptr_t res = oDemarrerQuete(sys, quete, ctx, p4);
     LONG n = InterlockedIncrement(&g_nDemarrages);
     bool succesSteam = strcmp(rep, "Achievements") == 0 || strcmp(rep, "CustomScenarios") == 0;
-    printf("[QUETE] DEMARRAGE #%ld \"%s\" (repertoire %s) -> %s ; evenement en cours : %s\n", n, nom, rep,
-        (res & 0xFF) ? "lancee" : "refusee", evt);
+    if (!succesSteam)
+        printf("[QUETE] DEMARRAGE #%ld \"%s\" (repertoire %s) -> %s ; evenement en cours : %s\n", n, nom, rep,
+            (res & 0xFF) ? "lancee" : "refusee", evt);
     // Crise du charbon forcee au debut de la preparation de la tempete
     // (2026-11-10, demande de l'auteur ; evenements.cpp).
     if ((res & 0xFF) && strcmp(nom, "[ENDGAME] 002 Prepare for the storm - main quest") == 0)
         EvenementsForcerCriseCharbon();
-    static LONG nTraces = 0;
-    if (!succesSteam && InterlockedIncrement(&nTraces) <= 200) {
-        TracerPile("demarrage de quete", quete, n);
-        // Origine : proprietaires des tableaux d'effets en cours (du plus
-        // exterieur au plus interieur).
-        int nt = t_nTableaux < 16 ? t_nTableaux : 16;
-        for (int i = 0; i < nt; ++i) {
-            uintptr_t tab = t_tableaux[i];
-            printf("[QUETE]   execution d'effets niveau %d : tableau 0x%llX\n", i, (unsigned long long)tab);
-            ChercherProprietaire(tab);
-            // Liste d'un TimedEffect (+0x40) : contexte de sa programmation.
-            uintptr_t timed = tab - 0x40;
-            char cls[64] = "";
-            if (!GetClassNameFP(timed, cls, sizeof(cls)) || strcmp(cls, "FrostpunkTimedEffect") != 0) continue;
-            Programmation p{};
-            bool connu = false;
-            AcquireSRWLockShared(&g_verrouProgs);
-            for (int k = 0; k < g_nProgs; ++k) if (g_progs[k].timed == timed) { p = g_progs[k]; connu = true; break; }
-            ReleaseSRWLockShared(&g_verrouProgs);
-            if (!connu) {
-                printf("[QUETE]     TimedEffect 0x%llX : programmation non vue (avant le lancement du jeu, ou "
-                    "sauvegarde chargee)\n", (unsigned long long)timed);
-                continue;
-            }
-            printf("[QUETE]     TimedEffect 0x%llX programme pendant l'evenement \"%s\" ; liste 0x%llX, "
-                "liste exterieure 0x%llX\n", (unsigned long long)timed, p.evt,
-                (unsigned long long)p.liste, (unsigned long long)p.exterieur);
-            ChercherProprietaire(p.liste);
-            if (p.exterieur != p.liste) ChercherProprietaire(p.exterieur);
-        }
-    }
     return res;
 }
 
@@ -1349,7 +1176,6 @@ void InstallHooksQuetes(uintptr_t modBase)
 {
     struct { uintptr_t off; void* hk; void** orig; const char* nom; } h[] = {
         { OFF_DEMARRER_QUETE,  (void*)&hkDemarrerQuete,  (void**)&oDemarrerQuete,  "demarrage de quete" },
-        { OFF_EXECUTER_EFFETS, (void*)&hkExecuterEffets, (void**)&oExecuterEffets, "execution d'une liste d'effets" },
         { OFF_TERMINER_QUETE,  (void*)&hkTerminerQuete,  (void**)&oTerminerQuete,  "fin de quete (checks)" },
     };
     for (auto& x : h) {
@@ -1602,24 +1428,9 @@ void QuetesPompe()
         EvenementsInvoquerParNom("U: Refugees in the City3");
     }
     TerminerQuetesSansSurvivants();
-    // Releve unique des dilemmes de refugies (2026-11-04, refugies de
-    // l'apres-005 d'A New Home a remplacer par un check) : journal [REFUG].
-#ifndef AP_RELEASE
-    static bool refugiesReleves = false;
-    if (!refugiesReleves && PartiePrete()) {
-        refugiesReleves = true;
-        ReleverDilemmesParNom("Refugee");
-    }
-    // Releve des dilemmes a choix et des sites de la carte (2026-11-10 :
-    // dilemmes d'exploration dont l'auteur choisira le choix a forcer) : une
-    // fois par partie chargee (generation), pour couvrir chaque scenario.
-    static unsigned generationReleveDil = 0;
-    if (PartiePrete() && PartieGeneration() != generationReleveDil) {
-        generationReleveDil = PartieGeneration();
-        ReleverDilemmesAChoix();
-        SitesContenuReleve();
-    }
-#endif
+    // Releves automatiques retires pour la 1.0 (refugies [REFUG], dilemmes a
+    // choix [DILTAB], contenu des sites [SCONT]) : tables faites. Les releves
+    // restent appelables par QuetesDemanderReleve.
     if (!g_releveDemande) return;
     g_releveDemande = false;
     Releve();

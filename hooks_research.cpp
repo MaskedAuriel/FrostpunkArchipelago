@@ -474,31 +474,9 @@ static bool EcouteurEstEffet(uintptr_t fonction)
     return fonction == cible || CibleDuThunk(fonction) == cible;
 }
 
-static void JournaliserEcouteursRecherche(uintptr_t self)
-{
-    static uintptr_t dejaPour = 0;
-    if (self == dejaPour) return;
-    dejaPour = self;
-    uintptr_t evt = self + OFF_EVT_RECHERCHE, tab = 0;
-    int n = 0;
-    SafeRead((const void*)(evt + 0x18), &tab, 8);
-    SafeRead((const void*)(evt + 0x20), &n, 4);
-    printf("[TECH] evenement \"recherche\" (self +0x2160) : %d ecouteur(s)\n", n);
-    for (int i = 0; tab && i < n && i < 64; ++i) {
-        uintptr_t e[2] = { 0, 0 };
-        if (!SafeRead((const void*)(tab + (uintptr_t)i * 0x10), e, sizeof(e))) break;
-        char cls[96] = "?";
-        if (e[0]) GetClassNameFP(e[0], cls, sizeof(cls));
-        printf("[TECH]   ecouteur %d : objet 0x%llX (%s), fonction +0x%llX%s\n", i,
-               (unsigned long long)e[0], cls, (unsigned long long)(e[1] - g_baseRecherche),
-               EcouteurEstEffet(e[1]) ? " -> effet (evenements scriptes)" : "");
-    }
-}
-
 static int RendreMuetsEcouteursEffets(uintptr_t self, EcouteurMuet* muets)
 {
     if (!self) return 0;
-    JournaliserEcouteursRecherche(self);
     uintptr_t evt = self + OFF_EVT_RECHERCHE, tab = 0;
     int n = 0, nMuets = 0;
     if (!SafeRead((const void*)(evt + 0x18), &tab, 8) || !SafeRead((const void*)(evt + 0x20), &n, 4)) return 0;
@@ -532,7 +510,6 @@ static void RetablirEcouteurs(uintptr_t self, const EcouteurMuet* muets, int nMu
 // FUN_14128c240 (compteur d'invocation +0x30).
 static int DeclencherEvenementsTerminee(uintptr_t self, uintptr_t tech)
 {
-    JournaliserEcouteursRecherche(self);
     uintptr_t evt = self + OFF_EVT_RECHERCHE, tab = 0;
     int n = 0;
     short compteur = 0;

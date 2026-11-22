@@ -99,7 +99,6 @@ constexpr int TXT_TEXTE       = 0x3E8;  // texte affiche (vu sur UITextInput)
 PrerequisProfil_t oPrerequisProfil = nullptr;
 CreerBouton_t     oCreerBouton = nullptr;
 uintptr_t g_base = 0;
-int       g_relevesArbre = 0;
 
 // Scenarios geres par Archipelago (noms internes).
 const char* const SCENARIOS_AP[] = {
@@ -194,42 +193,6 @@ uintptr_t hkPrerequisProfil(uintptr_t profil, uintptr_t liste, uintptr_t p3, uin
 }
 
 // --- Bouton d'un scenario verrouille par le mod -----------------------------------
-void LireTexteElement(uintptr_t el, char* out, int taille)
-{
-    out[0] = 0;
-    uintptr_t p = 0;
-    if (!SafeRead((void*)(el + TXT_TEXTE), &p, 8) || p <= 0x10000) return;
-    // Essai en UTF-16, puis en 8 bits.
-    wchar_t w[96] = {};
-    if (SafeRead((void*)p, w, sizeof(w) - 2) && w[0] >= 0x20 && w[0] < 0x7F && w[1] != 0) {
-        int i = 0;
-        for (; i < taille - 1 && i < 95 && w[i]; ++i) out[i] = (w[i] >= 0x20 && w[i] < 0x7F) ? (char)w[i] : '?';
-        out[i] = 0;
-        return;
-    }
-    ReadAscii(p, out, taille);
-}
-
-void DecrireArbre(uintptr_t el, int prof)
-{
-    if (el < 0x10000 || prof > 10) return;
-    char nom[64] = "", cls[64] = "?", texte[96] = "";
-    uintptr_t pn = 0;
-    if (SafeRead((void*)(el + EL_NOM), &pn, 8) && pn > 0x10000) ReadAscii(pn, nom, sizeof(nom));
-    GetClassNameFP(el, cls, sizeof(cls));
-    uint32_t drapeaux = 0;
-    SafeRead((void*)(el + EL_DRAPEAUX), &drapeaux, 4);
-    if (strstr(cls, "Text")) LireTexteElement(el, texte, sizeof(texte));
-    printf("[SCN]   %*s%s (%s) %s%s%s%s\n", prof * 2, "", nom, cls, (drapeaux & 1) ? "visible" : "cache",
-           texte[0] ? " \"" : "", texte, texte[0] ? "\"" : "");
-    uintptr_t enfant = 0;
-    SafeRead((void*)(el + EL_ENFANT), &enfant, 8);
-    for (int garde = 0; enfant > 0x10000 && garde < 64; ++garde) {
-        DecrireArbre(enfant, prof + 1);
-        if (!SafeRead((void*)(enfant + EL_FRERE), &enfant, 8)) break;
-    }
-}
-
 bool NomElementEst(uintptr_t el, const char* nom)
 {
     char n[64] = "";
@@ -306,11 +269,6 @@ void hkCreerBouton(uintptr_t panneau, uintptr_t scn, uintptr_t debloque, uintptr
     __except (EXCEPTION_EXECUTE_HANDLER) {
         printf("[SCN] EXCEPTION 0x%08lX en vidant la condition de \"%s\"\n", GetExceptionCode(), nom);
         return;
-    }
-    if (g_relevesArbre < 6) {
-        ++g_relevesArbre;
-        printf("[SCN] \"%s\" : condition du jeu effacee ; bouton :\n", nom);
-        DecrireArbre(bouton, 0);
     }
 }
 

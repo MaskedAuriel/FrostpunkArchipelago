@@ -403,7 +403,6 @@ DWORD WINAPI PayloadThread(LPVOID)
 	ChargerSubstitutions();
 	InstallNtHooks();
 	InstallHooksEvenements(modBase);
-	InstallTraceArchives(modBase);
 	InstallTracePopups(modBase);
 	InstallTraceChargement(modBase);
 	InstallHooksLoisAP(modBase);

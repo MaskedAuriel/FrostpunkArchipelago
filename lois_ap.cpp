@@ -1014,54 +1014,11 @@ constexpr int ELEM_NOM = 0x1D8, ELEM_ENFANT = 0x220, ELEM_FRERE = 0x240;
 constexpr int ELEM_COULEUR = 0x120, ELEM_DRAPEAUX = 0x270;
 Fonction4_t oConstruireLivre = nullptr;
 
-// Textures portees par un element : qwords de +0x280 a +0x600 qui pointent
-// vers un texte en ".dds" ou ".texture", suivis de la case et du nombre de
-// cases (forme UITextureTile).
-void DecrireTexturesElement(uintptr_t c, int profondeur)
-{
-    for (int off = 0x280; off < 0x600; off += 8) {
-        uintptr_t p = 0;
-        char t[96] = "";
-        if (!SafeRead((void*)(c + off), &p, 8) || p <= 0x10000 || !ReadAscii(p, t, sizeof(t))) continue;
-        if (!strstr(t, ".dds") && !strstr(t, ".texture") && !strstr(t, "Tiles")) continue;
-        int32_t v[4] = {};
-        SafeRead((void*)(c + off + 8), v, sizeof(v));
-        printf("[LOIUI]     %*s  +0x%X texture \"%s\" case (%d,%d) sur (%d,%d)\n",
-            profondeur * 2, "", off, t, v[0], v[1], v[2], v[3]);
-    }
-}
-
 void NomElementLoi(uintptr_t c, char* out, int taille)
 {
     uintptr_t pn = 0;
     out[0] = 0;
     if (SafeRead((void*)(c + ELEM_NOM), &pn, 8) && pn > 0x10000) ReadAscii(pn, out, taille);
-}
-
-void DecrireArbreElement(uintptr_t c, int profondeur, int* budget)
-{
-    for (; c > 0x10000 && *budget > 0; --*budget) {
-        char nom[64] = "", cls[96] = "?";
-        uintptr_t pn = 0, enfant = 0, frere = 0;
-        if (SafeRead((void*)(c + ELEM_NOM), &pn, 8) && pn > 0x10000) ReadAscii(pn, nom, sizeof(nom));
-        GetClassNameFP(c, cls, sizeof(cls));
-        uint32_t drapeaux = 0;
-        float coul[4] = {};
-        SafeRead((void*)(c + ELEM_DRAPEAUX), &drapeaux, 4);
-        SafeRead((void*)(c + ELEM_COULEUR), coul, sizeof(coul));
-        float tr[2] = {}, t[2] = {};
-        SafeRead((void*)(c + 0x80), tr, sizeof(tr));    // translation
-        SafeRead((void*)(c + 0x210), t, sizeof(t));     // taille
-        printf("[LOIUI]     %*s\"%s\" %s 0x%llX %s couleur (%.2f %.2f %.2f a=%.2f) tr (%.1f, %.1f) taille %.1f x %.1f\n",
-            profondeur * 2, "", nom, cls, (unsigned long long)c, (drapeaux & 1) ? "visible" : "CACHE",
-            coul[0], coul[1], coul[2], coul[3], tr[0], tr[1], t[0], t[1]);
-        DecrireTexturesElement(c, profondeur);
-        SafeRead((void*)(c + ELEM_ENFANT), &enfant, 8);
-        if (enfant && profondeur < 10) DecrireArbreElement(enfant, profondeur + 1, budget);
-        if (profondeur == 0) return;   // pas les freres du noeud (1er releve : budget epuise par eux)
-        if (!SafeRead((void*)(c + ELEM_FRERE), &frere, 8)) return;
-        c = frere;
-    }
 }
 
 // --- Icone AP sur les noeuds du livre ------------------------------------------------
@@ -1261,8 +1218,6 @@ uintptr_t PoserIconeNoeud(uintptr_t elem, const TechIcons* ic)
 bool CentrePaire(uintptr_t racine, float c[2])
 {
     static const char* const chemin[] = { "Clip", "STATE_ELEM", "defoult", "circle_bg" };
-    static int nJournal = 0;
-    bool journal = nJournal++ < 1;
     uintptr_t el = racine;
     c[0] = c[1] = 0.f;
     for (const char* n : chemin) {
@@ -1279,7 +1234,6 @@ bool CentrePaire(uintptr_t racine, float c[2])
         float tr[2] = {}, t[2] = {};
         SafeRead((void*)(el + ELEM_TRANSLATION), tr, sizeof(tr));
         SafeRead((void*)(el + ELEM_TAILLE), t, sizeof(t));
-        if (journal) printf("[LOIUI] paire : \"%s\" translation (%.1f, %.1f) taille %.1f x %.1f\n", n, tr[0], tr[1], t[0], t[1]);
         c[0] += tr[0]; c[1] += tr[1];
     }
     return true;
@@ -1391,19 +1345,6 @@ uintptr_t PoserIconePaire(uintptr_t racine, const TechIcons* ic, const float* tr
         return 0;
     }
     if (image && g_nCopiesPaires < 64) g_copiesPaires[g_nCopiesPaires++] = { image, parent };
-    static int nJournal = 0;
-    if (nJournal++ < 3) {
-        char nm[64], cl[96] = "?";
-        NomElementLoi(parent, nm, sizeof(nm));
-        GetClassNameFP(parent, cl, sizeof(cl));
-        printf("[LOIUI] paire : copie 0x%llX dans \"%s\" (%s) 0x%llX, centree sur (%.1f, %.1f)\n",
-            (unsigned long long)image, nm, cl, (unsigned long long)parent, centre[0], centre[1]);
-        printf("[LOIUI]   taille de la racine %.1f x %.1f, du panneau %.1f x %.1f\n",
-            taille[0], taille[1], tPanneau[0], tPanneau[1]);
-        printf("[LOIUI]   racine +0x80..+0xBC :");
-        for (int k = 0; k < 16; ++k) printf(" %.2f", tr[k]);
-        printf("\n");
-    }
     return image;
 }
 
@@ -1659,7 +1600,6 @@ void DiagNoeudsLivre(uintptr_t livre)
         journal = v && v->fois++ < 2;
     }
     if (journal) printf("[LOIUI] construction du livre #%d (0x%llX) : %d noeud(s)\n", nAppels, (unsigned long long)livre, n);
-    bool signeVu = false, nonSigneVu = false;
     uintptr_t paires[64];
     const TechIcons* iconesPaires[64];
     Guid guidsPaires[64];
@@ -1678,75 +1618,17 @@ void DiagNoeudsLivre(uintptr_t livre)
         int etat = (i >= 0 && etats) ? e.etat[i] : -1;
         char nom[96] = "?";
         if (i >= 0) NomDeLoi(i, nom, sizeof(nom));
-        if (elem <= 0x10000) {
-            if (journal) printf("[LOIUI]   noeud %d : \"%s\" etat %d : AUCUN element d'interface (poignee 0x%llX)\n",
-                k, nom, etat, (unsigned long long)poignee);
-            continue;
-        }
+        if (elem <= 0x10000) continue;
         char racine[32] = "";
         NomElementLoi(elem, racine, sizeof(racine));
         bool gauchePaire = !strcmp(racine, NOEUD_GAUCHE_PAIRE);
         const TechIcons* ic = (i >= 0 && etats) ? (gauchePaire ? IconeDePaire(i, e) : IconeDeLoi(i, e)) : nullptr;
         // Loi qu'on ne pourra plus signer (branche exclue) : pas d'icone AP.
-        if (ic && !Accessible(acc, i)) {
-            ic = nullptr;
-            if (journal) printf("[LOIUI]   noeud %d : \"%s\" inaccessible (branche exclue) : pas d'icone\n", k, nom);
-        }
-        // Diagnostic (2026-11-11, Last Autumn : paire Extended Shift / Two
-        // Shifts sans icone) : raison de l'absence d'icone.
-        else if (!ic && journal) {
-            printf("[LOIUI]   noeud %d : \"%s\" (%s) sans icone : %s\n", k, nom, racine,
-                i < 0 ? "GUID du noeud hors de la table des lois" :
-                !etats ? "etats des lois illisibles" :
-                !PorteUnCheck(i) ? "pas de check (ApLoiAUnCheck faux)" : "icone du check inconnue");
-            if (i >= 0) {
-                int rangs[4];
-                int nr = RangsFixes(i, rangs);
-                printf("[LOIUI]     arbre \"%s\", loi \"%s\", exclusion \"%s\", %d rang(s) fixe(s)%s\n",
-                    g_arbres[g_lois[i].arbre].nom, g_lois[i].nom, g_lois[i].exclusion, nr,
-                    nr > 0 ? "" : " (absente de AP_LOIS_RANGS pour ce scenario)");
-            }
-        }
+        if (ic && !Accessible(acc, i)) ic = nullptr;
         // Nom du noeud : celui de la loi, vanilla (changement de plan de
         // l'auteur, 2026-11-04 : le nom du check n'est plus que dans le
-        // panneau d'info, hkInfoLoi). Plus de PoserNomCheckLoi ni
-        // d'EffacerNomLoi ici ; demi[] reste vide, donc pas de recentrage
-        // des paires (CentrerNomPaire), chaque demi-rond garde son nom.
-        // 10e test (2026-10-31) : une fois la loi d'une paire signee, la plume
-        // du jeu s'affiche exactement au centre du rond (sous notre icone).
-        // Releve, une fois par cote, de l'arbre (avec translations et
-        // tailles) du demi-rond de la loi SIGNEE, pour trouver cette image.
-        {
-            static bool vuGauche = false, vuDroite = false;
-            bool droitePaire = !strcmp(racine, "RIGHT_OR_ENTRY");
-            bool& vu = gauchePaire ? vuGauche : vuDroite;
-            if ((gauchePaire || droitePaire) && etat == ETAT_ACTIVE && !vu) {
-                vu = true;
-                printf("[LOIUI]   arbre du demi-rond SIGNE \"%s\" (%s) :\n", nom, racine);
-                int budget = 120;
-                DecrireArbreElement(elem, 0, &budget);
-            }
-        }
-        // Diagnostic (2026-11-04, test grandeur nature) : dans A New Home, le
-        // demi-rond droit de Child Labour ("Child Shelters") n'a ni nom ni
-        // clic, alors que les autres paires marchent. Releve, une fois par
-        // loi, de l'arbre d'elements de ses deux demi-ronds et d'un demi-rond
-        // droit sain ("Food Additives") pour comparaison, avec l'etat de la
-        // loi et son accessibilite.
-        {
-            static bool vus[3] = {};
-            static const char* const suivis[3] = { "Child Shelters", "Child Labour - Safe Jobs", "Food Additives" };
-            for (int s = 0; s < 3; ++s) {
-                if (vus[s] || strcmp(nom, suivis[s]) != 0) continue;
-                vus[s] = true;
-                printf("[LOIDIAG] demi-rond \"%s\" (%s) : loi %d, etat %d, accessible %d, livre #%d\n",
-                    nom, racine, i, etat, (i >= 0 && etats) ? (int)Accessible(acc, i) : -1, nAppels);
-                int budget = 60;
-                DecrireArbreElement(elem, 0, &budget);
-            }
-        }
-        float trRacine[2] = {};
-        SafeRead((void*)(elem + 0x80), trRacine, sizeof(trRacine));
+        // panneau d'info, hkInfoLoi). demi[] reste vide, donc pas de
+        // recentrage des paires (CentrerNomPaire).
         // Paires : apres les noeuds simples (il faut le modele "circle_inside").
         // 10e test : quand une loi de la paire est signee, le livre l'affiche
         // en noeud SIMPLE (TECH_ENTRY, deja icon_done au centre) et l'autre
@@ -1755,24 +1637,9 @@ void DiagNoeudsLivre(uintptr_t livre)
         if (gauchePaire) {
             bool partenaireSigne = i >= 0 && etats && IconeDePaire(i, e) != IconeDeLoi(i, e);
             if (ic && !partenaireSigne && nPaires < 64) { paires[nPaires] = elem; guidsPaires[nPaires] = g; iconesPaires[nPaires++] = ic; }
-            if (journal) printf("[LOIUI]   noeud %d : \"%s\" (%s) etat %d -> %s (paire%s), racine en (%.1f, %.1f)\n",
-                k, nom, racine, etat, ic ? ic->nom : "(aucune icone)",
-                partenaireSigne ? " dont l'autre loi est signee : pas d'icone" : ", posee apres",
-                trRacine[0], trRacine[1]);
             continue;
         }
-        uintptr_t image = ic ? PoserIconeNoeud(elem, ic) : 0;
-        const char* cible = IMAGE_NOEUD;
-        if (!journal) continue;
-        printf("[LOIUI]   noeud %d : \"%s\" (%s) etat %d -> %s sur \"%s\" : element 0x%llX, racine en (%.1f, %.1f)\n",
-            k, nom, racine, etat, ic ? ic->nom : "(aucune icone)", cible, (unsigned long long)image, trRacine[0], trRacine[1]);
-        bool signe = etat == ETAT_ACTIVE;
-        if (nAppels == 1 && ((signe && !signeVu) || (!signe && !nonSigneVu))) {
-            (signe ? signeVu : nonSigneVu) = true;
-            printf("[LOIUI]   arbre du noeud %s \"%s\" :\n", signe ? "SIGNE" : "NON SIGNE", nom);
-            int budget = 80;
-            DecrireArbreElement(elem, 0, &budget);
-        }
+        if (ic) PoserIconeNoeud(elem, ic);
     }
     // Texte de chaque paire recentre : demi-rond droit = loi du meme arbre et
     // du meme groupe d'exclusion que celle du gauche.
@@ -1793,12 +1660,7 @@ void DiagNoeudsLivre(uintptr_t livre)
     for (int p = 0; p < nPaires; ++p) {
         float tr[2];
         bool forcee = false;
-        if (!PositionPaire(guidsPaires[p], paires[p], tr, forcee)) {
-            if (journal) printf("[LOIUI]   paire %d : racine pas mise en page, position encore inconnue : icone non posee\n", p);
-            continue;
-        }
-        if (forcee && journal)
-            printf("[LOIUI]   paire %d : racine pas mise en page, position retenue (%.1f, %.1f)\n", p, tr[0], tr[1]);
+        if (!PositionPaire(guidsPaires[p], paires[p], tr, forcee)) continue;
         if (PoserIconePaire(paires[p], iconesPaires[p], forcee ? tr : nullptr)) ++posees;
     }
     if (journal && nPaires)

@@ -329,31 +329,6 @@ static void TracerCleEnumeration(const char* k)
         g_locationAffichee);
 }
 
-// DIAG (2026-11-04) : techno recue mais pas recherchee -> description = nom
-// interne ? Une ligne par (cle, texte rendu) nouvelle : cle, emplacement
-// (0 nom, 1 description, 2 courte), techno, etats, nom du check calcule.
-static void JournalDescTechno(const char* k, uint64_t th, int slot)
-{
-    static uint32_t vus[256];
-    static int nVus = 0, prochain = 0;
-    TechRuntime* r = RT_Get(th);
-    char nom[160];
-    AP_NomDuCheck(th, nom, sizeof(nom));
-    uint32_t h = 2166136261u;
-    for (const char* p = k; *p; ++p) h = (h ^ (uint8_t)*p) * 16777619u;
-    for (const char* p = nom; *p; ++p) h = (h ^ (uint8_t)*p) * 16777619u;
-    h = (h ^ (uint32_t)slot) * 16777619u;
-    h = (h ^ (r && r->researched ? 2u : 0u) ^ (r && r->received ? 1u : 0u)) * 16777619u;
-    for (int i = 0; i < nVus; ++i) if (vus[i] == h) return;
-    vus[prochain] = h;
-    prochain = (prochain + 1) % 256;
-    if (nVus < 256) ++nVus;
-    for (char* p = nom; *p; ++p) if ((unsigned char)*p < 0x20 || (unsigned char)*p >= 0x7F) *p = '?';
-    printf("[TECHDESC] cle \"%s\" emplacement %d -> techno %016llX (researched %d, received %d) : nom du check \"%s\"%s\n",
-        k, slot, (unsigned long long)th, r && r->researched ? 1 : 0, r && r->received ? 1 : 0, nom,
-        (slot != 0 && !g_showApInfo) ? " (g_showApInfo faux : description vanilla)" : "");
-}
-
 // Objet de traduction de l'item AP d'un groupe de refugies : nom du check
 // porte (scout du serveur, sinon nom de la location), chaine propre au groupe
 // (l'infobulle garde la chaine) ; 0 si 'vague' hors 1..13 (2026-11-10).
@@ -540,7 +515,6 @@ static uintptr_t hkTranslate(uintptr_t loc, const char* key,
 
     uint64_t th = 0; int slot = -1;
     if (LookupLocKey(k, &th, &slot)) {
-        JournalDescTechno(k, th, slot);
         uintptr_t origChars = 0;
         if (!SafeRead((void*)ret, &origChars, 8) || origChars <= 0x10000) return ret;
 

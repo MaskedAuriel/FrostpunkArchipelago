@@ -303,9 +303,6 @@ static void SurveillerVisibilite()
         uint8_t dec = 0, vis = 0;
         if (!SafeRead((void*)(wm + WM_DECOUVERT), &dec, 1) || !SafeRead((void*)(wm + WM_VISIBLE), &vis, 1)) continue;
         int8_t d = dec ? 1 : 0, v = vis ? 1 : 0;
-        if (g_sites[i].carteDecouvert >= 0 && (d != g_sites[i].carteDecouvert || v != g_sites[i].carteVisible))
-            printf("[SREV] CHANGE \"%s\" (%s) : decouvert %d -> %d, visible %d -> %d\n", g_sites[i].nom,
-                g_run.valid ? g_run.scenario : "?", g_sites[i].carteDecouvert, d, g_sites[i].carteVisible, v);
         g_sites[i].carteDecouvert = d;
         g_sites[i].carteVisible = v;
     }
@@ -648,8 +645,7 @@ static void RescanExpeditions()
         }
         g_nExps++;
     }
-    printf("[SCOUT] rescan : %d expedition(s) retenue(s), %d rejetee(s)\n",
-        g_nExps, rejetes);
+    if (rejetes) printf("[SCOUT] rescan : %d expedition(s) retenue(s), %d rejetee(s)\n", g_nExps, rejetes);
 }
 
 
@@ -1380,7 +1376,6 @@ static const SitePayload* PayloadParLocation(int locationId)
 // dans la cargaison des expeditions concernees.
 void ScootingChargerEnAttente()
 {
-    printf("[START PERSIST]");
     char chemin[MAX_PATH];
     if (!CheminPersistance(chemin, MAX_PATH)) return;
 
@@ -1457,7 +1452,7 @@ void ScootingChargerEnAttente()
             printf("[PERSIST] exp %d : reinjection impossible\n", g_exps[i].id);
         }
     }
-    printf("[END PERSIST] %d item(s) restaure(s) au total\n", lus);
+    if (lus) printf("[PERSIST] %d item(s) restaure(s) au total\n", lus);
 }
 
 uint32_t CargaisonTotale(uintptr_t comp)

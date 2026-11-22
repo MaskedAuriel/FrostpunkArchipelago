@@ -47,7 +47,6 @@ void FindPropertyByName(const char* filtre);
 void DumpDynarray(uintptr_t owner, int off, int elemSize, int maxShow);
 int CollectObjectsByClass(const char* filtre, uintptr_t* out, int maxOut);
 void InstallNtHooks();
-void InstallTraceArchives(uintptr_t modBase);   // [ARCH] noms cherches dans les .idx
 void InstallTraceChargement(uintptr_t modBase); // [CHARG] etapes du chargement d'une sauvegarde
 void DumpIOMappings();
 void DumpMappedRegions(SIZE_T tailleMin);

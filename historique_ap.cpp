@@ -1,4 +1,4 @@
-﻿// historique_ap.cpp
+// historique_ap.cpp
 // ---------------------------------------------------------------------------
 // Historique de la session Archipelago et legende des icones AP en jeu
 // (docs/chantiers/historique.md).
@@ -356,18 +356,6 @@ void Relayout(uintptr_t layout)
 uintptr_t TrouverNomContenant(uintptr_t el, const char* sous, int prof = 0);
 void PoserCouleurEl(uintptr_t el, const float* c);
 
-void DecrireElement(const char* qui, uintptr_t el)
-{
-    char nom[64] = "", cls[96] = "?";
-    float pos[2] = {}, taille[2] = {};
-    LireNom(el, EL_NOM, nom, sizeof(nom));
-    GetClassNameFP(el, cls, sizeof(cls));
-    SafeRead((void*)(el + EL_POSITION), pos, 8);
-    SafeRead((void*)(el + EL_TAILLE), taille, 8);
-    printf("[HIST] %s : \"%s\" %s 0x%llX pos (%.0f, %.0f) taille %.0f x %.0f %s\n", qui, nom, cls,
-        (unsigned long long)el, pos[0], pos[1], taille[0], taille[1], EstVisible(el) ? "visible" : "cache");
-}
-
 // --- Recettes ---------------------------------------------------------------------
 uintptr_t RessourceRecette(const char* chemin, uintptr_t* racine)
 {
@@ -663,10 +651,6 @@ void PoserDefilement(float d)
     if (d < 0.f) d = 0.f;
     g_decalage = d;
     Placer(layout, g_posLayout[0], g_posLayout[1] - d);
-    static int journal = 0;
-    if (journal++ < 6)
-        printf("[HIST] defilement %.0f / %.0f (%d ligne(s), ligne %.1f, zone %.0f)\n", d, maxi, g_lignesTexte,
-            HauteurLigne(), tailleZone[1]);
 }
 
 // 'crans' > 0 : molette vers le haut (remonter la liste).
@@ -721,30 +705,6 @@ void MontrerAnime(uintptr_t el, bool visible)
     __try { ((Montrer_t)(Base() + OFF_MONTRER))(el, visible ? 1 : 0, 1, 1); }
     __except (EXCEPTION_EXECUTE_HANDLER) {
         printf("[HIST] EXCEPTION 0x%08lX a l'affichage anime de 0x%llX\n", GetExceptionCode(), (unsigned long long)el);
-    }
-}
-
-// Releve du panneau construit : visibilite et couleur (+0x120, RGBA) des
-// premiers niveaux, pour comprendre un panneau invisible.
-void DecrirePanneau(uintptr_t el, int prof)
-{
-    if (el < 0x10000 || prof > 4 || g_lignes >= 120) return;
-    char nom[64] = "", cls[96] = "?";
-    float pos[2] = {}, taille[2] = {}, coul[4] = {};
-    LireNom(el, EL_NOM, nom, sizeof(nom));
-    GetClassNameFP(el, cls, sizeof(cls));
-    SafeRead((void*)(el + EL_POSITION), pos, 8);
-    SafeRead((void*)(el + EL_TAILLE), taille, 8);
-    SafeRead((void*)(el + 0x120), coul, 16);
-    printf("[HIST] %*s%s %s pos (%.0f, %.0f) taille %.0f x %.0f %s couleur (%.2f %.2f %.2f %.2f)\n", prof * 2, "",
-        nom[0] ? nom : "-", cls, pos[0], pos[1], taille[0], taille[1], EstVisible(el) ? "visible" : "cache",
-        coul[0], coul[1], coul[2], coul[3]);
-    ++g_lignes;
-    uintptr_t c = 0;
-    SafeRead((void*)(el + EL_ENFANT), &c, 8);
-    for (int garde = 0; c > 0x10000 && garde < 64; ++garde) {
-        DecrirePanneau(c, prof + 1);
-        if (!SafeRead((void*)(c + EL_FRERE), &c, 8)) break;
     }
 }
 
@@ -851,7 +811,6 @@ bool ConstruirePanneau()
     if (!AjouterEnfant(racine, el)) return false;
     OublierPanneau();
     g_panneau = PrendrePoignee(el);
-    DecrireElement("panneau", el);
 
     // En-tete.
     uintptr_t entete = TrouverParNom(el, "COLUMN_HEADER");
@@ -876,7 +835,7 @@ bool ConstruirePanneau()
     Relayout(layoutListe);
     if (!ligne) printf("[HIST] pas de SUMMARY_ROW : liste vide\n");
     uintptr_t fermer = TrouverNomContenant(el, "CLOSE");
-    if (fermer) { BrancherClic(fermer, &CbFermer); DecrireElement("fermeture native du panneau", fermer); }
+    if (fermer) { BrancherClic(fermer, &CbFermer); }
     else printf("[HIST] panneau sans element CLOSE : fermeture par le bouton du HUD\n");
 
     // Texte qui defile et sa barre.
@@ -893,8 +852,6 @@ bool ConstruirePanneau()
         printf("[HIST] barre de defilement absente ou inattendue (0x%llX) : cachee\n", (unsigned long long)barre);
         Montrer(barre, false);
     }
-    DecrireElement("texte", texte);
-    DecrireElement("zone", zone);
     // Legende de l'onglet "Legends" : dans le parent de la zone a defilement,
     // a l'emplacement du texte ; cachee hors de l'onglet (AfficherOnglet).
     uintptr_t parentZone = 0;
@@ -918,11 +875,6 @@ void BasculerPanneau()
         MontrerAnime(p, true);
         ModalHistorique(true);
         AfficherOnglet(0);
-#ifndef AP_RELEASE
-        g_lignes = 0;
-        printf("[HIST] panneau apres ouverture :\n");
-        DecrirePanneau(p, 0);
-#endif
         return;
     }
     bool visible = !EstVisible(p);
@@ -966,8 +918,6 @@ void ReduirePolices(uintptr_t noeud, PolicesTextes& p, int prof)
             uint32_t nouveau = brut;
             if (f > 4.f && f < 200.f) { float g = f / BOUTON_ECHELLE; memcpy(&nouveau, &g, 4); }
             else if ((int32_t)brut > 4 && (int32_t)brut < 200) nouveau = (uint32_t)((int32_t)brut / BOUTON_ECHELLE);
-            printf("[HIST] police d'un texte du bouton (%s) : brut 0x%08X (flottant %.1f / entier %d)%s\n", cls, brut,
-                f, (int32_t)brut, nouveau != brut ? " -> reduite" : " -> inchangee");
             if (nouveau != brut) {
                 p.t[p.n++] = { noeud, brut };
                 SafeWrite((void*)(noeud + REC_TEXTE_POLICE), &nouveau, 4);
@@ -1019,8 +969,6 @@ void ConstruireBouton(uintptr_t racine)
     uintptr_t b = Cloner(menu);
     RemettrePolices(polices);
     if (echelleLue) SafeWrite((void*)(rec + REC_ECHELLE), echelle, 8);
-    printf("[HIST] echelle de la recette du bouton : (%.2f, %.2f)%s\n", echelle[0], echelle[1],
-        echelleLue ? "" : " (illisible)");
     if (!b) { printf("[HIST] copie du bouton du menu KO\n"); return; }
     // 4e test (2026-11-21) : sans animateur, la copie est INVISIBLE (ses
     // images ne sont rendues visibles que par l'etat joue). On garde donc
@@ -1042,7 +990,6 @@ void ConstruireBouton(uintptr_t racine)
         Dimensionner(conteneur, 0.f, 0.f);
         Placer(conteneur, BOUTON_DX, BOUTON_DY);
         if (!AjouterEnfant(conteneur, b)) return;
-        DecrireElement("conteneur du bouton", conteneur);
     } else {
         printf("[HIST] pas de conteneur pour le bouton : pose directe (decalage impose par l'animation)\n");
         if (!AjouterEnfant(parent, b)) return;
@@ -1061,7 +1008,6 @@ void ConstruireBouton(uintptr_t racine)
     }
     BrancherClic(b, &CbBouton);
     Montrer(b, true);
-    DecrireElement("bouton d'historique", b);
 }
 
 // --- Legende des icones ---------------------------------------------------------------
@@ -1125,7 +1071,6 @@ int g_carteVisible = -1;
 void ConstruireLegende(uintptr_t parent, const PlaceLegende& place, std::vector<uintptr_t>* pieces = nullptr)
 {
     if (parent < 0x10000 || !ModeleTutoriel()) return;
-    DecrireElement(place.ecran, parent);
     uintptr_t modeleImage = ImageModele();
     float x = place.x, y = place.y;
     float h = LEG_ENTETE + NB_LEGENDE * LEG_PAS + 10.f;
@@ -1153,7 +1098,6 @@ void ConstruireLegende(uintptr_t parent, const PlaceLegende& place, std::vector<
     }
     if (pieces)
         for (uintptr_t p : poses) if (p) pieces->push_back(PrendrePoignee(p));
-    DecrireElement("legende : titre", titre);
     printf("[HIST] legende \"%s\" en (%.0f, %.0f) : fond 0x%llX, titre 0x%llX, %d/%d icone(s), image modele 0x%llX\n",
         place.ecran, x, y, (unsigned long long)fond, (unsigned long long)titre, icones, NB_LEGENDE,
         (unsigned long long)modeleImage);
@@ -1306,22 +1250,11 @@ void LegendeTechnosAnneau()
     Dimensionner(copie, LEG_ICONE + 6.f, LEG_ICONE + 6.f);
     Placer(copie, g_posAnneau[0], g_posAnneau[1]);
     PoserCouleurEl(copie, LEGT_TEINTE);
-    DecrireElement("technos : modele de l'anneau", image);
-    DecrireElement("technos : anneau", copie);
 }
 
 void ConstruireLegendeTechnos(uintptr_t racine)
 {
     if (racine < 0x10000 || !ModeleTutoriel()) return;
-#ifndef AP_RELEASE
-    static bool releve = false;   // arbre du panneau, une fois par lancement (reglage de la position)
-    if (!releve) {
-        releve = true;
-        g_lignes = 0;
-        printf("[HIST] arbre du panneau des technos :\n");
-        DecrireArbreElements(racine, 0, 6);
-    }
-#endif
     uintptr_t fermer = TrouverNomContenant(racine, "CLOSE");
     uintptr_t parent = 0;
     if (!fermer || !SafeRead((void*)(fermer + EL_PARENT), &parent, 8) || parent < 0x10000) {
@@ -1337,8 +1270,6 @@ void ConstruireLegendeTechnos(uintptr_t racine)
         SafeRead((void*)(parent + EL_PARENT), &gp, 8);
         if (gp > 0x10000) parent = gp;
     }
-    DecrireElement("technos : bouton de fermeture", fermer);
-    DecrireElement("technos : parent de la legende", parent);
     uintptr_t modeleImage = ImageModele();
     float x0 = decal[0] + pos[0] - LEGT_LARGEUR, yc = decal[1] + pos[1] + taille[1] / 2.f;
     float yi = yc - LEG_ICONE / 2.f, yt = yc + LEGT_TEXTE_DY;
@@ -1359,8 +1290,6 @@ void ConstruireLegendeTechnos(uintptr_t racine)
     g_posAnneau[1] = yi - 20.f;
     g_anneauFait = false;
 
-    DecrireElement("technos : texte 1", t1);
-    DecrireElement("technos : texte 2", t2);
     printf("[HIST] legende des technos en (%.0f, %.0f) : icone 0x%llX (anneau a venir)\n", x0, yc,
         (unsigned long long)icone);
 }
@@ -1397,8 +1326,6 @@ void ConstruireLegendeLivre(uintptr_t livre)
     float pos[2] = {}, taille[2] = {};
     SafeRead((void*)(fermer + EL_POSITION), pos, 8);
     SafeRead((void*)(fermer + EL_TAILLE), taille, 8);
-    DecrireElement("livre : bouton de fermeture", fermer);
-    DecrireElement("livre : parent de la legende", arbre);
     float x0 = pos[0] - LEGL_LARGEUR, yc = pos[1] + taille[1] / 2.f + LEGL_DY;
     float yi = yc - LEG_ICONE / 2.f, yt = yc + LEGT_TEXTE_DY;
 
@@ -1423,8 +1350,6 @@ void ConstruireLegendeLivre(uintptr_t livre)
     }
     uintptr_t t2 = TextePose(g_tuto.texteCorps, arbre, x1 + LEG_ICONE + 6.f, yt, LEGL_TEXTE2, false);
     PoserTexte(t2, L"Signed and effective");
-    DecrireElement("livre : plume", plume);
-    DecrireElement("livre : texte 2", t2);
     printf("[HIST] legende du livre en (%.0f, %.0f) : icone 0x%llX, plume 0x%llX\n", x0, yc,
         (unsigned long long)icone, (unsigned long long)plume);
 }

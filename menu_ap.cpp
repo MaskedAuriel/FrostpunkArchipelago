@@ -132,8 +132,6 @@ Champ g_champs[NB_CHAMPS] = {
 
 uintptr_t g_panneauFait = 0;            // panneau deja equipe
 uintptr_t g_colonne = 0, g_menuLayout = 0;   // diagnostic d'affichage
-ULONGLONG g_instantPose = 0;
-void ReleverPlusTard();
 bool      g_valeursLues = false;
 wchar_t   g_etoiles[MAX_VALEUR] = {};   // affichage du mot de passe
 
@@ -224,19 +222,6 @@ uintptr_t PremierDescendant(uintptr_t el, bool (*accepte)(uintptr_t), int prof)
 }
 
 bool EstChampDeSaisie(uintptr_t obj) { return ClasseEst(obj, "UITextInput"); }
-
-void DecrireElement(const char* qui, uintptr_t el)
-{
-    char nom[64] = "", cls[96] = "?";
-    uintptr_t rec = 0, res = 0, parent = 0;
-    LireNom(el, EL_NOM, nom, sizeof(nom));
-    GetClassNameFP(el, cls, sizeof(cls));
-    SafeRead((void*)(el + EL_RECETTE), &rec, 8);
-    SafeRead((void*)(el + EL_RESSOURCE), &res, 8);
-    SafeRead((void*)(el + EL_PARENT), &parent, 8);
-    printf("[MENU] %s : \"%s\" %s 0x%llX (recette 0x%llX, ressource 0x%llX, parent 0x%llX)\n", qui, nom, cls,
-        (unsigned long long)el, (unsigned long long)rec, (unsigned long long)res, (unsigned long long)parent);
-}
 
 // --- Instanciation depuis une recette ----------------------------------------------
 // Un noeud en mode 1 ("jamais") n'est instancie qu'en levant le mode le temps
@@ -568,7 +553,6 @@ uintptr_t hkClicEcran(uintptr_t ecran, uintptr_t p2, uintptr_t p3, uintptr_t p4)
     SafeRead((void*)(ecran + ECRAN_BOUTON), &enfonce, 1);
     uintptr_t r = oClicEcran(ecran, p2, p3, p4);
     if (!enfonce) return r;
-    ReleverPlusTard();
     uintptr_t survole = 0, focus = 0;
     SafeRead((void*)(ecran + ECRAN_SURVOLE), &survole, 8);
     SafeRead((void*)(ecran + ECRAN_FOCUS), &focus, 8);
@@ -903,34 +887,6 @@ constexpr int REC_CACHE      = 0x122;
 typedef void (*Montrer_t)(uintptr_t element, char visible, char anime, char forcer);
 static const uintptr_t OFF_MONTRER = Adr(0x105AC90);   // FUN_14105ac90 : montrer / cacher
 
-void DecrireChaine(const char* qui, uintptr_t el)
-{
-    printf("[MENU] chaine de %s :\n", qui);
-    for (int prof = 0; el > 0x10000 && prof < 10; ++prof) {
-        char nom[64] = "", cls[96] = "?";
-        float t[3] = {}, taille[2] = {}, coul[4] = {};
-        uint32_t drapeaux = 0;
-        uintptr_t rec = 0, parent = 0;
-        uint8_t clip = 0, cache = 0;
-        LireNom(el, EL_NOM, nom, sizeof(nom));
-        GetClassNameFP(el, cls, sizeof(cls));
-        SafeRead((void*)(el + EL_TRANSLATION), t, sizeof(t));
-        SafeRead((void*)(el + EL_TAILLE), taille, sizeof(taille));
-        SafeRead((void*)(el + EL_COULEUR), coul, sizeof(coul));
-        SafeRead((void*)(el + EL_DRAPEAUX), &drapeaux, 4);
-        if (SafeRead((void*)(el + EL_RECETTE), &rec, 8) && rec > 0x10000) {
-            SafeRead((void*)(rec + REC_CLIP), &clip, 1);
-            SafeRead((void*)(rec + REC_CACHE), &cache, 1);
-        }
-        printf("[MENU]   %*s\"%s\" %s 0x%llX : translation (%.1f, %.1f, %.1f), taille %.1f x %.1f, "
-               "drapeaux 0x%X, couleur (%.2f, %.2f, %.2f, %.2f), clip %d, cache %d\n",
-            prof * 2, "", nom, cls, (unsigned long long)el, t[0], t[1], t[2], taille[0], taille[1],
-            drapeaux, coul[0], coul[1], coul[2], coul[3], clip, cache);
-        if (!SafeRead((void*)(el + EL_PARENT), &parent, 8)) break;
-        el = parent;
-    }
-}
-
 void Montrer(uintptr_t el)
 {
     __try { ((Montrer_t)(Base() + OFF_MONTRER))(el, 1, 0, 1); }
@@ -966,9 +922,6 @@ uintptr_t CreerColonne(uintptr_t modele, float decalageX)
     SafeRead((void*)(rec + REC_COMPTE), &compte, 4);
     char clsParent[96] = "?";
     GetClassNameFP(parent, clsParent, sizeof(clsParent));
-    printf("[MENU] recette de MENU_LAYOUT : position (%.1f, %.1f, %.1f), ancre (%.2f, %.2f), dock %d, "
-           "ancre par %d, ignore layout %d, %d enfant(s) ; parent %s\n",
-        pos[0], pos[1], pos[2], ancre[0], ancre[1], dock, ancrePar, sansLayout, compte, clsParent);
 
     // 5e test : intitules et champs se chevauchent un peu dans notre colonne.
     // Reflexion de UILayoutRecipe (FUN_141111850) : +0x200 Layout Type, +0x204
@@ -986,9 +939,6 @@ uintptr_t CreerColonne(uintptr_t modele, float decalageX)
     SafeRead((void*)(rec + LAY_TAILLE_CONTENU), &tailleContenu, 1);
     SafeRead((void*)(rec + LAY_PADDING), padding, sizeof(padding));
     SafeRead((void*)(rec + LAY_MARGE), marge, sizeof(marge));
-    printf("[MENU] layout de MENU_LAYOUT : type %u, orientation %u, alignement %u / %u, taille du contenu %d, "
-           "padding (%.1f, %.1f, %.1f, %.1f), marge des cellules (%.1f, %.1f)\n", type, orientation, alignement,
-        alignCellule, tailleContenu, padding[0], padding[1], padding[2], padding[3], marge[0], marge[1]);
 
     float decale[4] = { pos[0] + decalageX, pos[1], pos[2], pos[3] };
     float margeV = marge[1] + MARGE_VERTICALE;
@@ -1014,10 +964,6 @@ uintptr_t CreerColonne(uintptr_t modele, float decalageX)
         if (SafeRead((void*)(parent + EL_PARENT), &grand, 8) && grand > 0x10000) hote = grand;
     }
     Inserer(hote, colonne, 0);
-    char nomHote[64] = "";
-    LireNom(hote, EL_NOM, nomHote, sizeof(nomHote));
-    printf("[MENU] colonne Archipelago 0x%llX, decalee de %.1f en x, dans \"%s\"\n", (unsigned long long)colonne,
-        decalageX, nomHote);
     return colonne;
 }
 
@@ -1033,11 +979,6 @@ uintptr_t InstancierChampCentre(uintptr_t noeud, uintptr_t ressource)
 {
     uint32_t align = 0;
     SafeRead((void*)(noeud + REC_TEXTE_ALIGN_H), &align, 4);
-    static bool journalise = false;
-    if (!journalise) {
-        journalise = true;
-        printf("[MENU] alignement horizontal du champ de sauvegarde : %u (0 gauche, 1 droite, 2 centre)\n", align);
-    }
     // "Upper case" coupe aussi pendant l'instanciation (affichage tel que
     // saisi, si l'element en garde une copie ; cf. REC_MAJUSCULES).
     uint8_t maj = 0, zero = 0;
@@ -1071,28 +1012,22 @@ void RetirerCurseurCopie(uintptr_t copie, const char* cle)
         printf("[MENU] EXCEPTION 0x%08lX a la destruction du curseur copie\n", GetExceptionCode());
         return;
     }
-    printf("[MENU] champ \"%s\" : curseur copie 0x%llX detruit\n", cle, (unsigned long long)curseur);
 }
 
 // Trait pointille entre les groupes (demande de l'auteur, 2026-10-31), comme
 // entre les boutons du menu : modele = premier enfant de MENU_LAYOUT qui n'est
-// pas un bouton. Tous les enfants sont journalises (nom, classe) pour le
-// verifier.
+// pas un bouton.
 uintptr_t TrouverSeparateur(uintptr_t colonne)
 {
     uintptr_t enfant = 0, modele = 0;
     SafeRead((void*)(colonne + EL_ENFANT), &enfant, 8);
-    printf("[MENU] enfants de MENU_LAYOUT :\n");
     for (int garde = 0; enfant > 0x10000 && garde < 64; ++garde) {
-        char nom[64] = "", cls[96] = "?";
-        LireNom(enfant, EL_NOM, nom, sizeof(nom));
+        char cls[96] = "?";
         GetClassNameFP(enfant, cls, sizeof(cls));
-        printf("[MENU]   \"%s\" %s 0x%llX\n", nom, cls, (unsigned long long)enfant);
         if (!modele && !StrEq(cls, "UIButton")) modele = enfant;
         if (!SafeRead((void*)(enfant + EL_FRERE), &enfant, 8)) break;
     }
-    if (modele) DecrireElement("separateur modele", modele);
-    else printf("[MENU] aucun separateur dans MENU_LAYOUT\n");
+    if (!modele) printf("[MENU] aucun separateur dans MENU_LAYOUT\n");
     return modele;
 }
 
@@ -1154,11 +1089,9 @@ void Construire(uintptr_t panneau)
 
     uintptr_t sortie = ChercherEnfant(racine, "EXIT_BUTTON");
     if (!sortie) { printf("[MENU] EXIT_BUTTON introuvable\n"); return; }
-    DecrireElement("bouton modele", sortie);
     uintptr_t parent = 0;
     SafeRead((void*)(sortie + EL_PARENT), &parent, 8);
     if (parent < 0x10000) { printf("[MENU] EXIT_BUTTON sans parent\n"); return; }
-    DecrireElement("colonne des boutons", parent);
 
     // Notre bloc va dans une colonne a cote de MENU_LAYOUT (test du
     // 2026-10-31 : en tete de MENU_LAYOUT, il repoussait les options du jeu
@@ -1169,7 +1102,6 @@ void Construire(uintptr_t panneau)
     // Steam : colonne a GAUCHE de MENU_LAYOUT (demande de l'auteur,
     // 2026-11-10), meme ecart ; Epic : a droite, comme avant.
     if (VersionDuJeu() == VersionJeu::Steam) decalage = -decalage;
-    printf("[MENU] taille de MENU_LAYOUT : %.1f x %.1f\n", tailleColonne[0], tailleColonne[1]);
     uintptr_t cible = CreerColonne(parent, decalage);
     uintptr_t avant = 0;
     if (!cible) {
@@ -1180,8 +1112,7 @@ void Construire(uintptr_t panneau)
 
     uintptr_t separateur = TrouverSeparateur(parent);
     uintptr_t texteModele = PremierDescendant(sortie, &EstTexte, 0);
-    if (texteModele) DecrireElement("texte modele", texteModele);
-    else printf("[MENU] EXIT_BUTTON sans texte : pas d'intitules\n");
+    if (!texteModele) printf("[MENU] EXIT_BUTTON sans texte : pas d'intitules\n");
 
     ChargerValeurs();
     uintptr_t ressource = 0;
@@ -1199,7 +1130,6 @@ void Construire(uintptr_t panneau)
             printf("[MENU] champ \"%s\" : copie 0x%llX sans UITextInput\n", c.cle, (unsigned long long)copie);
             continue;
         }
-        if (i == 0) DecrireElement("champ clone", copie);
         RetirerCurseurCopie(copie, c.cle);
         PreparerChamp(input, c.cle);
         c.objet = input;
@@ -1208,10 +1138,6 @@ void Construire(uintptr_t panneau)
         // Valeur vide : un espace, sinon le champ affiche son texte par
         // defaut "New save" (7e test). LireChamp retire les espaces.
         PoserTexte(input, c.valeur[0] ? c.valeur : L" ");
-        float taille[2] = {};
-        SafeRead((void*)(input + EL_TAILLE), taille, sizeof(taille));
-        printf("[MENU] champ \"%s\" : UITextInput 0x%llX, taille %.1f x %.1f, %d caracteres au plus\n", c.cle,
-            (unsigned long long)input, taille[0], taille[1], MAX_SAISIE);
         AjouterSeparateur(separateur, cible, avant);   // apres chaque champ, avant Connect compris
     }
     AjouterBouton(sortie, cible, avant, panneau, L"Connect", &CbConnect);
@@ -1243,37 +1169,8 @@ void Construire(uintptr_t panneau)
     if (cible != parent) Montrer(cible);
     printf("[MENU] ecran de connexion Archipelago pose (champs %s, colonne %s, %.1f x %.1f)\n",
         noeud ? "OK" : "ABSENTS", cible == parent ? "MENU_LAYOUT" : "propre", tailleCible[0], tailleCible[1]);
-    DecrireChaine("MENU_LAYOUT", parent);
-    if (cible != parent) DecrireChaine("la colonne Archipelago", cible);
     g_colonne = cible != parent ? cible : 0;
     g_menuLayout = parent;
-    g_instantPose = GetTickCount64();
-}
-
-// Second releve 3 s apres la pose (le panneau anime son apparition) : appele
-// par le clic de l'ecran, donc sur le thread du jeu, une seule fois.
-void ReleverPlusTard()
-{
-    if (!g_instantPose || GetTickCount64() - g_instantPose < 3000) return;
-    g_instantPose = 0;
-    printf("[MENU] releve 3 s apres la pose :\n");
-    DecrireChaine("MENU_LAYOUT", g_menuLayout);
-    if (!g_colonne) return;
-    DecrireChaine("la colonne Archipelago", g_colonne);
-    // Placement de nos elements par le layout (chevauchement du 5e test).
-    uintptr_t enfant = 0;
-    SafeRead((void*)(g_colonne + EL_ENFANT), &enfant, 8);
-    for (int garde = 0; enfant > 0x10000 && garde < 32; ++garde) {
-        char nom[64] = "", cls[96] = "?";
-        float t[3] = {}, taille[2] = {};
-        LireNom(enfant, EL_NOM, nom, sizeof(nom));
-        GetClassNameFP(enfant, cls, sizeof(cls));
-        SafeRead((void*)(enfant + EL_TRANSLATION), t, sizeof(t));
-        SafeRead((void*)(enfant + EL_TAILLE), taille, sizeof(taille));
-        printf("[MENU]   enfant \"%s\" %s : translation (%.1f, %.1f), taille %.1f x %.1f\n", nom, cls, t[0], t[1],
-            taille[0], taille[1]);
-        if (!SafeRead((void*)(enfant + EL_FRERE), &enfant, 8)) break;
-    }
 }
 
 // --- Boutons du menu sans sauvegarde (2026-11-04) -------------------------------

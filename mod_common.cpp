@@ -1390,61 +1390,9 @@ void InstallNtHooks()
 
 // --- Recherche d'un fichier dans une archive (.dat / .idx) -------------------
 // FUN_140e51fa0(lecteur, sortie, nom) (containerfilereadercore, decompile du
-// 2026-10-28) : nom mis en minuscules (le 1er caractere semble saute), hash
-// MurmurHash2 FUN_140e53a40(nom, longueur, graine = lecteur[0xC], m =
-// lecteur[0xE] = 0x5bd1e995), dichotomie dans les enregistrements de 0x1D
-// octets (lecteur[0], compte lecteur[1]) ; sortie = copie de l'enregistrement
-// (hash +0, taille compressee +4, taille +0xC, decalage +0x14). But : trouver
-// le numero d'entree de "UI\Tiles\Icons.dds" (atlas des bulles de dilemme),
-// le hash hors du jeu n'ayant pas reproduit les noms.
-typedef uintptr_t(*ChercherDansArchive_t)(uintptr_t lecteur, uintptr_t sortie, uintptr_t nom, uintptr_t p4);
-static ChercherDansArchive_t oChercherDansArchive = nullptr;
-static volatile long g_rechArchives = 0;
-
-static bool ContientSansCasse(const char* s, const char* motif)
-{
-    for (; *s; ++s) {
-        int i = 0;
-        while (motif[i] && s[i] && tolower((unsigned char)s[i]) == motif[i]) ++i;
-        if (!motif[i]) return true;
-    }
-    return false;
-}
-
-static uintptr_t hkChercherDansArchive(uintptr_t lecteur, uintptr_t sortie, uintptr_t nom, uintptr_t p4)
-{
-    uintptr_t r = oChercherDansArchive(lecteur, sortie, nom, p4);
-    char n[260] = "";
-    if (nom) ReadAscii(nom, n, sizeof(n));
-    long k = InterlockedIncrement(&g_rechArchives);
-    if (k <= 20 || ContientSansCasse(n, "icons") || ContientSansCasse(n, "tiles")) {
-        uintptr_t enr = 0;
-        uint32_t compte = 0, graine = 0, m = 0, hash = 0;
-        uint64_t decalage = 0, taille = 0;
-        SafeRead((void*)lecteur, &enr, 8);
-        SafeRead((void*)(lecteur + 8), &compte, 4);
-        SafeRead((void*)(lecteur + 0x60), &graine, 4);
-        SafeRead((void*)(lecteur + 0x70), &m, 4);
-        bool trouve = (r & 0xFF) != 0;
-        if (trouve) {
-            SafeRead((void*)sortie, &hash, 4);
-            SafeRead((void*)(sortie + 0xC), &taille, 8);
-            SafeRead((void*)(sortie + 0x14), &decalage, 8);
-        }
-        printf("[ARCH] #%ld \"%s\" -> %s hash 0x%08X taille %llu decalage 0x%llX (lecteur %u entrees, graine %u, m 0x%X)\n",
-            k, n, trouve ? "trouve" : "absent", hash, (unsigned long long)taille,
-            (unsigned long long)decalage, compte, graine, m);
-    }
-    return r;
-}
-
-void InstallTraceArchives(uintptr_t modBase)
-{
-    void* c = (void*)(modBase + Adr(0xE51FA0));
-    bool ok = MH_CreateHook(c, (void*)&hkChercherDansArchive, (void**)&oChercherDansArchive) == MH_OK &&
-              MH_EnableHook(c) == MH_OK;
-    printf("[ARCH] hook recherche dans les archives (+E51FA0) %s\n", ok ? "OK" : "KO");
-}
+// 2026-10-28) : hash MurmurHash2 FUN_140e53a40(nom, longueur, graine =
+// lecteur[0xC], m = lecteur[0xE] = 0x5bd1e995). Sa trace [ARCH] (hook de
+// journal seulement) a ete retiree pour la 1.0 : l'atlas cherche est trouve.
 
 // --- Trace du chargement d'une sauvegarde (2026-10-29) -----------------------
 // But : trouver un point, sur le thread du jeu, ou la sauvegarde est
@@ -2702,30 +2650,19 @@ void TracerPile(const char* qui, uintptr_t obj, long numero)
     }
 }
 
-static uintptr_t hkCtorExpedition(uintptr_t a, uintptr_t b, uintptr_t c, uintptr_t d)
-{
-    uintptr_t r = oCtorExpedition(a, b, c, d);
-    long n = InterlockedIncrement(&g_traceExpedition);
-    if (n <= TRACE_MAX_APPELS) TracerPile("ExpeditionComponent", a, n);
-    return r;
-}
-
 static uintptr_t hkCtorGroupe(uintptr_t a, uintptr_t b, uintptr_t c, uintptr_t d)
 {
     uintptr_t r = oCtorGroupe(a, b, c, d);
-    long n = InterlockedIncrement(&g_traceGroupe);
-    if (n <= TRACE_MAX_APPELS) TracerPile("SurvivorGroupComponent", a, n);
     GroupesComposantConstruit(a);   // pendant LoadGame : groupes a recoller
     return r;
 }
 
+// Constructeur de FrostpunkSurvivorGroupComponent (+0x1A0EB70) : groupes a
+// recoller pendant LoadGame. (La trace de pile des constructeurs a ete
+// retiree pour la 1.0.)
 void InstallTraceCreationEntites(uintptr_t modBase)
 {
-    void* p1 = (void*)(modBase + Adr(0x19E9560));
     void* p2 = (void*)(modBase + Adr(0x1A0EB70));
-    if (MH_CreateHook(p1, (void*)&hkCtorExpedition, (void**)&oCtorExpedition) == MH_OK &&
-        MH_EnableHook(p1) == MH_OK) printf("[TRACE] hook +19E9560 (expedition) OK\n");
-    else printf("[TRACE] hook +19E9560 (expedition) KO\n");
     if (MH_CreateHook(p2, (void*)&hkCtorGroupe, (void**)&oCtorGroupe) == MH_OK &&
         MH_EnableHook(p2) == MH_OK) printf("[TRACE] hook +1A0EB70 (groupe) OK\n");
     else printf("[TRACE] hook +1A0EB70 (groupe) KO\n");

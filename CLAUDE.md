@@ -774,6 +774,17 @@ appelé par le réseau ; `mods\ap_slot_data.txt` supprimé le 2026-11-04) :
 `g_difficulteCible` (scenarios_ap.cpp, Hard), `g_scenariosGoal` (A New
 Home seul), `g_heuresLivraison` (24 h).
 
+**Journaux nettoyes pour la 1.0 (2026-11-22, demande de l'auteur)** : retires
+les dumps de structures et d'arbres d'interface (`[POPUP]`, `[MENU]`,
+`[LOIUI]`, `[HIST]`, `[SCN]`, `[GRP]`, `[EVT]` hors convois AP), les traces
+de pile (`[TRACE]`, demarrages de quete), la trace `[ARCH]` (hook supprime),
+les etapes 1-6 de `[MSG]`, `[CLE]` (sauf refus), `[TECHDESC]` par cle,
+les releves automatiques `[REFUG]` / `[DILTAB]` / `[SCONT]` de QuetesPompe.
+Gardes : evenements AP (items, checks, convois, bulles, quetes), echecs,
+exceptions, hooks OK/KO, `JournalImmediat` avant les operations risquees.
+Les releves sur demande (`QuetesDemanderReleve`, `RELEVE_INTERFACE`)
+restent, inactifs par defaut.
+
 ### Approche abandonnée
 
 Ajouter une **12e entrée** au conteneur de ressources du jeu : crash systématique

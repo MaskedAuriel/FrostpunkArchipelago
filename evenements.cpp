@@ -59,7 +59,6 @@ constexpr int       CHOIX_TEXTE            = 0xA8;
 constexpr int       ENT_COMPOUND           = 0x28;   // CompoundTemplate de l'entite
 constexpr int       CT_CHEMIN              = 0x20;   // chemin de ressource du CompoundTemplate
 constexpr int       MAX_SUIVIES            = 16;
-constexpr long      MAX_LOGS_EVT           = 300;
 constexpr int       PROFONDEUR_MAX         = 4;
 
 typedef uintptr_t(*CreerDilemme_t)(uintptr_t sys, uintptr_t dilemme, uintptr_t contexte, uintptr_t p4);
@@ -73,7 +72,6 @@ int                 g_nSuivies = 0;
 uintptr_t           g_remplOrig[MAX_SUIVIES] = {};
 uintptr_t           g_remplNouveau[MAX_SUIVIES] = {};
 int                 g_suivieEnCours = -1;   // indice de l'entite de l'evenement en cours
-volatile long       g_logsEvt = 0;
 int                 g_lignesReleve = 0;   // budget de lignes par releve detaille
 
 int IndiceSuivie(uintptr_t entite)
@@ -120,26 +118,7 @@ void DecrireEntiteContexte(uintptr_t entite, char* out, int maxlen)
     snprintf(out, maxlen, "0x%llX %s %s", (unsigned long long)entite, cls, chemin);
 }
 
-// Effets de l'entree : 4 qwords a +0x58 et, si le premier ressemble a un
-// tableau (compte plausible au qword suivant), la classe de chaque element.
-void DecrireEffets(uintptr_t entree)
-{
-    uintptr_t q[4] = {};
-    if (!SafeRead((void*)(entree + EVT_EFFETS), q, sizeof(q))) return;
-    printf("[EVT]   effets +0x58 : 0x%llX 0x%llX 0x%llX 0x%llX\n", (unsigned long long)q[0],
-        (unsigned long long)q[1], (unsigned long long)q[2], (unsigned long long)q[3]);
-    int32_t n = (int32_t)(q[1] & 0xFFFFFFFF);
-    if (q[0] <= 0x10000 || n <= 0 || n > 16) return;
-    for (int i = 0; i < n; ++i) {
-        uintptr_t e = 0;
-        char cls[96] = "?";
-        if (!SafeRead((void*)(q[0] + i * 8), &e, 8)) break;
-        if (e > 0x10000) GetClassNameFP(e, cls, sizeof(cls));
-        printf("[EVT]     [%d] 0x%llX %s\n", i, (unsigned long long)e, cls);
-    }
-}
-
-// --- Releve detaille (groupes Archipelago) ----------------------------------
+// --- Releve detaille (releves des dilemmes) ---------------------------------
 
 bool ClasseDe(uintptr_t p, char* cls, int maxlen)
 {
@@ -307,19 +286,6 @@ void DecrireObjet(uintptr_t obj, int profondeur)
     }
 }
 
-void ReleverEvenement(uintptr_t entree)
-{
-    uintptr_t tab = 0;
-    int32_t n = 0;
-    SafeRead((void*)(entree + EVT_EFFETS), &tab, 8);
-    SafeRead((void*)(entree + EVT_EFFETS + 8), &n, 4);
-    g_lignesReleve = 0;
-    for (int i = 0; i < n && i < 16 && tab; ++i) {
-        uintptr_t e = 0;
-        if (SafeRead((void*)(tab + i * 8), &e, 8)) DecrireObjet(e, 1);
-    }
-}
-
 // Nom de l'evenement en cours d'execution (thread du jeu), pour les journaux
 // d'autres modules (ex. quete demarree par un evenement, quetes.cpp).
 char g_nomEvtEnCours[128] = "";
@@ -338,19 +304,9 @@ void hkInvoquerEvenement(uintptr_t sys, uintptr_t entree, uintptr_t contexte, ui
     int indice = IndiceSuivie(entite);
     bool suivie = indice >= 0;
 
-    // Releve des groupes de Refugees (2026-11-10) : tout evenement dont le
-    // contexte est un groupe de survivants DU JEU est journalise, hors budget
-    // (arrivee des Lords, des [OurPeople], des premiers refugies).
-    char ctx[320] = "aucune";
-    if (entite) DecrireEntiteContexte(entite, ctx, sizeof(ctx));
-    bool groupeDuJeu = !suivie && entite && strstr(ctx, "SurvivorGroups/");
-    if (suivie || groupeDuJeu || InterlockedIncrement(&g_logsEvt) <= MAX_LOGS_EVT) {
-        printf("[EVT] %s \"%s\" (entree 0x%llX, forcer %d) contexte : %s\n",
-            suivie ? "GROUPE AP" : (groupeDuJeu ? "GROUPE DU JEU" : "invoque"), nom,
-            (unsigned long long)entree, (int)(forcer & 0xFF), ctx);
-        if (suivie) ReleverEvenement(entree);
-        else DecrireEffets(entree);
-    }
+    // Seuls les evenements d'un convoi AP sont journalises (1.0).
+    if (suivie) printf("[EVT] GROUPE AP \"%s\" (entree 0x%llX, forcer %d)\n", nom,
+        (unsigned long long)entree, (int)(forcer & 0xFF));
     // Les effets internes peuvent changer de contexte (SelectEffect sur les
     // survivants secourus) : on retient l'entite de l'evenement exterieur.
     // Convoi AP (2026-11-07, demandes de l'auteur) : ni l'arrivee visuelle du
@@ -470,9 +426,7 @@ uintptr_t hkCreerDilemme(uintptr_t sys, uintptr_t dilemme, uintptr_t contexte, u
                 if (SafeRead((void*)d, &pd, 8)) TexteDe(pd, nomD, sizeof(nomD));
                 printf("[DIL] groupe du jeu vide : \"%s\" remplace par son dilemme d'arrivee \"%s\" (sans survivants)\n",
                     nom, nomD);
-                uintptr_t r = g_origCreerDilemme(sys, d, contexte, 0);
-                printf("[DIL]   -> %lld\n", (long long)(int32_t)r);
-                return r;
+                return g_origCreerDilemme(sys, d, contexte, 0);
             }
     }
     uintptr_t cree = remplace ? remplace : dilemme;
@@ -491,7 +445,6 @@ uintptr_t hkCreerDilemme(uintptr_t sys, uintptr_t dilemme, uintptr_t contexte, u
         return (uintptr_t)(intptr_t)-1;
     }
     uintptr_t r = g_origCreerDilemme(sys, cree, contexte, p4);
-    printf("[DIL]   -> %lld\n", (long long)(int32_t)r);
     // Refugies de l'apres-005 (A New Home, 2026-11-05) : l'arrivee d'un groupe
     // de refugies a la porte = check "Refugees Arrival k" ; la bulle est
     // resolue tout de suite (2026-11-07).
@@ -686,21 +639,6 @@ const char* DilemmePiegeTexte(int slot, char champ, int indice)
     return nullptr;
 }
 
-// Texture d'une tuile : NameString (pointeur). On tente le texte pointe,
-// puis le texte pointe par le premier qword pointe.
-void DecrireTuile(const char* libelle, uintptr_t t)
-{
-    uintptr_t tex = 0, tex2 = 0;
-    int32_t v[4] = {};
-    char nom[160] = "";
-    SafeRead((void*)t, &tex, 8);
-    SafeRead((void*)(t + 8), v, sizeof(v));
-    if (tex > 0x10000 && !TexteDe(tex, nom, sizeof(nom)) &&
-        SafeRead((void*)tex, &tex2, 8) && tex2 > 0x10000) TexteDe(tex2, nom, sizeof(nom));
-    printf("[DIL]   %s : texture 0x%llX \"%s\" case (%d,%d) sur (%d,%d)\n", libelle,
-        (unsigned long long)tex, nom, v[0], v[1], v[2], v[3]);
-}
-
 // Tuile de l'icone 'icone' dans l'atlas des bulles. L'image du marqueur
 // d'un dilemme est une tuile OPTIONNELLE : drapeau en +0x230, UITextureTile en
 // +0x238 (texture +0x238, case +0x240, nombre de cases +0x248). Celle de
@@ -730,7 +668,6 @@ void PoserIconePiege(uintptr_t d, const char* icone)
         return;
     }
     SafeWrite((void*)(d + DIL_TUILE_MARQUEUR), tuile, TAILLE_TUILE);
-    DecrireTuile("tuile du marqueur du dilemme", d + DIL_TUILE_MARQUEUR);
 }
 
 // Copie de "Survivors group" pour le slot : titre, texte, n choix (copies du
@@ -969,8 +906,6 @@ bool InscrireOccurrence(uintptr_t sys, uintptr_t entree)
             (unsigned long long)entree);
         return false;
     }
-    printf("[DIL]   table des occurrences : entree 0x%llX %s (index %d)\n", (unsigned long long)entree,
-        trouve >= 0 ? "deja inscrite" : "inscrite", trouve >= 0 ? trouve : insere);
     return trouve >= 0 || insere >= 0;
 }
 

@@ -393,8 +393,6 @@ static void BuildLocKeyTable()
             if (existant) {
                 ++doublons;
                 if (duScenario && !TechDuScenario(existant->techHash, scn)) {
-                    printf("[LOC] cle \"%s\" : techno %016llX (hors scenario) remplacee par %016llX (%s)\n",
-                        k, (unsigned long long)existant->techHash, (unsigned long long)th, scn);
                     existant->techHash = th;
                     existant->slot = s;
                     ++remplacees;
