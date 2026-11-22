@@ -117,3 +117,8 @@
   « Society's attitude » (sinon l'id) ; checks `"<Scénario> - Victory
   (<nom court>: <niveau>)"`. Journal : nom court, réglages et nom affiché.
   Non testé.
+
+## 2026-11-21 : goal partiel
+
+Le goal n'exige plus tous les scenarios du slot : option `scenarios_to_win`, voir `docs/chantiers/options.md`.
+

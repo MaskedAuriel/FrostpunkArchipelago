@@ -1161,3 +1161,181 @@ réponse du jeu change : réponse, technos élevées, parent recherché / reçu
   (7748100184) n'est plus généré, son id reste réservé dans `ids.tsv`.
 - **Les graines déjà générées ne sont plus compatibles** pour ces arbres
   (un item 81 reçu est refusé, « arbre épuisé »).
+
+## 2026-11-21 — On the Edge : effets d'une techno recherchée actifs sans l'item
+
+- **Constat (auteur)** : les effets de la première techno des handcarts
+  (`[Reconquest] R 1_VaultUpgrade1`, `A0F1BE0F4175B30F`) s'appliquent alors
+  que l'item n'est pas reçu (journal : `recherche terminee : R VaultUpgrade1
+  (recu=0) -> etat 0`).
+- **Cause (Ghidra, `FUN_141325e40` / `FUN_141327120`)** : `ResearchComplete`
+  remet l'état à 0, puis `AddResearchedTechnology(système, techno, 1)` pose
+  l'état 2, **applique les effets** (`FUN_141326650`) et prévient les
+  écouteurs « techno recherchée » ; ensuite l'événement « recherche
+  terminée » (`+0x2160`). Depuis le 2026-11-07, `hkAjouterRecherchee`
+  appelait l'original avec le 3e argument à 0 (pas de bleu) pour une techno
+  AP pas reçue : les effets passaient quand même ; seul l'état revenait à
+  0 (bâtiments verrouillés). Bug commun aux 6 scénarios.
+- **Correctif (compilé 23:49, pas déployé : jeu lancé)** :
+  - `hkAjouterRecherchee` : techno AP pas reçue → rien (retour 1), journal
+    `[AP] recherche d'une techno pas encore recue : effets retenus jusqu'a
+    l'item`. L'événement `+0x2160` de `ResearchComplete` part toujours.
+  - `OnItemReceived` : effets appliqués à la réception **même si la techno
+    est déjà recherchée** (`TechAppliquerEffets`, 3e argument 1 → bleu à la
+    réception) ; techno élevée à 2 par `EleverRecherchees` au même instant :
+    remise à 0 d'abord. Journal `[AP] techno … recue (deja recherchee) :
+    effets appliques`.
+- **Limite** : une partie où une techno a été recherchée sans item avec
+  l'ancienne DLL a déjà ses effets ; à sa réception, ils seront appliqués
+  une 2e fois. Tester sur une techno recherchée avec la nouvelle DLL.
+- Non testé.
+
+## 2026-11-22 — Technos reçues sans effet après le chargement d'une sauvegarde antérieure
+
+- **Constat (auteur, On the Edge)** : efficacité de l'army warehouse non
+  augmentée alors que 6 technos Vault sont reçues (`ap_technos_B576…` :
+  `recherchée 0, reçue 1`).
+- **Cause** : la sauvegarde locale `ap_technos_<GameId>.txt` est
+  cumulative. Une sauvegarde du jeu **antérieure** à la réception ne
+  contient ni l'état 2 ni les modificateurs de la techno ;
+  `TechPersistanceTick` écrivait l'état 2 directement (`SyncGameState`),
+  sans `AddResearchedTechnology`. La techno paraît faite, ses effets ne
+  sont jamais appliqués, et l'item n'est pas relivré (déjà compté).
+  Ghidra : `FUN_141326650` (effets) n'est appelée que par
+  `AddResearchedTechnology` ; les modificateurs vivent dans le système des
+  modificateurs (`DAT_144093180`, `FUN_14179d480` / `FUN_14179d9e0` : pas de
+  2e cumul au-delà du maximum d'empilement du modificateur).
+- **Correctif (déployé sur Steam à 12:55)** : au chargement, une techno AP reçue dont l'état
+  du jeu n'est pas 2 est mise en file (`[TECH] … recue mais etat N dans la
+  sauvegarde`) ; `TechPompe` (thread du jeu) lui applique ses effets
+  (`TechAppliquerEffets`, journal `[TECH] … : effets reappliques apres
+  chargement`).
+- **Limite** : une sauvegarde déjà écrite après un tel chargement a l'état 2
+  sans les modificateurs : le correctif ne la répare pas. Pour la
+  rattraper, il faut recharger une sauvegarde antérieure à la réception.
+- Non testé.
+
+## 2026-11-22 — Bonus de l'army warehouse absent (nouvelle partie)
+
+- **Constat (auteur)** : nouvelle partie, les 7 technos Vault livrées au
+  départ (`[AP] techno R VaultEfficiencyBoost recue : effets appliques`,
+  l. 1779-1894), mais le bonus d'efficacité de l'entrepôt n'est pas
+  appliqué.
+- **Ghidra** : les effets d'une techno (`FUN_141326650`) ajoutent les
+  modificateurs globaux (`+0xC0`) par `FUN_14179d480(système, modif)` ;
+  `FUN_14179d9e0` évalue les **conditions** du modificateur et renvoie 0
+  sans le garder si elles sont fausses. Les modificateurs d'entité
+  (`+0xD8`, `FUN_14179d140`) et de lieu (`+0xF0`, `FUN_14179d030`) sont
+  inscrits par gabarit et appliqués aussi aux entités futures.
+  Condition d'affichage des technos Vault : `unlock [Reconquest] SteamCores`
+  (entrepôt découvert) ; les items AP les appliquent dès la 1re seconde.
+- **Hypothèse** : modificateur global refusé (conditions fausses à ce
+  moment), jamais retenté.
+- **Correctif / diagnostic (déployé sur Steam à 13:57)** : hook de
+  `FUN_14179d480` (Steam `0x1638480`, octets identiques à 96 %, ajouté à
+  `VERSION_STEAM`) pendant `TechAppliquerEffets` : journal
+  `[TECH] <techno> : modificateur global 0x… (<classe>) applique | REFUSE`.
+  Un refusé est retenté toutes les 3 s par `TechModifsEnAttentePompe`
+  (`TechPompe`, thread du jeu) : `… applique au nouvel essai`. File vidée
+  à chaque nouvelle partie.
+- **Limites** : la file n'est pas sauvegardée (un modificateur encore
+  refusé au moment d'un rechargement est perdu) ; si aucune ligne `REFUSE`
+  n'apparaît, l'hypothèse est fausse et le bonus passe par autre chose
+  (modificateur d'entité, expression du jeu). Non testé.
+- `correspondances_steam.tsv` (outils\portage) pas mis à jour.
+
+- **Retour de l'auteur (journal de 15:28)** : toujours pas de bonus.
+  **Aucune** ligne `modificateur global` sur les 43 technos reçues (hook
+  bien posé, aucun `[!] hook … KO`) : hypothèse du modificateur global
+  **fausse**, les technos d'On the Edge n'en ont pas.
+- **Ghidra** : `FUN_14179d140(système, entrée {gabarit, modif}, modif)`
+  inscrit le modificateur d'entité pour le gabarit, puis l'applique à chaque
+  entité existante de ce gabarit (liste `système +0x2060`, nombre `+0x2068`,
+  gabarit `FUN_1410f6d00`, bit du type `FUN_14179f8b0`) par
+  `FUN_14179d240(système, entité, modif)`, qui évalue **aussi les
+  conditions** (`FUN_14179d9e0`) et renvoie 0 sans rien garder si elles sont
+  fausses. Nouvelle hypothèse : l'entrepôt existe dès le départ (fouillé
+  plus tard, `E: Vault searched`) → refus jamais retenté.
+- **Diagnostic / correctif (compilé 15:32, déployé sur Steam ensuite)** :
+  hooks de `FUN_14179d140` (Steam `0x1638140`, 100 %) et `FUN_14179d240`
+  (Steam `0x1638240`, 90 %), ajoutés à `VERSION_STEAM`. Journal
+  `[TECH] <techno> : modificateur d'entite 0x… (<classe>, type N) inscrit
+  pour le gabarit … : X entite(s) existante(s)` puis, par entité,
+  `… sur l'entite 0x… (<classe>) applique | REFUSE` (aussi pour une entité
+  apparue plus tard : `[entite nouvelle]`). Refus retentés toutes les 3 s
+  tant que l'entité est dans la liste du système : `applique au nouvel
+  essai`. Non testé.
+
+- **Retour de l'auteur (journal de 15:38)** : toujours pas de bonus. Seule
+  `R VaultInsulation` a un modificateur « Entities of type » (gabarit
+  `AAAF628487F0A38B4E1B840378B84FC6`, appliqué à l'entrepôt : il existe
+  bien). Les 6 autres technos Vault : **rien** dans les canaux global et
+  entité.
+- **Ghidra / réflexion** : `FrostpunkTechnologyEntry` n'a que 3 listes
+  d'effets : `+0xC0` Global modifiers, `+0xD8` Entities of type modifiers,
+  `+0xF0` **Buildings of category modifiers**. Ce dernier passe par
+  `FUN_14179d030(système, catégorie, modif)` : table des catégories
+  (`système +0x23C8`), puis application (`FUN_14179d240`) à chaque bâtiment
+  du système des bâtiments (`DAT_142c3c408`, liste `+0x2060`) de la
+  catégorie (`FUN_1412ef5f0` : catégories du gabarit). Aucun journal pour
+  ces technos ⇒ aucun bâtiment de la catégorie à la réception.
+- **Correctif (déployé sur Steam à 15:43)** : hook de `FUN_14179d030`
+  (Steam `0x1638030`, 97 %) → journal `[TECH] … : modificateur de categorie
+  0x… (<classe>, type N) inscrit pour la categorie 0x… : N batiment(s)`.
+  Rattrapage toutes les 3 s : chaque bâtiment de la catégorie qui n'a pas le
+  modificateur le reçoit (`… applique au batiment … (rattrapage)` ou
+  `REFUSE … retente`). Paires {bâtiment, modif} acceptées notées (y compris
+  par le jeu) : jamais deux fois. Garde-fou : le global doit être
+  `FrostpunkBuildingSystem`. Steam : `FUN_1412ef5f0` `0x1189EB0` (86 %),
+  global `0x2B992B8` (même décalage de l'instruction dans `FUN_14179d030`).
+  Non testé.
+
+- **Retour de l'auteur (journal de 15:50)** : toujours rien, et **aucun**
+  modificateur de catégorie nulle part. Les 6 technos Vault (hors
+  Insulation) n'ont **aucun modificateur** de quelque canal que ce soit.
+- **Ghidra** : leur effet est un **événement scripté** du scénario,
+  déclenché par `FrostpunkTechnologyResearchEventTrigger` (propriétés
+  `Technology` et `Event` = eTechnologyResearchEvent : Started / Finished /
+  Canceled). L'événement « recherche » du système des technos est
+  `self +0x2160` (écouteurs `+0x18`, nombre `+0x20`, pas 0x10 =
+  `{objet, fonction(objet, techno, évènement)}`, compteur `+0x30` ;
+  invocation `FUN_14128c240`). `ResearchComplete` l'invoque avec 1
+  (Finished) après `AddResearchedTechnology` ; `CancelResearch` avec 2.
+  **`AddResearchedTechnology` (notre réception) ne l'invoque pas** : les
+  événements scriptés partaient à la recherche (même sans l'item) et jamais
+  à la réception.
+- **Correctif (compilé 15:53, déployé sur Steam ensuite)** : techno AP →
+  pendant `ResearchComplete`, écouteurs « effets » (classe de l'objet
+  contenant `Event`, hors `UI`) rendus muets (fonction remplacée puis
+  rétablie) : `[TECH] … : N ecouteur(s) … retenu(s) jusqu'a la reception` ;
+  à la réception (`TechAppliquerEffets`), ces écouteurs sont invoqués avec
+  Finished : `[TECH] … : evenements scriptes de "recherche terminee"
+  declenches a la reception`. Liste des écouteurs journalisée une fois
+  (`[TECH] evenement "recherche" … ecouteur i : objet (classe), fonction
+  +RVA -> effet`) : si aucun n'est marqué « effet », revoir le critère.
+  Aucune nouvelle adresse (pas de `VERSION_STEAM`). Non testé.
+
+- **Retour (journal de 15:59)** : 7 écouteurs sur `self +0x2160`, aucun
+  reconnu (objets = sous-objets sans nom RTTI) → rien de déclenché. Les
+  fonctions sont des **thunks d'ajustement** (`48 8B C1 … 48 83/81 C1 adj …
+  E9 saut`). Cibles Steam → Epic : `0x1106B20` → `0x126D710` (adj −0x18),
+  `0x16AA580` → `0x180F580` (adj −0x20D8), **`0x165B590` → `0x17C0590`**
+  (adj −0x20D8), `0x1809C90` → `0x196D240` ; 3 cibles sans `.pdata`
+  (`0x17190D0`, `0x1A1C230`, `0x153E570`).
+- **Ghidra** : `FUN_1417c0590` = **système des événements** : table
+  `+0x2870` indexée par {techno, évènement} → chaque événement invoqué par
+  `FUN_1417b9b70` (invocation journalisée `[EVT]`). C'est l'écouteur des
+  événements scriptés.
+- **Correctif (compilé 16:02, déployé sur Steam ensuite)** : critère =
+  fonction (ou cible du thunk) == `Adr(0x17C0590)` (Steam `0x165B590`,
+  98 %, ajouté à `VERSION_STEAM`). À la réception, attendre une ligne
+  `[EVT] invoque "…"` juste après `evenements scriptes … declenches`.
+
+- **VALIDÉ par l'auteur (journal de 16:07, On the Edge)** : bonus de
+  l'entrepôt appliqué. Événements scriptés déclenchés à la réception :
+  `U: Boiler Upgrade` (Boiler Upgrade), `U: Boiler Upgrade2` (Boiler
+  Upgrade 2), `U: Brazier technology coal consumption I` (HC
+  BrazierCoalOpt1), `U: Vault -Tec switch` (R VaultUpgrade1/2/3). Ces 6
+  technos n'avaient jusque-là aucun effet à la réception (et appliquaient
+  leur événement à la recherche, même sans l'item). Correctif commun aux 6
+  scénarios ; les autres scénarios n'ont pas encore été relevés.

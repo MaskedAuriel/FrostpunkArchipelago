@@ -1280,8 +1280,9 @@ void ReseauAP::AppliquerSlotData(const json& sd)
     d.goalDifficulty = difficulte.c_str();
     d.excludePurposePolitics = sd.value("exclude_purpose_politics", false);
     d.deliveryHours = sd.value("delivery_hours", 24);
-    printf("[AP NET] slot_data : %d scenario(s), depart \"%s\", difficulte \"%s\", livraison %d h\n",
-        d.nScenarios, Ascii(depart).c_str(), Ascii(difficulte).c_str(), d.deliveryHours);
+    d.scenariosToWin = sd.value("scenarios_to_win", 0);   // absent : graine d'avant le goal partiel
+    printf("[AP NET] slot_data : %d scenario(s), %d a gagner, depart \"%s\", difficulte \"%s\", livraison %d h\n",
+        d.nScenarios, d.scenariosToWin, Ascii(depart).c_str(), Ascii(difficulte).c_str(), d.deliveryHours);
     ApAppliquerSlotData(d);
 }
 

@@ -17,3 +17,9 @@ void InstallResearchHooks(uintptr_t modBase);
 // (AddResearchedTechnology : etat 2, effets, ecouteurs). THREAD DU JEU.
 // true si la techno est a l'etat 2 apres l'appel (ou l'etait deja).
 bool TechAppliquerEffets(uint64_t hash);
+
+// Modificateurs globaux d'une techno AP refuses a l'application (conditions
+// fausses) : retentes toutes les 3 s. THREAD DU JEU (TechPompe).
+void TechModifsEnAttentePompe();
+// Nouvelle partie : la file est videe au prochain passage de la pompe. Tout thread.
+void TechModifsOublier();

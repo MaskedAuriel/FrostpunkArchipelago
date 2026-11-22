@@ -49,12 +49,512 @@ static uintptr_t hkAjouterRecherchee(uintptr_t self, uintptr_t tech, uintptr_t p
             printf("[AP] recherche d'une techno deja recue : effets non reappliques\n");
             return 1;                  // "AddResearchedTechnology should succeed"
         }
-        // Recherche d'une techno AP pas encore recue (2026-11-07, auteur) : le
-        // menu des batiments ne doit PAS passer au bleu a la recherche, mais a
-        // la reception -> notification (3e argument) coupee ici.
-        if (r && TechEstUnCheck(h)) return oAjouterRecherchee(self, tech, 0, p4);
+        // Recherche d'une techno AP pas encore recue. Bug du 2026-11-21 (On the
+        // Edge, auteur : effets de "R VaultUpgrade1" sur les handcarts actifs
+        // sans l'item) : l'original etait appele avec le 3e argument a 0 (pas
+        // de bleu, 2026-11-07), mais il applique quand meme les effets
+        // (FUN_141326650). Desormais rien n'est fait : etat laisse a 0 (remis
+        // par ResearchComplete), ni effets ni ecouteurs "techno recherchee" ;
+        // tout vient a la reception (OnItemReceived -> TechAppliquerEffets,
+        // 3e argument 1 : bleu a la reception). L'evenement "recherche
+        // terminee" (+0x2160) est emis par ResearchComplete apres ce retour.
+        if (r && TechEstUnCheck(h)) {
+            printf("[AP] recherche d'une techno pas encore recue : effets retenus jusqu'a l'item\n");
+            return 1;                  // "AddResearchedTechnology should succeed"
+        }
     }
     return oAjouterRecherchee(self, tech, p3, p4);
+}
+
+// --- Modificateurs globaux refuses a la reception (2026-11-22) ---------------
+// Bug (On the Edge, auteur) : bonus d'efficacite de l'army warehouse absent,
+// technos Vault recues et appliquees (journal "effets appliques"). Les effets
+// d'une techno (FUN_141326650) ajoutent ses modificateurs globaux par
+// FUN_14179d480(systeme des modificateurs, modificateur), qui evalue d'abord
+// les CONDITIONS du modificateur (FUN_14179d9e0 : "Evaluating modifier
+// conditions...") et renvoie 0 sans rien garder si elles sont fausses. En
+// vanilla une techno Vault n'est recherchee qu'apres la decouverte de
+// l'entrepot (condition d'affichage "unlock [Reconquest] SteamCores") ; les
+// items AP l'appliquent des la premiere seconde de la partie. Hypothese : le
+// modificateur est refuse a ce moment et n'est jamais retente. Le hook note
+// chaque modificateur global refuse pendant l'application d'une techno AP ;
+// TechModifsEnAttentePompe (thread du jeu) le retente toutes les 3 s.
+// Un modificateur deja present n'est pas cumule au-dela de son maximum
+// d'empilement (FUN_14179d9e0), mais on ne retente QUE les refuses.
+// Steam : 0x1638480 (octets identiques a 96 %, 2026-11-22).
+typedef uintptr_t (*AjouterModifGlobal_t)(uintptr_t systeme, uintptr_t modif, uintptr_t p3, uintptr_t p4);
+static AjouterModifGlobal_t oAjouterModifGlobal = nullptr;
+static const uintptr_t OFF_AJOUTER_MODIF_GLOBAL = Adr(0x179D480);
+static thread_local uint64_t t_techEffets = 0;     // techno AP en cours d'application
+
+struct ModifEnAttente { uintptr_t systeme, modif; uint64_t hash; };
+static const int MAX_MODIFS_ATTENTE = 64;
+static ModifEnAttente g_modifsAttente[MAX_MODIFS_ATTENTE];
+static int g_nModifsAttente = 0;                   // thread du jeu seulement
+static volatile long g_viderModifs = 0;            // demande du thread du mod (nouvelle partie)
+static void ViderSiNouvellePartie();               // vide aussi les files des modificateurs d'entite
+
+static const char* NomTechno(uint64_t h)
+{
+    const TechInfo* t = TechByHash(h);
+    return t ? t->name : "?";
+}
+
+static uintptr_t hkAjouterModifGlobal(uintptr_t systeme, uintptr_t modif, uintptr_t p3, uintptr_t p4)
+{
+    uintptr_t r = oAjouterModifGlobal(systeme, modif, p3, p4);
+    if (t_techEffets) {
+        bool accepte = (r & 0xFF) != 0;
+        char classe[96] = "?";
+        GetClassNameFP(modif, classe, sizeof(classe));
+        printf("[TECH] %s : modificateur global 0x%llX (%s) %s\n", NomTechno(t_techEffets),
+               (unsigned long long)modif, classe, accepte ? "applique" : "REFUSE (conditions ?) : sera retente");
+        // File de l'ancienne partie videe avant le premier ajout de la nouvelle
+        // (la pompe passe apres la livraison des items).
+        ViderSiNouvellePartie();
+        if (!accepte && g_nModifsAttente < MAX_MODIFS_ATTENTE) {
+            bool deja = false;
+            for (int k = 0; k < g_nModifsAttente; ++k)
+                if (g_modifsAttente[k].modif == modif) { deja = true; break; }
+            if (!deja) g_modifsAttente[g_nModifsAttente++] = { systeme, modif, t_techEffets };
+        }
+    }
+    return r;
+}
+
+// ---------------------------------------------------------------------------
+// 2026-11-22, suite : aucune des 43 technos recues d'On the Edge n'a ajoute de
+// modificateur GLOBAL (journal). Leurs effets passent par les modificateurs
+// d'ENTITE (tech +0xD8, entrees de 0x20 = {gabarit, modificateur}) :
+// FUN_14179d140(systeme, entree, modif) inscrit le modificateur pour le
+// gabarit (entites futures) puis l'applique a chaque entite existante de ce
+// gabarit par FUN_14179d240(systeme, entite, modif), qui evalue lui aussi les
+// CONDITIONS du modificateur (FUN_14179d9e0) et renvoie 0 sans rien garder si
+// elles sont fausses. Une entite deja presente (l'entrepot d'On the Edge, sur
+// la carte des le depart, fouille plus tard : "E: Vault searched") n'est
+// jamais reessayee. Les hooks notent les modificateurs d'entite des technos
+// AP, journalisent chaque application (aussi celles que le jeu fait plus tard
+// pour une entite nouvelle) et retentent les refus toutes les 3 s, tant que
+// l'entite est encore dans la liste du systeme (+0x2060, nombre +0x2068).
+// Steam : 0x1638140 (octets identiques a 100 %), 0x1638240 (90 %).
+typedef uintptr_t (*InscrireModifEntite_t)(uintptr_t systeme, uintptr_t entree, uintptr_t modif, uintptr_t p4);
+typedef uintptr_t (*AppliquerModifEntite_t)(uintptr_t systeme, uintptr_t entite, uintptr_t modif, uintptr_t p4);
+static InscrireModifEntite_t  oInscrireModifEntite  = nullptr;
+static AppliquerModifEntite_t oAppliquerModifEntite = nullptr;
+static const uintptr_t OFF_INSCRIRE_MODIF_ENTITE  = Adr(0x179D140);
+static const uintptr_t OFF_APPLIQUER_MODIF_ENTITE = Adr(0x179D240);
+
+struct ModifTechno { uintptr_t modif; uint64_t hash; };
+static const int MAX_MODIFS_TECHNOS = 256;
+static ModifTechno g_modifsTechnos[MAX_MODIFS_TECHNOS];     // modificateurs d'entite des technos AP
+static int g_nModifsTechnos = 0;                            // thread du jeu seulement
+
+struct ModifEntiteEnAttente { uintptr_t systeme, entite, modif; uint64_t hash; };
+static const int MAX_MODIFS_ENTITE_ATTENTE = 128;
+static ModifEntiteEnAttente g_modifsEntiteAttente[MAX_MODIFS_ENTITE_ATTENTE];
+static int g_nModifsEntiteAttente = 0;                      // thread du jeu seulement
+static thread_local int t_entitesVues = 0;                  // entites traitees par l'inscription en cours
+
+// ---------------------------------------------------------------------------
+// 2026-11-22, 3e canal : journal de 15:38 -> seule R VaultInsulation a un
+// modificateur "Entities of type" (applique a l'entrepot, gabarit AAAF...).
+// Les autres technos Vault n'ont rien journalise ; or une techno n'a que 3
+// listes d'effets (FrostpunkTechnologyEntry : +0xC0 Global modifiers, +0xD8
+// Entities of type modifiers, +0xF0 Buildings of category modifiers). Reste
+// donc +0xF0 : FUN_14179d030(systeme, categorie, modif) range le modificateur
+// dans la table des categories (systeme +0x23C8) puis l'applique
+// (FUN_14179d240) a chaque batiment du systeme des batiments (global
+// DAT_142c3c408, liste +0x2060, nombre +0x2068) de cette categorie
+// (FUN_1412ef5f0(systemeBatiments, batiment, categorie) : liste des
+// categories du gabarit du batiment). Aucun journal pour ces technos => aucun
+// batiment de la categorie a la reception (l'entrepot n'etait pas encore un
+// batiment de cette categorie / pas encore fouille). Rattrapage : toutes les
+// 3 s, chaque batiment de la categorie qui n'a pas encore le modificateur le
+// recoit (FUN_14179d240). Paires {batiment, modif} acceptees notees (aussi
+// celles que le jeu applique lui-meme : hook de FUN_14179d240) : jamais deux
+// fois. Steam : FUN_14179d030 0x1638030 (97 %), FUN_1412ef5f0 0x1189EB0
+// (86 %), DAT_142c3c408 0x2B992B8 (meme decalage de l'instruction).
+typedef uintptr_t (*InscrireModifCategorie_t)(uintptr_t systeme, uintptr_t categorie, uintptr_t modif, uintptr_t p4);
+typedef uintptr_t (*BatimentDeCategorie_t)(uintptr_t systemeBat, uintptr_t batiment, uintptr_t categorie, uintptr_t p4);
+static InscrireModifCategorie_t oInscrireModifCategorie = nullptr;
+static const uintptr_t OFF_INSCRIRE_MODIF_CATEGORIE = Adr(0x179D030);
+static const uintptr_t OFF_BATIMENT_DE_CATEGORIE    = Adr(0x12EF5F0);
+static const uintptr_t OFF_SYSTEME_BATIMENTS        = Adr(0x2C3C408);
+static uintptr_t g_baseRecherche = 0;
+
+struct ModifCategorie { uintptr_t systeme, categorie, modif; uint64_t hash; };
+static const int MAX_MODIFS_CATEGORIE = 128;
+static ModifCategorie g_modifsCategorie[MAX_MODIFS_CATEGORIE];
+static int g_nModifsCategorie = 0;                          // thread du jeu seulement
+
+struct PaireModif { uintptr_t entite, modif; };
+static const int MAX_PAIRES = 2048;
+static PaireModif g_pairesAppliquees[MAX_PAIRES];           // acceptees (par nous ou par le jeu)
+static int g_nPairesAppliquees = 0;
+static PaireModif g_pairesRefusNote[MAX_PAIRES];            // refus deja journalises par le rattrapage
+static int g_nPairesRefusNote = 0;
+
+static bool PaireDans(const PaireModif* t, int n, uintptr_t entite, uintptr_t modif)
+{
+    for (int k = 0; k < n; ++k)
+        if (t[k].entite == entite && t[k].modif == modif) return true;
+    return false;
+}
+
+static void NoterPaire(PaireModif* t, int& n, uintptr_t entite, uintptr_t modif)
+{
+    if (n < MAX_PAIRES && !PaireDans(t, n, entite, modif)) t[n++] = { entite, modif };
+}
+
+static void ViderSiNouvellePartie()
+{
+    if (!InterlockedExchange(&g_viderModifs, 0)) return;
+    if (g_nModifsAttente || g_nModifsEntiteAttente || g_nModifsCategorie)
+        printf("[TECH] nouvelle partie : %d modificateur(s) global(aux), %d d'entite en attente et %d de categorie oublie(s)\n",
+               g_nModifsAttente, g_nModifsEntiteAttente, g_nModifsCategorie);
+    g_nModifsAttente = 0;
+    g_nModifsEntiteAttente = 0;
+    g_nModifsTechnos = 0;
+    g_nModifsCategorie = 0;
+    g_nPairesAppliquees = 0;
+    g_nPairesRefusNote = 0;
+}
+
+static uint64_t TechnoDuModif(uintptr_t modif)
+{
+    for (int k = 0; k < g_nModifsTechnos; ++k)
+        if (g_modifsTechnos[k].modif == modif) return g_modifsTechnos[k].hash;
+    return 0;
+}
+
+static int TypeDuModif(uintptr_t modif)
+{
+    int type = -1;
+    __try { type = ((int (*)(uintptr_t))(*(uintptr_t**)modif)[0xE0 / 8])(modif); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { type = -1; }
+    return type;
+}
+
+static uintptr_t hkInscrireModifEntite(uintptr_t systeme, uintptr_t entree, uintptr_t modif, uintptr_t p4)
+{
+    if (!t_techEffets) return oInscrireModifEntite(systeme, entree, modif, p4);
+    ViderSiNouvellePartie();
+    if (!TechnoDuModif(modif) && g_nModifsTechnos < MAX_MODIFS_TECHNOS)
+        g_modifsTechnos[g_nModifsTechnos++] = { modif, t_techEffets };
+    int nEntites = 0;
+    SafeRead((const void*)(systeme + 0x2068), &nEntites, sizeof(nEntites));
+    t_entitesVues = 0;
+    uintptr_t r = oInscrireModifEntite(systeme, entree, modif, p4);
+    char classe[96] = "?";
+    GetClassNameFP(modif, classe, sizeof(classe));
+    uint64_t gab[2] = { 0, 0 };
+    SafeRead((const void*)entree, gab, sizeof(gab));
+    printf("[TECH] %s : modificateur d'entite 0x%llX (%s, type %d) inscrit pour le gabarit %016llX%016llX : %d entite(s) existante(s) de ce gabarit sur %d\n",
+           NomTechno(t_techEffets), (unsigned long long)modif, classe, TypeDuModif(modif),
+           (unsigned long long)gab[0], (unsigned long long)gab[1], t_entitesVues, nEntites);
+    return r;
+}
+
+static uintptr_t hkAppliquerModifEntite(uintptr_t systeme, uintptr_t entite, uintptr_t modif, uintptr_t p4)
+{
+    uintptr_t r = oAppliquerModifEntite(systeme, entite, modif, p4);
+    uint64_t hash = t_techEffets ? t_techEffets : TechnoDuModif(modif);
+    if (!hash) return r;
+    if (t_techEffets) ++t_entitesVues;
+    bool accepte = (r & 0xFF) != 0;
+    if (accepte) NoterPaire(g_pairesAppliquees, g_nPairesAppliquees, entite, modif);
+    char classe[96] = "?";
+    GetClassNameFP(entite, classe, sizeof(classe));
+    printf("[TECH] %s : modificateur d'entite 0x%llX sur l'entite 0x%llX (%s) %s%s\n",
+           NomTechno(hash), (unsigned long long)modif, (unsigned long long)entite, classe,
+           accepte ? "applique" : "REFUSE (conditions ?) : sera retente",
+           t_techEffets ? "" : " [entite nouvelle]");
+    if (!accepte && g_nModifsEntiteAttente < MAX_MODIFS_ENTITE_ATTENTE) {
+        bool deja = false;
+        for (int k = 0; k < g_nModifsEntiteAttente; ++k)
+            if (g_modifsEntiteAttente[k].modif == modif && g_modifsEntiteAttente[k].entite == entite) { deja = true; break; }
+        if (!deja) g_modifsEntiteAttente[g_nModifsEntiteAttente++] = { systeme, entite, modif, hash };
+    }
+    return r;
+}
+
+// L'entite est-elle encore dans la liste du systeme des modificateurs ?
+static bool EntiteToujoursLa(uintptr_t systeme, uintptr_t entite)
+{
+    uintptr_t liste = 0;
+    int n = 0;
+    if (!SafeRead((const void*)(systeme + 0x2060), &liste, sizeof(liste)) || !SafeRead((const void*)(systeme + 0x2068), &n, sizeof(n))) return false;
+    if (!liste || n <= 0 || n > 1000000) return false;
+    for (int i = 0; i < n; ++i) {
+        uintptr_t e = 0;
+        if (!SafeRead((const void*)(liste + (uintptr_t)i * 8), &e, sizeof(e))) return false;
+        if (e == entite) return true;
+    }
+    return false;
+}
+
+static uintptr_t hkInscrireModifCategorie(uintptr_t systeme, uintptr_t categorie, uintptr_t modif, uintptr_t p4)
+{
+    if (!t_techEffets) return oInscrireModifCategorie(systeme, categorie, modif, p4);
+    ViderSiNouvellePartie();
+    if (!TechnoDuModif(modif) && g_nModifsTechnos < MAX_MODIFS_TECHNOS)
+        g_modifsTechnos[g_nModifsTechnos++] = { modif, t_techEffets };
+    bool deja = false;
+    for (int k = 0; k < g_nModifsCategorie; ++k)
+        if (g_modifsCategorie[k].modif == modif && g_modifsCategorie[k].categorie == categorie) { deja = true; break; }
+    if (!deja && g_nModifsCategorie < MAX_MODIFS_CATEGORIE)
+        g_modifsCategorie[g_nModifsCategorie++] = { systeme, categorie, modif, t_techEffets };
+    t_entitesVues = 0;
+    uintptr_t r = oInscrireModifCategorie(systeme, categorie, modif, p4);
+    char classe[96] = "?", classeCat[96] = "?";
+    GetClassNameFP(modif, classe, sizeof(classe));
+    if (categorie) GetClassNameFP(categorie, classeCat, sizeof(classeCat));
+    printf("[TECH] %s : modificateur de categorie 0x%llX (%s, type %d) inscrit pour la categorie 0x%llX (%s) : %d batiment(s) de cette categorie a la reception\n",
+           NomTechno(t_techEffets), (unsigned long long)modif, classe, TypeDuModif(modif),
+           (unsigned long long)categorie, classeCat, t_entitesVues);
+    return r;
+}
+
+// Rattrapage des modificateurs de categorie (thread du jeu).
+static void RattraperModifsCategorie()
+{
+    if (!g_nModifsCategorie || !oAppliquerModifEntite || !g_baseRecherche) return;
+    uintptr_t sysBat = 0, liste = 0;
+    int n = 0;
+    if (!SafeRead((const void*)(g_baseRecherche + OFF_SYSTEME_BATIMENTS), &sysBat, sizeof(sysBat)) || !sysBat) return;
+    // Garde-fou (adresse Steam deduite) : le global doit etre le systeme des batiments.
+    static uintptr_t sysVerifie = 0;
+    if (sysBat != sysVerifie) {
+        char cls[96] = "?";
+        GetClassNameFP(sysBat, cls, sizeof(cls));
+        if (!strstr(cls, "BuildingSystem")) {
+            static bool dit = false;
+            if (!dit) { dit = true; printf("[TECH] rattrapage des modificateurs de categorie impossible : global des batiments = %s\n", cls); }
+            return;
+        }
+        sysVerifie = sysBat;
+        printf("[TECH] systeme des batiments : 0x%llX (%s)\n", (unsigned long long)sysBat, cls);
+    }
+    if (!SafeRead((const void*)(sysBat + 0x2060), &liste, sizeof(liste)) || !SafeRead((const void*)(sysBat + 0x2068), &n, sizeof(n))) return;
+    if (!liste || n <= 0 || n > 100000) return;
+    BatimentDeCategorie_t deCategorie = (BatimentDeCategorie_t)(g_baseRecherche + OFF_BATIMENT_DE_CATEGORIE);
+    for (int i = 0; i < n; ++i) {
+        uintptr_t bat = 0;
+        if (!SafeRead((const void*)(liste + (uintptr_t)i * 8), &bat, sizeof(bat)) || !bat) continue;
+        for (int k = 0; k < g_nModifsCategorie; ++k) {
+            const ModifCategorie& m = g_modifsCategorie[k];
+            if (PaireDans(g_pairesAppliquees, g_nPairesAppliquees, bat, m.modif)) continue;
+            uintptr_t dedans = 0, r = 0;
+            bool ok = true;
+            __try {
+                dedans = deCategorie(sysBat, bat, m.categorie, 0);
+                if (dedans & 0xFF) r = oAppliquerModifEntite(m.systeme, bat, m.modif, 0);
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; }
+            if (!ok) {
+                printf("[TECH] %s : EXCEPTION au rattrapage du modificateur de categorie 0x%llX, abandonne\n",
+                       NomTechno(m.hash), (unsigned long long)m.modif);
+                g_modifsCategorie[k] = g_modifsCategorie[--g_nModifsCategorie];
+                return;
+            }
+            if (!(dedans & 0xFF)) continue;
+            char classe[96] = "?";
+            GetClassNameFP(bat, classe, sizeof(classe));
+            if (r & 0xFF) {
+                NoterPaire(g_pairesAppliquees, g_nPairesAppliquees, bat, m.modif);
+                printf("[TECH] %s : modificateur de categorie 0x%llX applique au batiment 0x%llX (%s) (rattrapage)\n",
+                       NomTechno(m.hash), (unsigned long long)m.modif, (unsigned long long)bat, classe);
+            } else if (!PaireDans(g_pairesRefusNote, g_nPairesRefusNote, bat, m.modif)) {
+                NoterPaire(g_pairesRefusNote, g_nPairesRefusNote, bat, m.modif);
+                printf("[TECH] %s : modificateur de categorie 0x%llX REFUSE par le batiment 0x%llX (%s) (conditions ?) : retente toutes les 3 s\n",
+                       NomTechno(m.hash), (unsigned long long)m.modif, (unsigned long long)bat, classe);
+            }
+        }
+    }
+}
+
+void TechModifsOublier()
+{
+    InterlockedExchange(&g_viderModifs, 1);
+}
+
+void TechModifsEnAttentePompe()
+{
+    ViderSiNouvellePartie();
+    static DWORD prochain = 0;
+    if ((!g_nModifsAttente && !g_nModifsEntiteAttente && !g_nModifsCategorie) || GetTickCount() < prochain) return;
+    prochain = GetTickCount() + 3000;
+    RattraperModifsCategorie();
+    for (int k = 0; oAjouterModifGlobal && k < g_nModifsAttente; ) {
+        ModifEnAttente m = g_modifsAttente[k];
+        uintptr_t r = 0;
+        bool ok = true;
+        __try { r = oAjouterModifGlobal(m.systeme, m.modif, 0, 0); }
+        __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; }
+        if (ok && (r & 0xFF) == 0) { ++k; continue; }   // toujours refuse : plus tard
+        printf("[TECH] %s : modificateur global 0x%llX %s\n", NomTechno(m.hash),
+               (unsigned long long)m.modif, ok ? "applique au nouvel essai (conditions remplies)" : "EXCEPTION, abandonne");
+        g_modifsAttente[k] = g_modifsAttente[--g_nModifsAttente];
+    }
+    for (int k = 0; oAppliquerModifEntite && k < g_nModifsEntiteAttente; ) {
+        ModifEntiteEnAttente m = g_modifsEntiteAttente[k];
+        const char* issue = nullptr;
+        if (!EntiteToujoursLa(m.systeme, m.entite)) issue = "abandonne : entite disparue";
+        else {
+            uintptr_t r = 0;
+            bool ok = true;
+            // Appel de l'original : le hook ne doit pas remettre le refus en file.
+            __try { r = oAppliquerModifEntite(m.systeme, m.entite, m.modif, 0); }
+            __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; }
+            if (ok && (r & 0xFF) == 0) { ++k; continue; }   // toujours refuse : plus tard
+            if (ok) NoterPaire(g_pairesAppliquees, g_nPairesAppliquees, m.entite, m.modif);
+            issue = ok ? "applique au nouvel essai (conditions remplies)" : "EXCEPTION, abandonne";
+        }
+        printf("[TECH] %s : modificateur d'entite 0x%llX sur l'entite 0x%llX %s\n", NomTechno(m.hash),
+               (unsigned long long)m.modif, (unsigned long long)m.entite, issue);
+        g_modifsEntiteAttente[k] = g_modifsEntiteAttente[--g_nModifsEntiteAttente];
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 2026-11-22, 4e piste (journal de 15:50) : aucune des 6 technos Vault restantes
+// n'a de modificateur, ni global, ni d'entite, ni de categorie. Leur effet est
+// un EVENEMENT SCRIPTE du scenario, declenche par
+// FrostpunkTechnologyResearchEventTrigger (proprietes "Technology" +
+// "Event" eTechnologyResearchEvent : Started / Finished / Canceled). Ghidra :
+// l'evenement "recherche" du systeme des technos est self +0x2160
+// (Event<techno, eTechnologyResearchEvent> : ecouteurs +0x18, nombre +0x20,
+// pas 0x10 = {objet, fonction(objet, techno, evenement)}, compteur
+// d'invocation +0x30 ; invocation FUN_14128c240). ResearchComplete l'invoque
+// avec 1 (Finished) APRES AddResearchedTechnology ; CancelResearch avec 2.
+// AddResearchedTechnology (= notre reception) ne l'invoque PAS : les
+// evenements scriptes des technos ne partaient donc jamais a la reception, et
+// partaient a la recherche meme sans l'item.
+// Regle de l'auteur (effets a la reception, la recherche n'envoie que le
+// check) : pour une techno AP, les ecouteurs "evenements scriptes" (classe de
+// l'objet contenant "Event", hors interface) sont rendus muets pendant
+// ResearchComplete (fonction remplacee par EcouteurMuetFn, puis retablie) et
+// invoques avec Finished a la reception. Les autres ecouteurs (interface,
+// file de recherche...) restent a la recherche. Liste des ecouteurs
+// journalisee une fois par partie.
+static const int MAX_ECOUTEURS_MUETS = 16;
+struct EcouteurMuet { uintptr_t objet, fonction; };
+static const uintptr_t OFF_EVT_RECHERCHE = 0x2160;
+static const int EVT_FINISHED = 1;
+
+static void EcouteurMuetFn(uintptr_t, uintptr_t, uintptr_t) {}
+
+// Journal de 15:59 : les objets des 7 ecouteurs sont des sous-objets (pas de
+// nom de classe RTTI) et leurs fonctions des "thunks" d'ajustement
+// (48 8B C1 ... 48 83/81 C1 <ajust> ... E9 <saut>). L'ecouteur des evenements
+// scriptes est celui dont le thunk saute vers FUN_1417c0590 (systeme des
+// evenements : table {techno, evenement} -> evenements, +0x2870, puis
+// FUN_1417b9b70 = invocation d'un evenement, journal [EVT]) ; Steam 0x165B590
+// (thunk 0x1643DE0, ajustement -0x20D8).
+static const uintptr_t OFF_ECOUTEUR_EVENEMENTS = Adr(0x17C0590);
+
+static uintptr_t CibleDuThunk(uintptr_t fonction)
+{
+    uint8_t c[40] = {};
+    if (!fonction || !SafeRead((const void*)fonction, c, sizeof(c))) return fonction;
+    if (!(c[0] == 0x48 && c[1] == 0x8B && c[2] == 0xC1)) return fonction;   // pas un thunk
+    for (int i = 3; i + 5 <= (int)sizeof(c); ++i) {
+        if (c[i] != 0xE9) continue;
+        int32_t rel = 0;
+        memcpy(&rel, c + i + 1, 4);
+        return fonction + i + 5 + (intptr_t)rel;
+    }
+    return fonction;
+}
+
+static bool EcouteurEstEffet(uintptr_t fonction)
+{
+    if (!fonction || !g_baseRecherche) return false;
+    uintptr_t cible = g_baseRecherche + OFF_ECOUTEUR_EVENEMENTS;
+    return fonction == cible || CibleDuThunk(fonction) == cible;
+}
+
+static void JournaliserEcouteursRecherche(uintptr_t self)
+{
+    static uintptr_t dejaPour = 0;
+    if (self == dejaPour) return;
+    dejaPour = self;
+    uintptr_t evt = self + OFF_EVT_RECHERCHE, tab = 0;
+    int n = 0;
+    SafeRead((const void*)(evt + 0x18), &tab, 8);
+    SafeRead((const void*)(evt + 0x20), &n, 4);
+    printf("[TECH] evenement \"recherche\" (self +0x2160) : %d ecouteur(s)\n", n);
+    for (int i = 0; tab && i < n && i < 64; ++i) {
+        uintptr_t e[2] = { 0, 0 };
+        if (!SafeRead((const void*)(tab + (uintptr_t)i * 0x10), e, sizeof(e))) break;
+        char cls[96] = "?";
+        if (e[0]) GetClassNameFP(e[0], cls, sizeof(cls));
+        printf("[TECH]   ecouteur %d : objet 0x%llX (%s), fonction +0x%llX%s\n", i,
+               (unsigned long long)e[0], cls, (unsigned long long)(e[1] - g_baseRecherche),
+               EcouteurEstEffet(e[1]) ? " -> effet (evenements scriptes)" : "");
+    }
+}
+
+static int RendreMuetsEcouteursEffets(uintptr_t self, EcouteurMuet* muets)
+{
+    if (!self) return 0;
+    JournaliserEcouteursRecherche(self);
+    uintptr_t evt = self + OFF_EVT_RECHERCHE, tab = 0;
+    int n = 0, nMuets = 0;
+    if (!SafeRead((const void*)(evt + 0x18), &tab, 8) || !SafeRead((const void*)(evt + 0x20), &n, 4)) return 0;
+    for (int i = 0; tab && i < n && i < 64 && nMuets < MAX_ECOUTEURS_MUETS; ++i) {
+        uintptr_t e[2] = { 0, 0 };
+        if (!SafeRead((const void*)(tab + (uintptr_t)i * 0x10), e, sizeof(e))) break;
+        if (!EcouteurEstEffet(e[1])) continue;
+        uintptr_t muet = (uintptr_t)&EcouteurMuetFn;
+        if (!SafeWrite((void*)(tab + (uintptr_t)i * 0x10 + 8), &muet, 8)) continue;
+        muets[nMuets++] = { e[0], e[1] };
+    }
+    return nMuets;
+}
+
+// Retablit les fonctions d'origine (recherche par objet : le tableau a pu bouger).
+static void RetablirEcouteurs(uintptr_t self, const EcouteurMuet* muets, int nMuets)
+{
+    uintptr_t evt = self + OFF_EVT_RECHERCHE, tab = 0;
+    int n = 0;
+    if (!SafeRead((const void*)(evt + 0x18), &tab, 8) || !SafeRead((const void*)(evt + 0x20), &n, 4)) return;
+    for (int i = 0; tab && i < n && i < 64; ++i) {
+        uintptr_t e[2] = { 0, 0 };
+        if (!SafeRead((const void*)(tab + (uintptr_t)i * 0x10), e, sizeof(e))) break;
+        if (e[1] != (uintptr_t)&EcouteurMuetFn) continue;
+        for (int k = 0; k < nMuets; ++k)
+            if (muets[k].objet == e[0]) { SafeWrite((void*)(tab + (uintptr_t)i * 0x10 + 8), &muets[k].fonction, 8); break; }
+    }
+}
+
+// Reception : invoque les ecouteurs "evenements scriptes" avec Finished, comme
+// FUN_14128c240 (compteur d'invocation +0x30).
+static int DeclencherEvenementsTerminee(uintptr_t self, uintptr_t tech)
+{
+    JournaliserEcouteursRecherche(self);
+    uintptr_t evt = self + OFF_EVT_RECHERCHE, tab = 0;
+    int n = 0;
+    short compteur = 0;
+    if (!SafeRead((const void*)(evt + 0x18), &tab, 8) || !SafeRead((const void*)(evt + 0x20), &n, 4)
+        || !SafeRead((const void*)(evt + 0x30), &compteur, 2) || !tab || n <= 0 || n > 64) return 0;
+    if (compteur != 0) { printf("[TECH] evenement \"recherche\" deja en cours d'invocation : evenements scriptes non declenches\n"); return -1; }
+    int nAppels = 0;
+    short c = 1;
+    SafeWrite((void*)(evt + 0x30), &c, 2);
+    for (int i = 0; i < n; ++i) {
+        uintptr_t e[2] = { 0, 0 };
+        if (!SafeRead((const void*)(tab + (uintptr_t)i * 0x10), e, sizeof(e))) break;
+        if (!EcouteurEstEffet(e[1]) || !e[1] || e[1] == (uintptr_t)&EcouteurMuetFn) continue;
+        __try { ((void (*)(uintptr_t, uintptr_t, uintptr_t))e[1])(e[0], tech, EVT_FINISHED); ++nAppels; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { printf("[TECH] EXCEPTION dans l'ecouteur %d de \"recherche terminee\"\n", i); }
+        SafeRead((const void*)(evt + 0x18), &tab, 8);     // relu : le tableau a pu bouger
+        SafeRead((const void*)(evt + 0x20), &n, 4);
+        if (!tab || n > 64) break;
+    }
+    c = 0;
+    SafeWrite((void*)(evt + 0x30), &c, 2);
+    return nAppels;
 }
 
 bool TechAppliquerEffets(uint64_t hash)
@@ -67,10 +567,19 @@ bool TechAppliquerEffets(uint64_t hash)
     // (ResearchComplete passe 1). 2026-11-06 : essai a 0 -> plus de bleu du
     // tout. Voulu par l'auteur (2026-11-07) : bleu a la RECEPTION, pas a la
     // recherche -> 1 ici, 0 pour la recherche (hkAjouterRecherchee).
+    t_techEffets = hash;                                  // hkAjouterModifGlobal
     __try { oAjouterRecherchee(self, tech, 1, 0); }
     __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; }
+    t_techEffets = 0;
     if (!ok) printf("[AP] EXCEPTION en appliquant les effets de la techno %016llX\n", (unsigned long long)hash);
-    return ok && TechStateByPtr(self, tech) == 2;
+    bool faite = ok && TechStateByPtr(self, tech) == 2;
+    // Evenements scriptes "recherche terminee" (retenus a la recherche).
+    if (faite && TechEstUnCheck(hash)) {
+        int n = DeclencherEvenementsTerminee(self, tech);
+        if (n > 0) printf("[TECH] %s : evenements scriptes de \"recherche terminee\" declenches a la reception (%d ecouteur(s))\n",
+                          NomTechno(hash), n);
+    }
+    return faite;
 }
 
 // ---------------------------------------------------------------------------
@@ -246,9 +755,19 @@ static void hkResearchComplete(uintptr_t self)
     if (SafeRead((void*)(self + TECH_ACTIVE_OFF), &tech, 8))
         hash = HashOfTechPtr(tech);
 
+    // Techno AP : les ecouteurs "evenements scriptes" de "recherche terminee"
+    // sont rendus muets pendant la recherche, ils partent a la reception
+    // (TechAppliquerEffets).
+    EcouteurMuet muets[MAX_ECOUTEURS_MUETS];
+    int nMuets = (hash && TechEstUnCheck(hash)) ? RendreMuetsEcouteursEffets(self, muets) : 0;
     t_completionTech = tech;            // lu par hkAjouterRecherchee
     oResearchComplete(self);
     t_completionTech = 0;
+    if (nMuets) {
+        RetablirEcouteurs(self, muets, nMuets);
+        printf("[TECH] %s : %d ecouteur(s) d'evenements scriptes de \"recherche terminee\" retenu(s) jusqu'a la reception\n",
+               NomTechno(hash), nMuets);
+    }
 
     // Icone "icon_done" et [Researched] : posees sur le noeud de l'arbre deja
     // construit (sinon seulement a sa prochaine reconstruction).
@@ -373,6 +892,7 @@ static uintptr_t hkRafraichirNoeud(uintptr_t panneau, uintptr_t guid, uintptr_t 
 // ---------------------------------------------------------------------------
 void InstallResearchHooks(uintptr_t modBase)
 {
+    g_baseRecherche = modBase;                // rattrapage des modificateurs de categorie
     struct { uintptr_t off; void* detour; void** orig; const char* name; } H[] = {
         { GameOffsets::CanResearch,      (void*)&hkCanResearch,      (void**)&oCanResearch,      "CanResearch" },
         { GameOffsets::ResearchStart,    (void*)&hkResearchStart,    (void**)&oResearchStart,    "ResearchStart" },
@@ -381,6 +901,10 @@ void InstallResearchHooks(uintptr_t modBase)
         { OFF_AJOUTER_RECHERCHEE,        (void*)&hkAjouterRecherchee, (void**)&oAjouterRecherchee, "AddResearchedTechnology" },
         { OFF_NOEUD_DISPONIBLE,          (void*)&hkNoeudDisponible,  (void**)&oNoeudDisponible,  "noeud disponible (arbre)" },
         { OFF_RAFRAICHIR_NOEUD,          (void*)&hkRafraichirNoeud,  (void**)&oRafraichirNoeud,  "rafraichissement d'un noeud (arbre)" },
+        { OFF_AJOUTER_MODIF_GLOBAL,      (void*)&hkAjouterModifGlobal, (void**)&oAjouterModifGlobal, "ajout d'un modificateur global" },
+        { OFF_INSCRIRE_MODIF_ENTITE,     (void*)&hkInscrireModifEntite, (void**)&oInscrireModifEntite, "inscription d'un modificateur d'entite" },
+        { OFF_APPLIQUER_MODIF_ENTITE,    (void*)&hkAppliquerModifEntite, (void**)&oAppliquerModifEntite, "application d'un modificateur d'entite" },
+        { OFF_INSCRIRE_MODIF_CATEGORIE,  (void*)&hkInscrireModifCategorie, (void**)&oInscrireModifCategorie, "inscription d'un modificateur de categorie" },
     };
     for (auto& h : H) {
         void* target = (void*)(modBase + h.off);

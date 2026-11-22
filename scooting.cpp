@@ -8,6 +8,7 @@
 #include "quetes.h"         // TraduireCleJeu
 #include "lois_ap.h"        // icones AP des marqueurs de site
 #include "lois.h"           // LoisDecrireExigences (conditions de tirage)
+#include "evenements.h"     // EntiteDuContexte, DecrireEntiteContexte
 #include <intrin.h>
 #include <algorithm>
 #include <cmath>
@@ -310,9 +311,19 @@ static void SurveillerVisibilite()
     }
 }
 
+static int NettoyerRessourcesSites(const uintptr_t* comps, int n, const char* quand);   // plus bas
+
 static void SurveillerSites()
 {
     if (!g_apDonneesActif) return;
+
+    // Entrees de ressource a definition nulle (notre item AP d'une sauvegarde
+    // rechargee) : retirees de tout site, coche ou non (2026-11-15).
+    {
+        static uintptr_t comps[MAX_SITES];
+        for (int i = 0; i < g_nSites; ++i) comps[i] = g_sites[i].comp;
+        NettoyerRessourcesSites(comps, g_nSites, "tick");
+    }
 
     uintptr_t defAP = ApPorteurDef();
 
@@ -358,9 +369,15 @@ static void SurveillerSites()
                 SafeRead((void*)(g_sites[i].comp + 0x48 + 8), &cnt, 4) &&
                 SafeRead((void*)(g_sites[i].comp + 0x48 + 12), &cap, 4)) {
 
-                if (arr > 0x10000 && cnt > 0) {
+                // Tableau vide d'un site pas encore explore : son entree morte
+                // vient d'etre retiree (NettoyerRessourcesSites) ; on y remet
+                // l'item AP (2026-11-15). Un site explore vide a ete ramasse.
+                int32_t etatVide = -1;
+                bool videNonExplore = arr > 0x10000 && cnt == 0 && cap >= 1 &&
+                    SafeRead((void*)(g_sites[i].comp + 0x34), &etatVide, 4) && etatVide == 0;
+                if ((arr > 0x10000 && cnt > 0) || videNonExplore) {
                     uintptr_t def0 = 0;
-                    SafeRead((void*)arr, &def0, 8);
+                    if (cnt > 0) SafeRead((void*)arr, &def0, 8);
                     if (def0 != defAP) {
                         int64_t un64 = 1; uint32_t un = 1;
                         SafeWrite((void*)arr, &defAP, 8);
@@ -419,6 +436,10 @@ static void SurveillerSites()
 
         int32_t avant = g_sites[i].dernierEtat;
         g_sites[i].dernierEtat = etat;
+        // DIAG (2026-11-22, etapes de route d'On the Edge) : tout autre
+        // changement d'etat d'un site (camp construit ?).
+        if (avant > 0 && etat != avant)
+            printf("[SCOUT] site %s : etat %d -> %d\n", g_sites[i].nom, avant, etat);
         if (avant != 0 || etat == 0) continue;
         if (!p) continue;
 
@@ -889,6 +910,37 @@ void ScootingTick()
             }
         }
 
+        // Site AP revele deja visite, sans exploration (bug du 2026-11-22, On
+        // the Edge : les etapes de route TD1-3 / TG1-6 passent de l'etat 0 a 2
+        // au lancement des quetes [TradeRoutes], sans expedition sur place ;
+        // l'arrivee d'un eclaireur ne changeait plus rien, check jamais
+        // envoye). Une expedition qui arrive A VIDE sur un site AP deja
+        // visite, pas coche et dont le check n'est porte par personne, le
+        // ramasse comme a l'exploration. A vide seulement : une cargaison du
+        // jeu (depot, secours) n'est jamais remplacee. Une cargaison faite de
+        // nos seuls items AP compte comme vide (2026-11-22 : exp 18 arrivee a
+        // Rock Shelf avec le check de Gentle Descent, rien ramasse).
+        bool cargaisonAP = cargo == 0 || (g_exps[i].nEnAttente > 0 && cargo == (uint32_t)g_exps[i].nEnAttente);
+        if (loc && loc != g_exps[i].dernierLieu && loc != g_blocVille && !chargementTraite && cargaisonAP) {
+            const SitePayload* p = PayloadDuSite(nl);
+            int iSite = -1;
+            for (int s = 0; s < g_nSites; ++s) if (g_sites[s].bloc == loc) { iSite = s; break; }
+            int32_t etatSite = 0;
+            bool porte = false;
+            if (p) for (int e = 0; e < g_nExps; ++e) if (DejaEnAttente(g_exps[e], p)) { porte = true; break; }
+            if (p && iSite >= 0 && SafeRead((void*)(g_sites[iSite].comp + 0x34), &etatSite, 4) && etatSite != 0 &&
+                !ApSiteDejaCoche(p->site) && !porte && g_exps[i].nEnAttente < MAX_EN_ATTENTE) {
+                g_exps[i].enAttente[g_exps[i].nEnAttente++] = p;
+                const ApCheck* ac = ApCheckById(p->locationId);
+                printf("[SCOUT] exp %d ramasse la location %d a l'arrivee (site deja visite, etat %d : %s)  total=%d\n",
+                    g_exps[i].id, p->locationId, etatSite, ac ? ac->description : "contenu inconnu du serveur",
+                    g_exps[i].nEnAttente);
+                uintptr_t def = ApPorteurDef();
+                if (def && InjecterPorteur(c, def, g_exps[i].nEnAttente)) cargo = (uint32_t)g_exps[i].nEnAttente;
+                ScootingSauverEnAttente();
+            }
+        }
+
         bool enVille = (loc && g_blocVille && loc == g_blocVille);
         // Depart de la ville : la liste du dernier retour est oubliee.
         if (g_exps[i].nRetour > 0 && g_blocVille && g_exps[i].dernierLieu == g_blocVille && loc != g_blocVille)
@@ -1086,6 +1138,46 @@ static bool DefRessourceValide(uintptr_t def)
     return false;
 }
 
+// Bug du 2026-11-15 (Last Autumn, deux crashs a +0x1C31259 Steam, lecture de
+// 0x28) : un site deja coche et explore garde notre item AP dans ses
+// ressources (+0x48, {definition, quantite} au pas de 0x10) ; la sauvegarde
+// l'emporte, et au chargement le jeu ne retrouve pas notre definition
+// fabriquee : entree a definition NULLE. Le panneau de selection du site
+// (FUN_141bfe6c0 Epic) lit alors le nom a definition + 0x28. SurveillerSites
+// ne touche plus au contenu d'un site coche (depots de The Arks) : on retire
+// donc ici, pour TOUT site, les seules entrees a definition nulle ou
+// illisible ; les entrees valides (depots) restent. Renvoie le nombre
+// d'entrees retirees.
+static int NettoyerRessourcesSites(const uintptr_t* comps, int n, const char* quand)
+{
+    int retirees = 0;
+    for (int i = 0; i < n; ++i) {
+        uintptr_t c = comps[i], arr = 0;
+        uint32_t cnt = 0;
+        if (c <= 0x10000 || !SafeRead((void*)(c + 0x48), &arr, 8) || !SafeRead((void*)(c + 0x48 + 8), &cnt, 4)) continue;
+        if (arr <= 0x10000 || cnt == 0 || cnt > 64) continue;
+        uint32_t garde = 0;
+        for (uint32_t k = 0; k < cnt; ++k) {
+            uint8_t entree[0x10];
+            if (!SafeRead((void*)(arr + (uintptr_t)k * 0x10), entree, sizeof(entree))) break;
+            uintptr_t def = *(uintptr_t*)entree, cle = 0;
+            bool valide = def > 0x10000 && SafeRead((void*)(def + 0x28), &cle, 8);
+            if (!valide) { ++retirees; continue; }
+            if (garde != k) SafeWrite((void*)(arr + (uintptr_t)garde * 0x10), entree, sizeof(entree));
+            ++garde;
+        }
+        if (garde != cnt) {
+            SafeWrite((void*)(c + 0x48 + 8), &garde, 4);
+            char nom[128] = "?";
+            uintptr_t tpl = 0;
+            if (SafeRead((void*)(c + 0x20), &tpl, 8)) NomDuGabarit(tpl, nom, sizeof(nom));
+            printf("[SITE] (%s) %s : %u entree(s) de ressource a definition nulle retiree(s), %u gardee(s)\n",
+                quand, nom, cnt - garde, garde);
+        }
+    }
+    return retirees;
+}
+
 // Vide les cargaisons de ressources dont une definition est invalide (porteur
 // AP d'une session precedente). Renvoie le nombre de cargaisons videes.
 static int ReparerCargaisonsDe(const uintptr_t* comps, int n, const char* quand)
@@ -1123,6 +1215,14 @@ void ScootingApresChargement()
     uintptr_t comps[16];
     int n = ComposantsDuSysteme(IdSysteme::Expedition, "FrostpunkExpeditionComponent", comps, 16);
     int repares = ReparerCargaisonsDe(comps, n, "sortie de LoadGame");
+
+    // Sites : entrees de ressource mortes (notre item AP sauvegarde), avant
+    // que le joueur ne puisse en selectionner un.
+    {
+        static uintptr_t sites[MAX_SITES];
+        int nSites = ComposantsDuSysteme(IdSysteme::ExpeditionSite, "FrostpunkExpeditionSiteComponent", sites, MAX_SITES);
+        NettoyerRessourcesSites(sites, nSites, "sortie de LoadGame");
+    }
 
     uintptr_t def = ApPorteurDef(), scn = SystemeParId(IdSysteme::Scenario);
     uint64_t gid[2] = {};
@@ -2319,6 +2419,12 @@ static void IconeMarqueurSite(uintptr_t trk)
         comp <= 0x10000) return;
     uintptr_t racine = LirePoignee(trk + TRK_RACINE);
     if (!racine) return;
+    // Site de la carte sans check (2026-11-22 : New London retire de
+    // l'apworld) : marqueur vanilla.
+    {
+        int iSite = SiteDeLEntite(ent);
+        if (iSite >= 0 && !PayloadDuSite(g_sites[iSite].nom)) return;
+    }
 
     MarqueurSite* m = nullptr;
     for (int i = 0; i < g_nMarqueurs; ++i) if (g_marqueurs[i].trk == trk) { m = &g_marqueurs[i]; break; }
@@ -2411,9 +2517,30 @@ static uintptr_t hkMajTrackerSite(uintptr_t trk)
 typedef void(*DetruireExpedition_t)(uintptr_t executeur, uintptr_t effet, uintptr_t contexte, uintptr_t p4);
 static DetruireExpedition_t oDetruireExpedition = nullptr;
 
+// 2026-11-22 (On the Edge, decision de l'auteur : regarder la destruction) :
+// l'effet sert aussi au jeu pour retirer ses propres expeditions (histoire,
+// transports, groupes de survivants), pas seulement pour tuer les eclaireurs
+// d'un dilemme d'exploration. Il n'est plus neutralise que si l'entite du
+// contexte (*(*contexte), decompile de FUN_14168dc50) est un site AP de la
+// carte (g_sites avec contenu AP) ; ailleurs (groupe de survivants, site sans
+// check comme New London), l'original s'execute. Journal : entite et decision.
 static void hkDetruireExpedition(uintptr_t executeur, uintptr_t effet, uintptr_t contexte, uintptr_t p4)
 {
-    printf("[SCOUT] effet \"Destroy stationing expedition\" ignore : les eclaireurs survivent\n");
+    uintptr_t ent = 0;
+    __try { ent = EntiteDuContexte(contexte); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { ent = 0; }
+    int i = SiteDeLEntite(ent);
+    bool siteAP = i >= 0 && PayloadDuSite(g_sites[i].nom) != nullptr;
+    char desc[256] = "?";
+    if (ent) DecrireEntiteContexte(ent, desc, sizeof(desc));
+    if (siteAP) {
+        printf("[SCOUT] effet \"Destroy stationing expedition\" ignore sur le site AP \"%s\" : les eclaireurs survivent\n",
+            g_sites[i].nom);
+        return;
+    }
+    printf("[SCOUT] effet \"Destroy stationing expedition\" execute (pas un site AP) : %s%s%s\n",
+        i >= 0 ? g_sites[i].nom : "", i >= 0 ? " - " : "", desc);
+    oDetruireExpedition(executeur, effet, contexte, p4);
 }
 
 void InstallHooksExpeditions(uintptr_t modBase)

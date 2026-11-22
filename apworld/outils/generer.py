@@ -60,7 +60,12 @@ GOULOTS = {
                    "[Winterhome] 002 BROKEN GENERATOR",
                    "[Winterhome] 003 PREPARE EVACUATION",
                    "[Winterhome] 004A FINAL HOURS"],
-    "BUILDERS":   ["[Builders] 001 BASIC FACILITIES EXTENDED",
+    # Last Autumn : 1er goulot = 002 DOCK INFRASTRUCTURE ("Basic Facilities"),
+    # decision de l'auteur du 2026-11-15. 001 BASIC FACILITIES EXTENDED
+    # ("Finish Basic Facilities") n'est lancee que par les evenements de
+    # delai manque ("S: [Deadline] Missed deadline consequences", "[sB]S:
+    # [Deadline] Free pass") : jamais vue en partie normale.
+    "BUILDERS":   ["[Builders] 002 DOCK INFRASTRUCTURE",
                    "[Builders] 003 GENERATOR CONSTRUCTION SITE",
                    "[Builders] 006 GENERATOR FINALIZATION"],
     "Reconquest": ["[1] Send first batch",
@@ -116,7 +121,8 @@ QUETES = {
         ("[Winterhome] 004A FINAL HOURS", 3),
     ],
     "BUILDERS": [
-        ("[Builders] 001 BASIC FACILITIES EXTENDED", 0),
+        # 001 BASIC FACILITIES EXTENDED retiree le 2026-11-15 (voir GOULOTS) ;
+        # son id 7747400035 reste reserve dans ids.tsv.
         ("[Builders] 002 DOCK INFRASTRUCTURE", 0),
         ("[Builders] 003 GENERATOR CONSTRUCTION SITE", 1),
         ("[Builders] 004 GENERATOR FOUNDATIONS", 2),
@@ -192,7 +198,6 @@ NOMS_QUETES = {
     ("DEFAULT", "[ENDGAME] 002d_Prepare for the storm TEMPERATURE"): "Prepare For The Storm - Cold",
     ("DEFAULT", "[ENDGAME] 002 Prepare for the storm - main quest"): "Prepare For The Storm",
     ("TechHaven", "[TechHeaven] 002 FACTORY"): "Factory",
-    ("BUILDERS", "[Builders] 001 BASIC FACILITIES EXTENDED"): "Finish Basic Facilities",
     ("BUILDERS", "[Builders] 006a Upgrade the Generator"): "(Optional) Upgrade The Generator",
 }
 
@@ -218,7 +223,7 @@ CONDITIONS_TECHNO = {
 # Region d'ouverture des arbres de lois (Q4.2) ; tout autre arbre : Start.
 OUVERTURE_LOIS = {
     ("DEFAULT", "Purpose"): 2,      # apres 005 LONDONERS
-    ("BUILDERS", "Labour"): 1,      # apres 001 BASIC FACILITIES EXTENDED (arbres "[Labour")
+    ("BUILDERS", "Labour"): 1,      # apres 002 DOCK INFRASTRUCTURE (arbres "[Labour")
     ("BUILDERS", "Politics"): 2,    # apres 003 GENERATOR CONSTRUCTION SITE
 }
 
@@ -231,6 +236,12 @@ ARBRE_ECLAIREURS = {
 
 ARBRE_PALIERS = 36
 PALIERS_DE_DEPART = {"WINTERHOME": 3}
+
+# Sites de la carte qui ne sont PAS des checks (decision de l'auteur,
+# 2026-11-22) : New London (On the Edge) est un centre de diplomatie, jamais
+# "explore" ; le mod y substituait le contenu et une expedition de l'histoire
+# y restait bloquee. Son id loc_site reste reserve dans ids.tsv.
+SITES_SANS_CHECK = {("Reconquest", "NewLondon")}
 
 # Montees de temperature par scenario et difficulte (Q8 d), en NIVEAUX
 # (decision de l'auteur, 2026-11-03) : une montee de N niveaux = N checks
@@ -552,6 +563,8 @@ def main():
         for s in [s for s in sites if s["scenario"] == scn]:
             if s["site"].endswith("-dead"):
                 continue                      # paire exclusive : un seul check
+            if (scn, s["site"]) in SITES_SANS_CHECK:
+                continue                      # pas une exploration (id garde dans ids.tsv)
             reg = s["region"]
             if reg == "Start":
                 region = 0

@@ -75,6 +75,20 @@ static void LocationAbsente(const char* genre, const char* cle)
         genre, cle ? cle : "?", ScenarioVictoryId());
 }
 
+// Noms par id (historique de la session, historique_ap.cpp). nullptr si
+// l'id n'est pas un item / une location de Frostpunk.
+const char* ApNomItemParId(int64_t id)
+{
+    for (const ApItemInfo& it : AP_ITEMS) if (it.id == id) return it.nom;
+    return nullptr;
+}
+
+const char* ApNomLocationParId(int64_t id)
+{
+    for (const ApLocationInfo& l : AP_LOCATIONS) if (l.id == id) return l.nom;
+    return nullptr;
+}
+
 int64_t ApItemIdCourant(const char* genre, const char* cle)
 {
     ApItemGenre g;
@@ -1072,22 +1086,30 @@ void SendTemperatureCheck(int rank)
     AfficherNotificationAP("Check sent", texte);
 }
 
-// --- Goal : victoire dans tous les scenarios du slot -------------------------
+// --- Goal : victoire dans Y scenarios du slot --------------------------------
 // Victoires comptees (nom interne, une ligne par scenario) dans
 // ap_victoires.txt de la session (graine + slot), cumulatif, tous scenarios.
-// Scenarios du goal : option "scenarios" du slot (ApReglerScenariosGoal,
-// slot_data) ; avant tout slot_data, A New Home seul (defaut du YAML).
+// Scenarios du slot : option "scenarios" ; nombre a gagner : option
+// "scenarios_to_win" (goal partiel, decision de l'auteur du 2026-11-21 :
+// scenarios quelconques du slot). Avant tout slot_data, A New Home seul.
 static char g_scenariosGoal[6][16] = { "DEFAULT" };
 static int  g_nScenariosGoal = 1;
+static int  g_nAGagner = 1;         // toujours dans [1, g_nScenariosGoal]
 static bool g_goalEnvoye = false;   // popup "Goal reached" deja montree (session)
 
-void ApReglerScenariosGoal(const char* const* scenarios, int n)
+void ApReglerScenariosGoal(const char* const* scenarios, int n, int aGagner)
 {
     g_nScenariosGoal = 0;
     for (int i = 0; i < n && g_nScenariosGoal < 6; ++i)
         strcpy_s(g_scenariosGoal[g_nScenariosGoal++], scenarios[i]);
-    printf("[AP GOAL] %d scenario(s) a gagner\n", g_nScenariosGoal);
+    // 0 (graine d'avant l'option) ou plus que le slot : tous les scenarios.
+    g_nAGagner = (aGagner <= 0 || aGagner > g_nScenariosGoal) ? g_nScenariosGoal : aGagner;
+    printf("[AP GOAL] %d scenario(s) a gagner sur %d (scenarios_to_win=%d)\n",
+        g_nAGagner, g_nScenariosGoal, aGagner);
 }
+
+// Nombre de scenarios du slot deja gagnes dans la session.
+static int ScenariosGoalGagnes();
 
 static bool CheminVictoires(char* out, size_t taille)
 {
@@ -1109,6 +1131,13 @@ static bool ScenarioGagne(const char* scenario)
     return trouve;
 }
 
+static int ScenariosGoalGagnes()
+{
+    int gagnes = 0;
+    for (int i = 0; i < g_nScenariosGoal; ++i) gagnes += ScenarioGagne(g_scenariosGoal[i]) ? 1 : 0;
+    return gagnes;
+}
+
 void SendScenarioVictory(const char* scenario, const char* displayName)
 {
     // 1. Evenement du goal : la victoire du scenario est notee (une fois).
@@ -1121,33 +1150,37 @@ void SendScenarioVictory(const char* scenario, const char* displayName)
             fclose(f);
         }
     }
-    int gagnes = 0;
-    for (int i = 0; i < g_nScenariosGoal; ++i) gagnes += ScenarioGagne(g_scenariosGoal[i]) ? 1 : 0;
-    printf("[AP GOAL] victoire \"%s\"%s : %d/%d scenario(s) du goal gagne(s)\n", scenario,
-        deja ? " (deja comptee)" : "", gagnes, g_nScenariosGoal);
+    int gagnes = ScenariosGoalGagnes();
+    printf("[AP GOAL] victoire \"%s\"%s : %d/%d scenario(s) gagne(s) (%d dans le slot)\n", scenario,
+        deja ? " (deja comptee)" : "", gagnes, g_nAGagner, g_nScenariosGoal);
 
-    // 2. Popup.
+    // 2. Popup (le compte ne depasse pas Y a l'affichage).
     char texte[160];
-    sprintf_s(texte, "%s (%d/%d scenarios)", displayName, gagnes, g_nScenariosGoal);
+    sprintf_s(texte, "%s (%d/%d scenarios needed)", displayName,
+        gagnes < g_nAGagner ? gagnes : g_nAGagner, g_nAGagner);
     AfficherNotificationAP("Scenario completed", texte);
 
     // 3. Goal : StatusUpdate CLIENT_GOAL (renvoye a chaque connexion tant
     //    que ApGoalAtteint, reseau_ap.cpp).
-    if (gagnes >= g_nScenariosGoal) {
+    if (gagnes >= g_nAGagner) {
         ReseauEnvoyerGoal();
         if (!g_goalEnvoye) {
             g_goalEnvoye = true;
-            printf("[AP GOAL] GOAL ATTEINT : tous les scenarios du slot sont gagnes\n");
-            AfficherNotificationAP("Goal reached", "All scenarios of this slot are completed.");
+            printf("[AP GOAL] GOAL ATTEINT : %d/%d scenario(s) gagne(s)\n", gagnes, g_nAGagner);
+            if (g_nAGagner >= g_nScenariosGoal)
+                AfficherNotificationAP("Goal reached", "All scenarios of this slot are completed.");
+            else {
+                char fin[96];
+                sprintf_s(fin, "%d of the %d scenarios of this slot are completed.", g_nAGagner, g_nScenariosGoal);
+                AfficherNotificationAP("Goal reached", fin);
+            }
         }
     }
 }
 
 bool ApGoalAtteint()
 {
-    int gagnes = 0;
-    for (int i = 0; i < g_nScenariosGoal; ++i) gagnes += ScenarioGagne(g_scenariosGoal[i]) ? 1 : 0;
-    return g_nScenariosGoal > 0 && gagnes >= g_nScenariosGoal;
+    return g_nScenariosGoal > 0 && ScenariosGoalGagnes() >= g_nAGagner;
 }
 
 // ============================================================================
@@ -1422,7 +1455,7 @@ void ApAppliquerSlotData(const ApSlotData& d)
         if (connu) retenus[n++] = d.scenarios[i];
         else printf("[AP SLOT] scenario inconnu \"%s\", ignore\n", d.scenarios[i] ? d.scenarios[i] : "?");
     }
-    if (n) ApReglerScenariosGoal(retenus, n);
+    if (n) ApReglerScenariosGoal(retenus, n, d.scenariosToWin);
     else printf("[AP SLOT] aucun scenario valide : liste du goal inchangee\n");
 
     // 2. Difficulte imposee.

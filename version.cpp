@@ -33,6 +33,7 @@
 #include "lois.h"
 #include "lois_ap.h"
 #include "menu_ap.h"
+#include "historique_ap.h"
 #include "scenarios_ap.h"
 #include "victoire.h"
 #include "temperature.h"
@@ -223,6 +224,34 @@ static LONG CALLBACK ReleveCrash(PEXCEPTION_POINTERS e)
 		JournalImmediat("[CRASH]   rax=%llX rbx=%llX rcx=%llX rdx=%llX rsi=%llX rdi=%llX\n",
 			c->Rax, c->Rbx, c->Rcx, c->Rdx, c->Rsi, c->Rdi);
 		JournalImmediat("[CRASH]   r8=%llX r9=%llX r10=%llX r11=%llX rsp=%llX\n", c->R8, c->R9, c->R10, c->R11, c->Rsp);
+		// Diagnostic (2026-11-15, Last Autumn, deux crashs au retour d'un
+		// eclaireur charge) : file de production d'un batiment liberee, lue par
+		// FUN_1417e5160 (Epic +0x17E51E0, Steam +0x16801E0 : add edi,[rcx+8]).
+		// rax = FrostpunkProductionComponent, rsi = entree d'etat (+0 entite).
+		{
+			uintptr_t off = adr - (uintptr_t)jeu;
+			if (off == 0x17E51E0 || off == 0x16801E0) {
+				char cls[96] = "?", desc[300] = "?";
+				GetClassNameFP(c->Rax, cls, sizeof(cls));
+				uintptr_t ent = 0, enCours = 0, file = 0;
+				int32_t nFile = -1;
+				float prog = 0.f;
+				SafeRead((void*)(c->Rax + 0x18), &ent, 8);
+				SafeRead((void*)(c->Rax + 0x30), &enCours, 8);
+				SafeRead((void*)(c->Rax + 0x38), &file, 8);
+				SafeRead((void*)(c->Rax + 0x40), &nFile, 4);
+				SafeRead((void*)(c->Rax + 0x60), &prog, 4);
+				if (ent > 0x10000) DecrireEntiteContexte(ent, desc, sizeof(desc));
+				JournalImmediat("[CRASH]   composant 0x%llX %s : entite %s\n", (unsigned long long)c->Rax, cls, desc);
+				JournalImmediat("[CRASH]   +0x30 en cours 0x%llX, file +0x38 0x%llX (%d entree(s)), +0x60 %.3f\n",
+					(unsigned long long)enCours, (unsigned long long)file, nFile, prog);
+				uintptr_t entEtat = 0;
+				if (SafeRead((void*)c->Rsi, &entEtat, 8) && entEtat > 0x10000 && entEtat != ent) {
+					DecrireEntiteContexte(entEtat, desc, sizeof(desc));
+					JournalImmediat("[CRASH]   entree d'etat : entite %s\n", desc);
+				}
+			}
+		}
 		// Adresses de retour probables : valeurs de la pile qui tombent dans
 		// Frostpunk.exe ou version.dll, precedees d'un CALL (E8 / FF xx).
 		HMODULE mod = nullptr;
@@ -382,6 +411,7 @@ DWORD WINAPI PayloadThread(LPVOID)
 	InstallHooksQuetes(modBase);        // trace des demarrages de quete
 	InstallHooksExpeditions(modBase);   // marqueurs et tirage fixe des sites
 	InstallMenuAP(modBase);   // ecran de connexion Archipelago du menu principal
+	InstallHistoriqueAP(modBase);   // historique de la session AP (HUD en jeu)
 	InstallHooksScenarios(modBase);   // scenarios verrouilles tant qu'Archipelago ne les debloque pas
 	InstallHooksVictoire(modBase);    // fin de partie : checks de victoire selon le mode
 	InstallHooksSauvegardes(modBase); // liste des sauvegardes : celles de la session Archipelago seulement

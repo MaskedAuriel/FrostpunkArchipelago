@@ -471,3 +471,26 @@ puis des entités **sélectionnées** (`+0x2250`, pas de 0x10, compte
 Risque à surveiller : si le jeu garde en cache la traduction d'une clé, tous
 les landmarks montreront le check du premier affiché. Compilé, déployé
 Epic + Steam, non testé.
+
+## 2026-11-22 — On the Edge : New London retiré des checks
+
+- **Constat (auteur)** : une expédition de l'histoire (exp 5, créée par le
+  jeu après la bulle « [Act 1-6] Independence day ») arrive à New London et
+  ne disparaît pas (« même problème que The Arks »).
+- **Journal** : `NewLondon` était une location de site (`7747300199`,
+  contenu vanilla vide) ; le mod y fournissait un tableau de contenu avec
+  l'item AP à chaque fois que le jeu le vidait (`[SITE] NewLondon : tableau
+  fourni`, 8 fois, aux dilemmes `[Diplomacy] New London …`). Le site n'est
+  jamais « exploré » (pas de `site NewLondon explore`) : check impossible à
+  obtenir, contenu AP permanent sur le site, expédition qui y stationne.
+- **Décision de l'auteur** : la location est retirée de l'apworld.
+  `SITES_SANS_CHECK` (generer.py) ; `data.py` / `known_ap_ids.h`
+  régénérés (On the Edge : 130 locations hors température) ; id gardé
+  dans `ids.tsv`. Le mod ne voit plus New London comme site AP (contenu
+  vanilla, description vanilla, **marqueur de carte vanilla** :
+  `IconeMarqueurSite` ignore un site de `g_sites` sans contenu AP).
+- **Les graines déjà générées** gardent la location New London (jamais
+  obtenable) ; il faut une nouvelle graine. apworld réinstallé
+  (`custom_worlds\frostpunk.apworld`, 2026-11-22 00:16 ; contient aussi le
+  travail non commité des autres sessions). Génération non relancée.
+- Compilé, déployé Steam (00:15). Non testé.

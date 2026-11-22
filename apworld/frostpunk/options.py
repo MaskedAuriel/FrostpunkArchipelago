@@ -10,8 +10,8 @@ NOMS_SCENARIOS = [s["nom"] for s in SCENARIOS]
 
 
 class Scenarios(OptionSet):
-    """Scenarios included in the multiworld. Winning all of them is the goal.
-    Empty (default): only the starting scenario."""
+    """Scenarios included in the multiworld. The goal is to win Scenarios To Win
+    of them. Empty (default): only the starting scenario."""
     display_name = "Scenarios"
     valid_keys = NOMS_SCENARIOS
     # Vide par defaut (decision de l'auteur, 2026-11-15) : l'ancien defaut
@@ -34,6 +34,17 @@ class StartingScenario(Choice):
     option_on_the_edge = 5
     option_random_included = 6   # "random" est reserve par Archipelago
     default = 0
+
+
+class ScenariosToWin(Range):
+    """Number of scenarios of the slot (starting scenario included) to win for
+    the goal. Any of them count. Generation fails if it is larger than the
+    number of scenarios of the slot."""
+    display_name = "Scenarios To Win"
+    # Decision de l'auteur (2026-11-21) : 1 a 6, defaut 1, erreur si trop grand.
+    range_start = 1
+    range_end = 6
+    default = 1
 
 
 class GoalDifficulty(Choice):
@@ -74,6 +85,7 @@ class DeliveryHours(Range):
 class FrostpunkOptions(PerGameCommonOptions):
     scenarios: Scenarios
     starting_scenario: StartingScenario
+    scenarios_to_win: ScenariosToWin
     goal_difficulty: GoalDifficulty
     trap_percentage: TrapPercentage
     exclude_purpose_politics: ExcludePurposePolitics

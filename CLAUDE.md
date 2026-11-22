@@ -74,8 +74,10 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
   ```
 
   Puis, **seulement si `Frostpunk.exe` ne tourne pas** (DLL verrouillée),
-  copier `version.dll` dans `C:\Program Files\Epic Games\Frostpunk\`. Ce
-  dossier est **autorisé d'office** ; tout **autre** emplacement hors du
+  copier `version.dll` dans
+  `C:\Program Files (x86)\Steam\steamapps\common\Frostpunk\`. Ce dossier
+  est **autorisé d'office**. **Plus jamais sur Epic** (auteur, 2026-11-21 :
+  Epic porte l'autre mod, Big map) ; tout **autre** emplacement hors du
   projet se demande à l'auteur, à chaque fois. **Pas de sauvegarde** de
   l'ancienne DLL (demande de l'auteur).
   Le message « 'vswhere.exe' n'est pas reconnu » de vcvars64 est sans effet.
@@ -135,6 +137,7 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
 | `temperature.h/.cpp` | **Température / météo** : relevé F9 (`[TEMP]`, thread du jeu via `TemperaturePompe`) des niveaux, météos, chronologies météo, actes, modifications de difficulté et de la chronologie calculée de la partie ; **montées AP** : hook du recalcul `+0x1812C10`, montées retirées, `TemperatureRecevoirMontee` (← `ReceiveTemperatureRise`, archipelago), `mods\ap_temperature_<GameId>.txt` |
 | `sauvegardes_ap.h/.cpp` | **Sauvegardes de la session AP seulement** : hook de l'écriture `FUN_1412892f0` (nom noté dans `<session>\ap_sauvegardes.txt`) et de l'énumération `FUN_141cdee60` (`"saves"`, `"*.save"` : les autres sont retirées de la liste) ; log `[SAV]` |
 | `versions_jeu.h/.cpp` | **Versions de l'exe** (2026-11-07) : Epic (`0x611CFD2D`) et Steam (`0x68E665D9`) détectées par l'en-tête PE ; `Adr(rvaEpic)` traduit toute adresse (identité sur Epic, table `VERSION_STEAM` sur Steam) ; exe inconnu = aucun hook ; `FichierAtlasVersion` (atlas des bâtiments Steam). **Toute nouvelle adresse s'écrit `Adr(0x…)` en RVA Epic et entre dans `VERSION_STEAM`** (`outils\portage\`) |
+| `historique_ap.h/.cpp` | **Historique de la session AP et légende des icônes** (2026-11-21) : hook de la création de l'écran en jeu `FUN_14196b2d0` (racine `FRAME` du HUD), `HistoriquePompe` (thread du jeu) → bouton du HUD + panneau d'historique (clone de `TutorialSummaryPanel`) ; hooks des inits du livre et de l'arbre des technos → légendes ; réglages d'aspect en tête du fichier ; relevé `[HIST]` coupé |
 | `schema_reflexion.h/.cpp` | **Big map** : relevé unique du PropertyManager (classes, propriétés dans l'ordre de sérialisation) → `logs\schema_reflexion.tsv`, pour décoder les scènes hors jeu (`outils\scenes.py`) |
 | `quetes.h/.cpp` | **Quêtes** : relevé F9 (`[QUETE]`, thread du jeu via `QuetesPompe`) des répertoires, quêtes, objectifs, effets, et des événements portant un effet de quête ou d'acte |
 
@@ -581,7 +584,11 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   `outils\sites_contenu.tsv` (`outils\sites_contenu.py`, cumulatif),
   **VALIDÉE le 2026-11-03**. Quantités sans lien avec la difficulté (totaux de la table du
   scénario répartis au hasard) : répartition figée par `hkRepartirContenu`
-  (`+0x18EF2F0`), **VALIDÉE le 2026-11-03**.
+  (`+0x18EF2F0`), **VALIDÉE le 2026-11-03**. **2026-11-22** : New London
+  (On the Edge, centre de diplomatie jamais exploré) n'est plus un check
+  (`SITES_SANS_CHECK`, generer.py ; décision de l'auteur) ; l'effet
+  « Destroy stationing expedition » n'est plus neutralisé que sur un site
+  AP (`hkDetruireExpedition`, scooting.cpp) : non testés.
 
 - **Technos** — `docs/chantiers/technos.md`. Icônes posées seulement
   pendant la construction des nœuds (aucune écriture permanente),
@@ -597,7 +604,10 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   `outils\technos_table.tsv`, tableau dans le fichier du chantier). Technos
   de départ (Winterhome, On the Edge) exclues : `TechEstUnCheck`. Mod
   adapté, **VALIDÉ le 2026-11-03** (Winterhome, F7) ; table transmise à
-  l'apworld.
+  l'apworld. **2026-11-21** : la recherche d'une techno AP pas reçue
+  n'applique plus ses effets (`hkAjouterRecherchee` ne rappelle pas
+  `AddResearchedTechnology`) ; effets et bleu à la **réception**, même si
+  déjà recherchée (`OnItemReceived`) : non testé.
 
 - **Scénarios verrouillés** — `docs/chantiers/scenarios_verrouilles.md`.
   Verrou **VALIDÉ** (hook de `FUN_141283ea0`, 6 scénarios AP), déblocage par
@@ -617,7 +627,8 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   AP est un **événement du goal** (difficulté imposée, ironman sans effet ;
   plus de lecture des curseurs) : `SendScenarioVictory`,
   `mods\ap_victoires.txt`, goal = tous les scénarios du slot gagnés
-  (**validé le 2026-11-04**, A New Home).
+  (**validé le 2026-11-04**, A New Home). **Goal partiel (2026-11-21)** :
+  voir le chantier Options du YAML.
   Victoire / défaite de test (`VictoireDemanderTest`) : plus de touche
   depuis le 2026-11-04.
 
@@ -702,6 +713,34 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   expéditions = entier `+0x18` de `OrderStationingExpeditionToPerformTask`
   (15 noms, table `0x141ede5f0`). `dilemmes_exploration.cpp` : **non
   testé**. `TOUS_DEBLOQUES_TEMPORAIRE` (scenarios_ap.cpp) encore à `true`.
+
+- **Options du YAML (retours des joueurs)** — `docs/chantiers/options.md`.
+  **Goal partiel (2026-11-21, décisions de l'auteur)** : option
+  `scenarios_to_win` (1 à 6, **défaut 1**), Y scénarios **quelconques** du
+  slot à gagner ; Y > nombre de scénarios du slot = **erreur de
+  génération**. Mod : `slot_data["scenarios_to_win"]` →
+  `ApReglerScenariosGoal(…, aGagner)` (absent = tous : anciennes graines),
+  `SendScenarioVictory` / `ApGoalAtteint` à `gagnes >= Y`. Générations
+  testées ; **en jeu : non testé**.
+
+- **Historique de la session en jeu** — `docs/chantiers/historique.md`.
+  **Démarré le 2026-11-21.** Décisions de l'auteur : bouton dans le HUD,
+  **panneau dédié** (clones), items reçus + checks envoyés, toute la
+  session, sans limite (défilement). Relevé `[HIST]` fait le 2026-11-21
+  (coupé depuis, `RELEVE_INTERFACE`). **Étape 2 (non testée)** : bouton =
+  copie d'`INGAME_MENU_BUTTON` (HUD > `TOP_LEFT_BUTTONS`), icône AP ;
+  panneau = copie du `FRAME` de `TutorialSummaryPanel` dans la racine du
+  HUD (onglets Received items / Sent checks / Close, texte qui défile,
+  barre liée par `FUN_141516ec0`, Steam `0x13B1710`). **Légende des icônes
+  AP** (décision du 2026-11-21 : panneau dédié, icônes dessinées, sens
+  court en anglais). **État au 2026-11-21 (8 tests)** : bouton (copie avec
+  animateur dans un conteneur `LEFT` décalé, échelle ×2, police ÷2) et
+  panneau (onglets Received items / Sent checks / **Legends**, fermeture
+  native `CLOSE_BUTTON`) **fonctionnels** ; légende permanente en bas à
+  gauche retirée (décision de l'auteur) ; arbre des technos : ligne
+  « Check Sended » (`icon_done`) + « Tech Received » (`researched_stroke`
+  d'un nœud) à gauche de CLOSE ; livre : même ligne avec la plume
+  `circle_inside` + « Signed » (construction du livre, non testé).
 
 - **Big map (nouveau scénario, hors Archipelago)** — `docs/chantiers/big_map.md`.
   Branche `Big-map` (2026-11-04). Cartes = scènes binaires de `scenes.dat`

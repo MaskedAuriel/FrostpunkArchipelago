@@ -33,6 +33,7 @@
 #include "mod_common.h"
 #include "archipelago.h"
 #include "IconSubManager.h"   // ARCHIPELAGO_ICONS_TECH
+#include "historique_ap.h"    // HistoriqueLivreConstruit (legende du livre)
 #include "MinHook.h"
 #include <cstring>
 #include <cstdio>
@@ -1810,6 +1811,7 @@ uintptr_t hkConstruireLivre(uintptr_t livre, uintptr_t p2, uintptr_t p3, uintptr
     uintptr_t r = oConstruireLivre(livre, p2, p3, p4);
     __try { DiagNoeudsLivre(livre); }
     __except (EXCEPTION_EXECUTE_HANDLER) { printf("[LOIUI] EXCEPTION 0x%08lX pendant le releve\n", GetExceptionCode()); }
+    HistoriqueLivreConstruit(livre);   // legende du livre (historique_ap.cpp), apres la capture de circle_inside
     return r;
 }
 
@@ -1876,6 +1878,13 @@ bool IconeAPPoser(uintptr_t image, const char* icone)
     for (const TechIcons& t : ARCHIPELAGO_ICONS_TECH)
         if (icone && !strcmp(t.nom, icone)) { PoserTuileSur(image, &t); return true; }
     return false;
+}
+
+bool LoisModeleSigne(uintptr_t* recette, uintptr_t* ressource)
+{
+    *recette = g_modeleInside[0];
+    *ressource = g_modeleInside[1];
+    return g_modeleInside[0] != 0;
 }
 
 void ElementTailleNulle(uintptr_t el)

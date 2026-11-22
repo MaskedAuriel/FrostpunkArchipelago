@@ -87,14 +87,26 @@ void OnResearchComplete(uint64_t hash)
 // 2026-11-10 : ce dernier cas ne previent pas le jeu -> les noeuds enfants de
 // l'arbre deja construit restaient grises jusqu'au rechargement ; l'arbre est
 // donc rafraichi (IconesTechnoRafraichirArbre).
+// 2026-11-21 (On the Edge, effets d'une techno recherchee actifs sans l'item) :
+// la recherche d'une techno AP pas encore recue n'applique plus rien
+// (hkAjouterRecherchee) ; la reception applique donc les effets dans tous les
+// cas, recherchee ou non. Si la techno est elevee a l'etat 2 a cet instant
+// (item recu pendant une evaluation des prerequis, EleverRecherchees), elle
+// est d'abord remise a 0, sinon TechAppliquerEffets la croirait deja faite ;
+// RabaisserRecherchees la laisse ensuite a 2 (recue).
 void OnItemReceived(uint64_t hash)
 {
     TechRuntime* r = RT_Get(hash);
     if (!r) return;
+    bool etaitRecue = r->received;
     r->received = true;
     InterlockedIncrement(&g_versionTechnos);
-    if (!r->researched && TechAppliquerEffets(hash)) {
-        printf("[AP] techno %s recue : effets appliques\n", NameOfHash(hash));
+    if (!etaitRecue && r->researched && TechEstUnCheck(hash) && TechStateByHash(hash) == 2)
+        WriteTechStateByHash(hash, 0);
+    if (!etaitRecue && TechAppliquerEffets(hash)) {
+        printf("[AP] techno %s recue%s : effets appliques\n", NameOfHash(hash),
+               r->researched ? " (deja recherchee)" : "");
+        if (r->researched) IconesTechnoRafraichirArbre();
         return;
     }
     SyncGameState(r);          // -> etat 2
@@ -266,9 +278,25 @@ static int TechCharger()
     return n;
 }
 
+// Technos recues absentes de la sauvegarde chargee (etat du jeu != 2) : leurs
+// effets sont appliques par TechPompe (thread du jeu). Ecrit par le thread du
+// mod sous g_verrouReappliquer.
+static const int MAX_REAPPLIQUER = 128;
+static uint64_t g_aReappliquer[MAX_REAPPLIQUER];
+static int g_nReappliquer = 0;
+static SRWLOCK g_verrouReappliquer = SRWLOCK_INIT;
+
 // Boucle du mod (tick d'une seconde, apres CaptureRunState) : a chaque
 // nouvelle partie (chargement, autre scenario), l'etat des technos de
 // l'ancienne partie est oublie, celui de la nouvelle relu puis reapplique.
+// Bug du 2026-11-22 (On the Edge, auteur : efficacite de l'army warehouse non
+// augmentee, 6 technos Vault recues) : la sauvegarde locale est cumulative ;
+// une sauvegarde du jeu ANTERIEURE a la reception d'une techno ne contient ni
+// son etat 2 ni ses modificateurs, et l'etat 2 etait ecrit directement
+// (SyncGameState), sans AddResearchedTechnology : techno affichee faite, effets
+// jamais appliques (l'item n'est pas relivre, deja compte). Desormais une
+// techno AP recue dont l'etat du jeu n'est pas 2 apres le chargement est mise
+// en file : TechPompe lui applique ses effets (TechAppliquerEffets).
 void TechPersistanceTick()
 {
     static unsigned generationVue = 0xFFFFFFFF;
@@ -281,15 +309,34 @@ void TechPersistanceTick()
     partieVue[1] = g_run.gameId[1];
 
     g_technosPretes = false;
+    TechModifsOublier();       // modificateurs de l'ancienne partie
     RT_Reset();
     memset(g_progressive, 0, sizeof(g_progressive));
     g_sinceBonus = 0;
     int n = TechCharger();
-    int appliquees = 0;
+    int appliquees = 0, aReappliquer = 0;
+    AcquireSRWLockExclusive(&g_verrouReappliquer);
+    g_nReappliquer = 0;
     for (int i = 0; i < RT_Count(); ++i) {
         TechRuntime* r = RT_At(i);
-        if (r && (r->researched || r->received)) { SyncGameState(r); ++appliquees; }
+        if (!r || (!r->researched && !r->received)) continue;
+        if (r->received && TechEstUnCheck(r->hash)) {
+            int32_t etat = TechStateByHash(r->hash);
+            if (etat != 2) {
+                // Absente de la sauvegarde : pas d'etat 2 ecrit ici (sinon
+                // TechAppliquerEffets la croirait deja faite).
+                printf("[TECH] %s recue mais etat %d dans la sauvegarde : effets a reappliquer\n",
+                       NameOfHash(r->hash), etat);
+                if (g_nReappliquer < MAX_REAPPLIQUER) g_aReappliquer[g_nReappliquer++] = r->hash;
+                ++aReappliquer;
+                continue;
+            }
+        }
+        SyncGameState(r);
+        ++appliquees;
     }
+    ReleaseSRWLockExclusive(&g_verrouReappliquer);
+    if (aReappliquer) printf("[TECH] %d techno(s) recue(s) a reappliquer (thread du jeu)\n", aReappliquer);
     g_partieTechnos[0] = g_run.gameId[0];
     g_partieTechnos[1] = g_run.gameId[1];
     g_technosPretes = true;
@@ -308,8 +355,25 @@ void TechPersistanceTick()
 
 void TechPompe()
 {
+    if (PartiePrete()) TechModifsEnAttentePompe();   // modificateurs refuses : nouvel essai
     if (!g_rafraichirArbre || !PartiePrete()) return;
     InterlockedExchange(&g_rafraichirArbre, 0);
+    // Technos recues absentes de la sauvegarde (TechPersistanceTick) : effets
+    // appliques ici, sur le thread du jeu (etat 2 + modificateurs + ecouteurs).
+    uint64_t aReappliquer[MAX_REAPPLIQUER];
+    AcquireSRWLockExclusive(&g_verrouReappliquer);
+    int nR = g_nReappliquer;
+    memcpy(aReappliquer, g_aReappliquer, sizeof(uint64_t) * nR);
+    g_nReappliquer = 0;
+    ReleaseSRWLockExclusive(&g_verrouReappliquer);
+    for (int k = 0; k < nR; ++k) {
+        TechRuntime* r = RT_Get(aReappliquer[k]);
+        if (!r || !r->received) continue;
+        bool ok = TechAppliquerEffets(aReappliquer[k]);
+        printf("[TECH] %s : effets %s apres chargement\n", NameOfHash(aReappliquer[k]),
+               ok ? "reappliques" : "NON appliques (echec)");
+        if (!ok) SyncGameState(r);   // au moins l'etat 2 (batiments)
+    }
     int recherchees = 0;
     for (int i = 0; i < RT_Count(); ++i) {
         TechRuntime* r = RT_At(i);

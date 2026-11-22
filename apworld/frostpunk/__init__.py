@@ -4,6 +4,7 @@
 
 import logging
 
+from Options import OptionError
 from worlds.AutoWorld import WebWorld, World
 
 from .data import DIFFICULTIES, SCENARIOS
@@ -39,12 +40,19 @@ class FrostpunkWorld(World):
         if noms and depart not in noms:
             logging.warning(
                 f"Frostpunk ({self.player_name}): starting scenario '{depart}' is not in "
-                f"scenarios {sorted(noms)}; it is added, and the goal requires winning "
-                f"{len(noms) + 1} scenarios.")
+                f"scenarios {sorted(noms)}; it is added to the slot.")
         noms.add(depart)
         self.depart = depart
         self.scenarios = [s for s in SCENARIOS if s["nom"] in noms]
         self.difficulte = self.options.goal_difficulty.value
+        # Goal partiel (decision de l'auteur, 2026-11-21) : gagner Y scenarios
+        # quelconques du slot ; Y plus grand que le slot = erreur de generation.
+        self.a_gagner = self.options.scenarios_to_win.value
+        if self.a_gagner > len(self.scenarios):
+            raise OptionError(
+                f"Frostpunk ({self.player_name}): scenarios_to_win is {self.a_gagner} but the "
+                f"slot only has {len(self.scenarios)} scenario(s) "
+                f"({', '.join(s['nom'] for s in self.scenarios)}).")
 
     def create_regions(self):
         self.victoires = creer_regions(self, self.scenarios, self.difficulte,
@@ -94,13 +102,15 @@ class FrostpunkWorld(World):
 
     def set_rules(self):
         victoires = self.victoires
+        a_gagner = self.a_gagner
         self.multiworld.completion_condition[self.player] = \
-            lambda state: all(state.has(v, self.player) for v in victoires)
+            lambda state: sum(1 for v in victoires if state.has(v, self.player)) >= a_gagner
 
     def fill_slot_data(self):
         return {
             "scenarios": [s["cle"] for s in self.scenarios],
             "starting_scenario": next(s["cle"] for s in self.scenarios if s["nom"] == self.depart),
+            "scenarios_to_win": self.a_gagner,                     # ApReglerScenariosAGagner
             "goal_difficulty": DIFFICULTIES[self.difficulte],
             "exclude_purpose_politics": bool(self.options.exclude_purpose_politics),
             "delivery_hours": self.options.delivery_hours.value,   # ApReglerHeuresLivraison

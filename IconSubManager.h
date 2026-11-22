@@ -84,6 +84,10 @@ void InstallHooksIconesTechnos(uintptr_t modBase);
 // Fin de recherche (thread du jeu) : icone et nom du noeud de cette techno
 // dans l'arbre deja construit, sans attendre sa reconstruction.
 void IconesTechnoRafraichirNoeud(uintptr_t tech);
+// Panneau de l'arbre des technos (vu au dernier noeud construit), 0 sinon :
+// noeuds en +0x1A8 (enregistrements de 0x80, poignee du noeud en +0x10),
+// nombre en +0x1B0. Legende de l'arbre (historique_ap.cpp).
+uintptr_t IconesTechnoPanneau();
 // Rafraichit tous les noeuds de l'arbre deja construit (etat AVAILABLE /
 // NOT_AVAILABLE) : apres la reception d'une techno deja recherchee (2026-11-10).
 void IconesTechnoRafraichirArbre();

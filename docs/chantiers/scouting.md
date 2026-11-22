@@ -190,3 +190,103 @@ groupe pour contexte (gabarit `SurvivorsFromExpeditionSite`).
 - Le « crash » à la fin du même journal (`+0x1C31259` Steam, lecture de
   `0x28`) était un Alt+F4 de l'auteur : sans objet.
 - Compilé, déployé (Steam release, Epic dev, 17:33). **Non testé.**
+- 2026-11-15 (18:28) : la reprise des orphelins **a marché** en jeu
+  (`6 check(s) orphelin(s) de l'expedition 5 repris par la nouvelle
+  expedition 7`, puis livrés en ville).
+
+### 2026-11-11 / 2026-11-15 — Last Autumn : crash après un retour d'éclaireur chargé
+
+- **Deux fois le même crash** : `Frostpunk.exe+0x16801E0` (Steam) =
+  `FUN_1417e5160` + 0x80 (Epic, octets identiques), `add edi,[rcx+8]` :
+  somme des quantités de la **file de production** (`+0x38`, nombre
+  `+0x40`, pas 0x10) d'un `FrostpunkProductionComponent` ; le tableau
+  pointe vers de la mémoire libérée. La fonction fait partie des alertes
+  de bâtiment (`BuildingEmptyProductionQueue`,
+  `BuildingChangeBlueprintDelay`), appelée par une vtable (`0x14440b8d0`).
+- Contexte commun : retour d'un éclaireur chargé → rafale d'items reçus,
+  dont **« Progressive Scaffolding Manufacture » 2/3 = `GS
+  ManufactureCheaperMaterials`** les deux fois (effets appliqués la 1re ;
+  la 2e, techno déjà recherchée : seul l'état 2 posé), et des effets de
+  lois appliqués (Bath House / Public House). Le 11/11, l'auteur
+  construisait une fabrique d'échafaudages.
+- Cause **non prouvée**. Hypothèse : nos pompes appliquent les effets dans
+  le hook du setter de ressources, au milieu d'une boucle du jeu.
+- **Diagnostic ajouté** (`ReleveCrash`, version.cpp) : à cette adresse,
+  classe du composant, entité (classe + gabarit), `+0x30`, file, compte,
+  `+0x60`, et entité de l'entrée d'état. Déployé 18:31.
+- Ghidra : `FrostpunkProductionComponent` `+0x30` ActiveBlueprint, `+0x38`
+  ProductionQueue (`Dynarray<Pair<EntryPtr<Blueprint>, int>>`), `+0x58`
+  Progress ; gabarit `+0x53` « Switch to next blueprint after availability
+  change » ; système des plans : événement
+  `EventBlueprintsAvailabilityChanged`. L'auteur confirme une **fabrique
+  d'échafaudages en chantier** au moment du crash.
+
+### 2026-11-15 — Crash en sélectionnant un site déjà coché après un chargement
+
+- **Vu en jeu** : `Frostpunk.exe+0x1C31259` (Steam), lecture de `0x28`, en
+  sélectionnant le site « 16. [food] Stream Head » où un éclaireur venait
+  d'arriver (même signature que le crash pris pour un Alt+F4 plus tôt dans
+  la journée). Fonction Epic `FUN_141ce5a40` (texte depuis une clé),
+  appelée par `FUN_141bfe6c0` = panneau de sélection d'un site : pour
+  chaque ressource `{définition, quantité}` du site (`+0x48`), nom lu à
+  `définition + 0x28` → définition **nulle**.
+- **Cause** : un site déjà coché et exploré garde notre item AP dans ses
+  ressources ; la sauvegarde l'emporte et, au chargement, le jeu ne
+  retrouve pas notre définition fabriquée (entrée à définition nulle).
+  `SurveillerSites` ne touche plus au contenu d'un site coché (dépôts de
+  The Arks), donc rien ne réparait l'entrée.
+- **Correctif** (scooting.cpp, `NettoyerRessourcesSites`) : sur **tout**
+  site, retrait des seules entrées à définition nulle ou illisible
+  (compactage du tableau, compte réduit), à la sortie de `LoadGame`
+  (`ScootingApresChargement`) et à chaque tick (`SurveillerSites`) ; les
+  entrées valides (dépôts) restent. Un site AP pas encore coché ni
+  exploré dont le tableau est devenu vide reçoit de nouveau l'item AP.
+  Journal : `[SITE] (<quand>) <site> : N entree(s) de ressource a
+  definition nulle retiree(s)`. Déployé 18:38, **non testé**.
+
+## 2026-11-22 — « Destroy stationing expedition » limité aux sites AP
+
+- **Demande de l'auteur** (expédition bloquée à New London) : revoir la
+  neutralisation de l'effet (`hkDetruireExpedition`, depuis le 2026-11-06).
+- **Ghidra `FUN_14168dc50`** : entité = `*(*contexte)` ; elle doit être un
+  site (`DAT_14409ad58`) ou un groupe de survivants (`DAT_14409b698`) ; la
+  1re expédition qui y stationne (filtre de gabarit `effet +0x28`) est
+  détruite par `FUN_141895580`. Le jeu s'en sert donc aussi pour ses
+  propres expéditions et groupes.
+- **Journal du 2026-11-21** : 2 effets ignorés (l. 6122, City of Rats,
+  légitime ; l. 8180, entité inconnue, juste avant l'arrivée d'un groupe AP).
+  Aucun effet ignoré après l'arrivée de l'exp 5 à New London : la cause de
+  ce blocage est le contenu AP du site (voir sites.md), pas ce hook.
+- **Correctif** : l'effet n'est plus neutralisé que si l'entité est un site
+  AP (`SiteDeLEntite` + `PayloadDuSite`) ; ailleurs l'original s'exécute.
+  Journal : `... ignore sur le site AP "<site>"` ou `... execute (pas un
+  site AP) : <site> - <classe et gabarit de l'entite>`.
+- Compilé, déployé Steam (00:15). Non testé.
+
+## 2026-11-22 — Étapes de route d'On the Edge (TD1-3, TG1-6) : check jamais envoyé
+
+- **Constat (auteur)** : un éclaireur qui arrive sur une étape ne déclenche
+  rien ; une étape construite par l'équipe de construction ne crée pas la
+  route et n'envoie pas le check.
+- **Journal (`console.log`, l. 7382-7856)** : au lancement de
+  `[TradeRoutes] Ark Springs`, TG1, TG2 et TD1 passent **de l'état 0 à 2**
+  (`[SCOUT] site … explore (etat 0 -> 2)`), sans expédition sur place :
+  rien n'est ramassé. L'arrivée de l'éclaireur (exp 1 : TG2 puis TG1, à
+  vide) ne change plus l'état, donc ne fait plus rien. L'équipe de
+  construction (exp 18) ouvre les dilemmes `TD1` (« The Lost Scouts »)
+  puis `TG2` ; le journal s'arrête là (aucun effet « Destroy stationing
+  expedition » neutralisé, aucune trace de la construction du camp).
+- **Correctif (déployé sur Steam à 13:39)** : une expédition qui arrive **à vide** sur un
+  site AP déjà visité (état ≠ 0), pas coché, dont le check n'est porté par
+  aucune expédition, ramasse le check comme à l'exploration
+  (`[SCOUT] exp N ramasse la location … a l'arrivee (site deja visite …)`),
+  envoyé au retour en ville. Diagnostic : tout autre changement d'état d'un
+  site est journalisé (`[SCOUT] site … : etat A -> B`).
+- **Route non créée** : cause inconnue, il faut un journal qui couvre la
+  construction d'une étape jusqu'au bout. Non testé.
+- **Test de l'auteur (13:44)** : le ramassage à l'arrivée marche (TG1, TD1 ;
+  `TG1 : etat 2 -> 3` quand le camp est construit). Rock Shelf (TG2) jamais
+  ramassé : exp 18 y arrive en portant déjà le check de Gentle Descent
+  (porte 1), exp 19 avec celui de Mountain Pass. Correctif (compilé à 13:44,
+  déployé sur Steam à 13:46) : une cargaison faite de nos seuls items AP
+  (`cargo == nEnAttente`) compte comme vide.

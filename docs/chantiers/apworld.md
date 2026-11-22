@@ -300,7 +300,7 @@ région 2 → … → (dernier goulot fini) → `Finish`.
 | The Arks | 001 FIND FACTORY PLANS, 004 PREPARE FOR THE STORM, 008 NEW MANCHESTER (- COAL) |
 | The Refugees | 001 SAVE YOUR PEOPLE, 003 FACE THE LORDS, 004 NORMALIZE THE SITUATION (004a / 004b) |
 | Fall of Winterhome | 001 RESTORE HOPE, 002 BROKEN GENERATOR, 003 PREPARE EVACUATION, 004A FINAL HOURS |
-| The Last Autumn | 001 BASIC FACILITIES EXTENDED, 003 GENERATOR CONSTRUCTION SITE, 006 GENERATOR FINALIZATION |
+| The Last Autumn | 002 DOCK INFRASTRUCTURE (« Basic Facilities » ; 001 BASIC FACILITIES EXTENDED jusqu'au 2026-11-15, voir la fin du fichier), 003 GENERATOR CONSTRUCTION SITE, 006 GENERATOR FINALIZATION |
 | On the Edge | [1] Send first batch, [3] Food settlement, [7] Make Decision |
 
 - **Quêtes parallèles = un seul check** (point c). Exemple : Refugees
@@ -1418,3 +1418,25 @@ et les checks de ressources doivent afficher leur contenu exact
   `known_ap_ids.h` régénérés (seul ce nom change). DLL recompilées
   (16:46), apworld installé reconstruit. Les graines déjà générées
   gardent l'ancien nom (le serveur envoie le nom de sa graine).
+
+### 2026-11-15 — Last Autumn : 1er goulot = 002 DOCK INFRASTRUCTURE, 001 EXTENDED retirée
+
+- Partie avec Sunu_Frost (graine 09140994286178431655) : la location
+  « Quest: Finish Basic Facilities » (`7747400035`, `[Builders] 001 BASIC
+  FACILITIES EXTENDED`) n'est jamais partie, alors que la partie a été
+  gagnée. Le jeu ne lance pas cette quête en temps normal : d'après le
+  relevé des quêtes (`quetes_par_scenario.xlsx`), seuls les événements
+  `S: [Deadline] Missed deadline consequences` et `[sB]S: [Deadline] Free
+  pass` la lancent (délai manqué). Sur 6 débuts de Last Autumn dans le
+  journal Steam, la 1re quête lancée est toujours `002 DOCK INFRASTRUCTURE`
+  (« Basic Facilities », lancée par `U: Initial Statistic`) ; `001 BASIC
+  FACILITIES` n'est qu'un modèle du répertoire.
+- Décision de l'auteur : **goulot 1 = `002 DOCK INFRASTRUCTURE`**, location
+  001 EXTENDED **retirée** (`GOULOTS`, `QUETES`, `NOMS_QUETES`,
+  `OUVERTURE_LOIS` dans `generer.py`). Id `7747400035` gardé réservé dans
+  `ids.tsv`. Région 1 : « The Last Autumn - After Basic Facilities ».
+  Last Autumn : 136 locations (au lieu de 137). Graines existantes
+  incompatibles pour cette location.
+- `data.py` et `known_ap_ids.h` régénérés, DLL recompilée et déployée
+  (Epic), apworld installé reconstruit. Génération testée avec
+  l'`ArchipelagoGenerate.exe` 0.6.7 (2 joueurs, Last Autumn seul) : OK.

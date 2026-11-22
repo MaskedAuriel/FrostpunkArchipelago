@@ -3,6 +3,7 @@
 #include "lois_ap.h"        // IconeCheckDeTest
 #include "tech_brain.h"     // AP_NomDuCheck
 #include "archipelago.h"    // ApIconeDuCheck (scouts)
+#include "historique_ap.h"  // HistoriqueNoeudTechnoConstruit (legende de l'arbre)
 
 struct GabaritBat { uintptr_t tpl; char nom[64]; };
 static GabaritBat g_gabaritsBat[256];
@@ -621,6 +622,8 @@ static void hkPoserCaseUi(uintptr_t image, uint64_t cas, uint64_t nb)
 
 static uintptr_t g_panneauTechnos = 0;   // panneau de l'arbre (vu au 1er noeud construit)
 
+uintptr_t IconesTechnoPanneau() { return g_panneauTechnos; }
+
 // Nom des noeuds : le noeud garde le nom de la techno (decision de l'auteur,
 // 2026-11-04 : sinon le joueur ne sait plus quelle techno il a recue). Le
 // nom du check n'apparait que dans la description (hkTranslate, ApDescBuffer).
@@ -629,8 +632,13 @@ static uintptr_t g_panneauTechnos = 0;   // panneau de l'arbre (vu au 1er noeud 
 static uintptr_t hkNoeudTechno(uintptr_t panneau, uintptr_t tech, uintptr_t sortie, uintptr_t p4)
 {
     g_panneauTechnos = panneau;
-    ContexteIconeUi c(tech);
-    return oNoeudTechno(panneau, tech, sortie, p4);
+    uintptr_t r;
+    {
+        ContexteIconeUi c(tech);
+        r = oNoeudTechno(panneau, tech, sortie, p4);
+    }
+    HistoriqueNoeudTechnoConstruit();   // anneau de la legende de l'arbre (historique_ap.cpp)
+    return r;
 }
 
 // Test du 2026-11-01 : une techno recherchee arbre deja construit gardait

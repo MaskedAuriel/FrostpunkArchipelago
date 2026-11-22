@@ -27,6 +27,8 @@ const Correspondance VERSION_STEAM[] = {
     { 0x0E51FA0, 0x0E58E40 },   // mod_common.cpp:1414 -- exact 1.00
     { 0x0FEB340, 0x0E84840 },   // mod_common.h:145 -- exact 1.00
     { 0x0FEB760, 0x0E84C60 },   // quetes.cpp:155 -- exact 1.00
+    { 0x100EC50, 0x0EA8840 },   // historique_ap.cpp (poser une raison de pause) -- appel apres "UIPanelPause" (2026-11-21)
+    { 0x100F1A0, 0x0EA8D90 },   // historique_ap.cpp (retirer une raison de pause) -- appel apres "UIPanelPause" (2026-11-21)
     { 0x1016250, 0x0EAFE40 },   // groupes.cpp:37 -- exact 1.00
     { 0x1017230, 0x0EB0E20 },   // scooting.cpp:1580 -- exact 1.00
     { 0x1023D70, 0x0EBD960 },   // lois_ap.cpp:1090 -- exact 1.00
@@ -70,7 +72,8 @@ const Correspondance VERSION_STEAM[] = {
     { 0x1284EB0, 0x111E2C0 },   // sauvegardes_ap.cpp:28 -- seul appelant de 0x1C29F80, meme taille, 2026-11-10
     { 0x1286840, 0x111FC50 },   // mod_common.cpp:1485 -- exact 1.00
     { 0x12892F0, 0x11226F0 },   // sauvegardes_ap.cpp:20 -- exact 1.00
-    { 0x12EC200, 0x1186AC0 },   // groupes.cpp:674 -- getter de type (frostpunkselectioncomponent.h), corrige le 2026-11-10
+    { 0x12EC200, 0x1186AC0 },
+    { 0x12EF5F0, 0x1189EB0 },   // hooks_research.cpp (batiment de la categorie ?) -- octets identiques a 86 % (2026-11-22)   // groupes.cpp:674 -- getter de type (frostpunkselectioncomponent.h), corrige le 2026-11-10
     { 0x1301490, 0x119BCE0 },   // victoire.cpp:46 -- exact 1.00
     { 0x131DE20, 0x11B8670 },   // scooting.cpp:2243 -- exact 1.00
     { 0x1325E40, 0x11C0690 },   // hooks_research.cpp:34 -- exact 1.00
@@ -84,6 +87,7 @@ const Correspondance VERSION_STEAM[] = {
     { 0x1332CD0, 0x11CD520 },   // groupes.cpp:1445 -- exact 1.00
     { 0x139E930, 0x1239180 },   // mod_common.h:140 -- voisinage(2 cand) 1.00
     { 0x148C130, 0x1326980 },   // scooting.cpp:1837 -- getter de type (frostpunkexpeditionsitecomponent.h), corrige le 2026-11-10
+    { 0x1516EC0, 0x13B1710 },   // historique_ap.cpp (barre <- zone) -- reference unique a "ScrollPane is nullptr!" (2026-11-21)
     { 0x1518B70, 0x13B33C0 },   // scenarios_ap.cpp:323 -- exact 1.00
     { 0x1559730, 0x13F4070 },   // temperature.cpp:730 -- exact 1.00
     { 0x167C580, 0x1517520 },   // MessageManager.cpp:98 -- exact 1.00
@@ -103,7 +107,12 @@ const Correspondance VERSION_STEAM[] = {
     { 0x16FECC0, 0x1599CC0 },   // lois_ap.cpp (etat brut d'une loi) -- voisinage, octets identiques hors rip (2026-11-10)
     { 0x16FF990, 0x159A990 },   // lois_ap.cpp (loi signee ?) -- voisinage, octets identiques hors rip (2026-11-10)
     { 0x173FE40, 0x15DAE40 },   // mod_common.h:139 -- exact 1.00
+    { 0x179D030, 0x1638030 },   // hooks_research.cpp (inscription d'un modificateur de categorie) -- octets identiques a 97 % (2026-11-22)
+    { 0x179D140, 0x1638140 },   // hooks_research.cpp (inscription d'un modificateur d'entite) -- octets identiques a 100 % (2026-11-22)
+    { 0x179D240, 0x1638240 },   // hooks_research.cpp (application d'un modificateur d'entite) -- octets identiques a 90 % (2026-11-22)
+    { 0x179D480, 0x1638480 },   // hooks_research.cpp (ajout d'un modificateur global) -- octets identiques a 96 % (2026-11-22)
     { 0x17B9B70, 0x1654B70 },   // evenements.cpp:46 -- exact 1.00
+    { 0x17C0590, 0x165B590 },   // hooks_research.cpp (ecouteur des evenements scriptes de la recherche) -- octets identiques a 98 % (2026-11-22)
     { 0x17CDE10, 0x1668E10 },   // evenements.cpp:65 -- exact 1.00
     { 0x17CFBF0, 0x166ABF0 },   // evenements.cpp:943 -- feuille (motif d'octets)
     { 0x17CFC40, 0x166AC40 },   // evenements.cpp:826 -- feuille (motif d'octets)
@@ -117,6 +126,7 @@ const Correspondance VERSION_STEAM[] = {
     { 0x18EF2F0, 0x178A1C0 },   // scooting.cpp:2239 -- exact 1.00
     { 0x18F2A30, 0x178D900 },   // scooting.cpp:2235 -- exact 1.00
     { 0x1916F90, 0x17B1E60 },   // IconSubManager.cpp:307 -- exact 1.00
+    { 0x196B2D0, 0x1807D20 },   // historique_ap.cpp -- reference unique a "UI/MainScreen" (2026-11-21)
     { 0x19E68B0, 0x1883300 },   // MessageManager.cpp:335 -- exact 1.00
     { 0x19E9560, 0x1885FB0 },   // mod_common.cpp:2689 -- voisinage(2 cand) 0.98
     { 0x1A0EB70, 0x18AB5F0 },   // mod_common.cpp:2690 -- exact 1.00
@@ -140,11 +150,13 @@ const Correspondance VERSION_STEAM[] = {
     { 0x1BB2D30, 0x1A53A50 },   // IconSubManager.cpp:554 -- exact 1.00
     { 0x1BBB480, 0x1A5C1A0 },   // lois_ap.cpp (donnees d'un noeud du livre) -- voisinage, octets identiques hors rip (2026-11-10)
     { 0x1BBC320, 0x1A5D040 },   // lois_ap.cpp:993 -- voisinage(1 cand) 0.94
+    { 0x1BBDF60, 0x1A5ECA0 },   // historique_ap.cpp (init du livre) -- reference unique a "CATEGORIES_VIEW" (2026-11-21)
     { 0x1BC1440, 0x1A62180 },   // lois_ap.cpp:1455 -- exact 1.00
     { 0x1BC2020, 0x1A62D60 },   // lois_ap.cpp (visuel d'un noeud du livre) -- voisinage, octets identiques hors rip (2026-11-10)
     { 0x1BC2640, 0x1A63380 },   // lois_ap.cpp (etat d'un noeud du livre) -- voisinage, octets identiques hors rip (2026-11-10)
     { 0x1BC5100, 0x1A65E40 },   // hooks_research.cpp (noeud disponible, arbre) -- voisinage, octets identiques hors rip (2026-11-10)
     { 0x1BC5810, 0x1A66550 },   // IconSubManager.cpp:553 -- exact 1.00
+    { 0x1BC6800, 0x1A67540 },   // historique_ap.cpp (init de l'arbre des technos) -- reference unique a "TECHTREE_PARENT" (2026-11-21)
     { 0x1BCA5A0, 0x1A6B2E0 },   // hooks_research.cpp (rafraichissement d'un noeud, arbre) -- voisinage, octets identiques hors rip (2026-11-10)
     { 0x1BCC1A0, 0x1A6CEE0 },   // temperature.cpp:731 -- exact 1.00
     { 0x1BE67F0, 0x1A87530 },   // IconSubManager.cpp:553 -- exact 1.00
@@ -166,6 +178,7 @@ const Correspondance VERSION_STEAM[] = {
     { 0x2BE0438, 0x2B3D018 },   // lois_ap.cpp:1090 -- global (references exactes)
     { 0x2BFD628, 0x2B5A1B8 },   // IconSubManager.cpp:651 -- global (references exactes)
     { 0x2C2FCA8, 0x2B8C808 },   // evenements.cpp:828 -- global (references exactes)
+    { 0x2C30130, 0x2B8D390 },   // historique_ap.cpp (minuteur du jeu) -- global lu avant "UIPanelPause" (2026-11-21)
     { 0x2C30158, 0x2B8D3B8 },   // victoire.cpp:47 -- global (references exactes)
     { 0x2C30200, 0x2B8D460 },   // mod_common.h:150 -- global (references exactes)
     { 0x2C309E0, 0x2B8DC40 },   // mod_common.cpp:119 -- global (references exactes)
@@ -176,10 +189,12 @@ const Correspondance VERSION_STEAM[] = {
     { 0x2C34490, 0x2B91010 },   // lois.cpp:29 -- global (references exactes)
     { 0x2C38E90, 0x2B95A20 },   // victoire.cpp:48 -- global (references exactes)
     { 0x2C38FF0, 0x2B95B80 },   // groupes.cpp:323 -- global (references exactes)
+    { 0x2C3C408, 0x2B992B8 },   // hooks_research.cpp (systeme des batiments) -- reference de FUN_14179d030, meme decalage (2026-11-22)
     { 0x40615C0, 0x3FBE470 },   // MessageManager.cpp:434 -- global (references exactes)
     { 0x4062870, 0x3FBF720 },   // lois.cpp:70 -- global (references exactes)
     { 0x4062BA8, 0x3FBFA58 },   // IconSubManager.cpp:555 -- global (references exactes)
     { 0x4062D48, 0x3FBFBF8 },   // temperature.cpp:61 -- global (references exactes)
+    { 0x4065AE0, 0x3FC2998 },   // historique_ap.cpp (controleur de la camera) -- 4 sites "add [rax+0x1F0]" identiques
     { 0x4069880, 0x3FC6740 },   // evenements.cpp:1051 -- global (references exactes)
     { 0x4069970, 0x3FC6830 },   // evenements.cpp:47 -- global (references exactes)
     { 0x406AD18, 0x3FC7BD8 },   // groupes.cpp:1542 -- global (references exactes)

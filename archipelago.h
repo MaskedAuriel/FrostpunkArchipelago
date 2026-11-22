@@ -137,12 +137,14 @@ int64_t ApQueteLocation(const char* questName);
 void SendTemperatureCheck(int rank);
 // Victoire d'un scenario au niveau cible (victoire.cpp, hook de EndGame
 // FUN_141301490) : EVENEMENT du goal, pas une location (aucun item). Notee
-// dans mods\ap_victoires.txt ; goal atteint quand tous les scenarios du
-// slot sont gagnes. Popup "Scenario completed", puis "Goal reached".
+// dans ap_victoires.txt de la session ; goal atteint quand scenarios_to_win
+// scenarios quelconques du slot sont gagnes (goal partiel, 2026-11-21).
+// Popup "Scenario completed", puis "Goal reached".
 void SendScenarioVictory(const char* scenario, const char* displayName);
-// Scenarios a gagner pour le goal (option "scenarios" du slot_data, noms
-// internes). Defaut TEMPORAIRE : A New Home seul.
-void ApReglerScenariosGoal(const char* const* scenarios, int n);
+// Scenarios du slot (option "scenarios" du slot_data, noms internes) et
+// nombre a gagner (scenarios_to_win ; 0 ou plus que le slot = tous). Defaut
+// avant tout slot_data : A New Home seul.
+void ApReglerScenariosGoal(const char* const* scenarios, int n, int aGagner);
 
 // --- slot_data (connexion) -----------------------------------------------------
 
@@ -156,6 +158,7 @@ struct ApSlotData {
     const char* goalDifficulty;
     bool        excludePurposePolitics;
     int         deliveryHours;
+    int         scenariosToWin;   // 0 = tous (graine d'avant l'option)
 };
 // Applique le slot_data : scenarios du goal, difficulte imposee, duree de
 // livraison des groupes. Le scenario de depart arrive comme item (Scenario
@@ -245,6 +248,10 @@ const char* ApIconeDuCheck(const char* genre, const char* cle);
 // Nom du check d'une location AP par son id (scout) : "<joueur> - <item>"
 // (ApNomDuScout). false si pas encore scoutee. Tout thread.
 bool ApNomDuCheckLocation(int64_t locationId, char* out, size_t taille);
+// Nom d'un item / d'une location de Frostpunk par son id (tables de
+// known_ap_ids.h). nullptr si inconnu. Tout thread.
+const char* ApNomItemParId(int64_t id);
+const char* ApNomLocationParId(int64_t id);
 // Livraisons et sauvegardes (2026-11-10), thread du jeu : instantane des
 // livraisons a l'ecriture d'une sauvegarde (hook d'ecriture,
 // sauvegardes_ap.cpp), repris a la sortie de LoadGame (mod_common.cpp).

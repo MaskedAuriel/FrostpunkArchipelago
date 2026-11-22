@@ -50,5 +50,8 @@ const char* IconeCheckDeTest(const char* cle, int rang);
 uintptr_t IconeAPSurCopieDe(uintptr_t original, uintptr_t parent, const char* icone);
 // Pose la case 'icone' de l'atlas des bulles sur une image deja creee.
 bool IconeAPPoser(uintptr_t image, const char* icone);
+// Recette (+0x1E8) et ressource (+0x1F0) de "circle_inside" (plume des lois
+// signees), relevees sur un noeud du livre a sa construction ; false avant.
+bool LoisModeleSigne(uintptr_t* recette, uintptr_t* ressource);
 // Taille nulle (FUN_14102b170) : cache une image sans toucher a son etat.
 void ElementTailleNulle(uintptr_t el);

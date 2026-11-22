@@ -72,6 +72,7 @@ void EvenementsForcerCriseCharbon();
 
 // Classe de l'entite et chemin de son CompoundTemplate (journal).
 void DecrireEntiteContexte(uintptr_t entite, char* out, int maxlen);
+uintptr_t EntiteDuContexte(uintptr_t contexte);   // *(*contexte), ou 0
 
 // Detail d'un dilemme du jeu au journal [REFUG] (textes, choix, effets et
 // resultats de chaque choix). Lecture seule, tout thread.
