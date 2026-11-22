@@ -1,6 +1,6 @@
 // historique_ap.h
 // ---------------------------------------------------------------------------
-// Historique de la session Archipelago en jeu (docs/chantiers/historique.md) :
+// Historique de la session Archipelago en jeu (.claude/chantiers/historique.md) :
 // un bouton dans le HUD ouvre un panneau dedie (clone d'elements du jeu) qui
 // liste les items recus et les checks envoyes de la session (graine + slot).
 //

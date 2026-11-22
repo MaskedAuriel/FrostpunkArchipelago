@@ -1,7 +1,7 @@
 # Difficulte, victoire / defaite et checks de victoire
 
-> Historique detaille, copie mot pour mot depuis CLAUDE.md le 2026-11-02.
-> Le resume a jour est dans CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
+> Historique detaille, copie mot pour mot depuis .claude/CLAUDE.md le 2026-11-02.
+> Le resume a jour est dans .claude/CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
 
 - **Revue de la détection de la difficulté (2026-11-01)** : réflexions
   `FUN_1412f9360` (`FrostpunkDifficultySystem`, 0x80 : `+0x30`
@@ -120,5 +120,5 @@
 
 ## 2026-11-21 : goal partiel
 
-Le goal n'exige plus tous les scenarios du slot : option `scenarios_to_win`, voir `docs/chantiers/options.md`.
+Le goal n'exige plus tous les scenarios du slot : option `scenarios_to_win`, voir `.claude/chantiers/options.md`.
 

@@ -1,4 +1,4 @@
-# Frostpunk -- apworld (logique dictee par l'auteur : docs/chantiers/apworld.md).
+# Frostpunk -- apworld (logique dictee par l'auteur : .claude/chantiers/apworld.md).
 # Les tables (technos, lois, sites, quetes, ids) sont dans data.py, GENERE par
 # apworld/outils/generer.py depuis les tables du mod.
 

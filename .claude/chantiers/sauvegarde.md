@@ -1,7 +1,7 @@
 # Sauvegarde des elements AP (groupes, messages, bulles, technos)
 
-> Historique detaille, copie mot pour mot depuis CLAUDE.md le 2026-11-02.
-> Le resume a jour est dans CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
+> Historique detaille, copie mot pour mot depuis .claude/CLAUDE.md le 2026-11-02.
+> Le resume a jour est dans .claude/CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
 
 - **Sauvegarde des éléments AP (2026-10-29)** : au rechargement d'une
   sauvegarde, un groupe AP perd logo et contenu (la copie du template n'est

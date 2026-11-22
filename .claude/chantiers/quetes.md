@@ -1,7 +1,7 @@
 # Actes et quetes
 
-> Historique detaille, copie mot pour mot depuis CLAUDE.md le 2026-11-02.
-> Le resume a jour est dans CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
+> Historique detaille, copie mot pour mot depuis .claude/CLAUDE.md le 2026-11-02.
+> Le resume a jour est dans .claude/CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
 
 - **Actes et quêtes (2026-11-01, prochaine grosse étape)** : les « actes »
   de données (`FrostpunkGameActEntry`) ne sont **pas** les actes du joueur.

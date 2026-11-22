@@ -1,7 +1,7 @@
 # Temperature / meteo
 
-> Historique detaille, copie mot pour mot depuis CLAUDE.md le 2026-11-02.
-> Le resume a jour est dans CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
+> Historique detaille, copie mot pour mot depuis .claude/CLAUDE.md le 2026-11-02.
+> Le resume a jour est dans .claude/CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
 
 - **Température (2026-11-01, demande de l'auteur)** : but final = retirer
   toutes les variations de température scriptées et en faire des checks /
@@ -305,5 +305,5 @@ déployé Epic + Steam, non testé.
   joueur (`placer_montees` supprimée) : classe `progression` sans
   équilibrage, chez n'importe quel joueur. Chaque goulot exige les montées
   prévues pour les régions précédentes, la victoire toutes (détail :
-  `docs/chantiers/apworld.md`, 2026-11-14). Côté mod : rien ne change
+  `.claude/chantiers/apworld.md`, 2026-11-14). Côté mod : rien ne change
   (chaque item rend toujours un niveau).

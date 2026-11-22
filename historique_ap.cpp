@@ -1,7 +1,7 @@
 // historique_ap.cpp
 // ---------------------------------------------------------------------------
 // Historique de la session Archipelago et legende des icones AP en jeu
-// (docs/chantiers/historique.md).
+// (.claude/chantiers/historique.md).
 //
 // Decisions de l'auteur (2026-11-21) :
 //  - historique : bouton dans le HUD, PANNEAU DEDIE (pas un message), items
@@ -29,7 +29,7 @@
 //    racine **(panneau +0xA8), TREE_VIEW = **(panneau +0x190).
 //  - FUN_141bc6800 = init de l'arbre des technos : racine **(panneau +0xA8).
 // Offsets d'element et de recette : voir menu_ap.cpp et
-// docs/chantiers/menu_connexion.md.
+// .claude/chantiers/menu_connexion.md.
 //
 // Tout s'execute sur le thread du jeu : hooks d'init des panneaux, rappels
 // de clic, HistoriquePompe (setter de ressources).

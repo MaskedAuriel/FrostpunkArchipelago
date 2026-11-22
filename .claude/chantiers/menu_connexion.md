@@ -1,7 +1,7 @@
 # Ecran de connexion du menu principal
 
-> Historique detaille, copie mot pour mot depuis CLAUDE.md le 2026-11-02.
-> Le resume a jour est dans CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
+> Historique detaille, copie mot pour mot depuis .claude/CLAUDE.md le 2026-11-02.
+> Le resume a jour est dans .claude/CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
 
 - **Écran de connexion au menu principal (2026-10-31, approche 1 choisie par
   l'auteur, VALIDÉ visuellement le 2026-10-31)** : 3 champs (serveur, slot,

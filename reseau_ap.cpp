@@ -1,4 +1,4 @@
-// reseau_ap.cpp -- couche reseau Archipelago (docs/chantiers/reseau.md).
+// reseau_ap.cpp -- couche reseau Archipelago (.claude/chantiers/reseau.md).
 //
 // Transport : WebSocket ecrit a la main sur Winsock (decision de l'auteur,
 // 2026-11-04) : poignee de main HTTP, trames masquees cote client, ping/pong,

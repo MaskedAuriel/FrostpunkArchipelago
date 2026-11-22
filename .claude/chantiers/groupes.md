@@ -1,7 +1,7 @@
 # Groupes AP : creation, livraison, dilemme d'arrivee, inventaire
 
-> Historique detaille, copie mot pour mot depuis CLAUDE.md le 2026-11-02.
-> Le resume a jour est dans CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
+> Historique detaille, copie mot pour mot depuis .claude/CLAUDE.md le 2026-11-02.
+> Le resume a jour est dans .claude/CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
 
 - **Livraison des items par groupe de réfugiés** (demandé le 2026-10-28) :
   prendre le contrôle des groupes de survivants qui marchent vers la ville

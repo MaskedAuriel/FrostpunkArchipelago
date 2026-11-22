@@ -2,7 +2,7 @@
 // ---------------------------------------------------------------------------
 // Dilemmes d'exploration a plusieurs choix : choix unique "Archipelago
 // Prevail" (2026-11-10, regle de l'auteur : gain maximal, effets du jeu
-// inchanges ; table et motifs dans docs/chantiers/dilemmes_exploration.md).
+// inchanges ; table et motifs dans .claude/chantiers/dilemmes_exploration.md).
 //
 // Principe : on modifie SUR PLACE la definition du dilemme (FrostpunkDilemma
 // Entry, configuration base + 0x4069880, repertoires +0x130) : son tableau

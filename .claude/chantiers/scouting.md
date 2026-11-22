@@ -1,7 +1,7 @@
 # Scouting : survol, landmarks, sauvegarde empoisonnee, debug des trajets
 
-> Historique detaille, copie mot pour mot depuis CLAUDE.md le 2026-11-02.
-> Le resume a jour est dans CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
+> Historique detaille, copie mot pour mot depuis .claude/CLAUDE.md le 2026-11-02.
+> Le resume a jour est dans .claude/CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
 
 - **Survol d'un scout** : identifier l'expédition sous le curseur.
   **Infobulle de la case AP dans la liste de droite (2026-10-30, non

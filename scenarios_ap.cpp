@@ -48,7 +48,7 @@
 // Le bouton est le nouvel enfant de la colonne **(panneau + 0xD8) (ajoute a
 // la fin, ou en tete pour le scenario principal).
 //
-// Difficulte imposee (2026-11-03, docs/chantiers/difficulte.md). Decisions de
+// Difficulte imposee (2026-11-03, .claude/chantiers/difficulte.md). Decisions de
 // l'auteur : difficulte du YAML IMPOSEE et curseurs FIGES, personnalisation =
 // toutes les lignes au niveau cible, 6 scenarios AP, ironman libre.
 // Decompiles du panneau des scenarios :

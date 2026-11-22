@@ -1,7 +1,7 @@
 # Revue du systeme de technos (icones, noms, persistance)
 
-> Historique detaille, copie mot pour mot depuis CLAUDE.md le 2026-11-02.
-> Le resume a jour est dans CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
+> Historique detaille, copie mot pour mot depuis .claude/CLAUDE.md le 2026-11-02.
+> Le resume a jour est dans .claude/CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
 
 - **Revue du système de technos (2026-11-01)** : (1) **la détection
   d'ouverture de l'arbre n'a jamais fonctionné** : `g_instantArbre` est posé

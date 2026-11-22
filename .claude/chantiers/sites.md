@@ -1,7 +1,7 @@
 # Sites d'exploration : liste, tirage fixe, icones des marqueurs
 
-> Historique detaille, copie mot pour mot depuis CLAUDE.md le 2026-11-02.
-> Le resume a jour est dans CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
+> Historique detaille, copie mot pour mot depuis .claude/CLAUDE.md le 2026-11-02.
+> Le resume a jour est dans .claude/CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
 
 - **Liste des sites d'exploration (2026-11-01, demande de l'auteur : pour
   leur assigner les checks ; non testé)** : F9 fait aussi

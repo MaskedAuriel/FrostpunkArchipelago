@@ -628,7 +628,7 @@ uintptr_t IconesTechnoPanneau() { return g_panneauTechnos; }
 // 2026-11-04 : sinon le joueur ne sait plus quelle techno il a recue). Le
 // nom du check n'apparait que dans la description (hkTranslate, ApDescBuffer).
 // Historique des essais (texte brut, cle "@AP/TechNom", traduction a la
-// validation FUN_14111a680) : docs/chantiers/reseau.md.
+// validation FUN_14111a680) : .claude/chantiers/reseau.md.
 static uintptr_t hkNoeudTechno(uintptr_t panneau, uintptr_t tech, uintptr_t sortie, uintptr_t p4)
 {
     g_panneauTechnos = panneau;

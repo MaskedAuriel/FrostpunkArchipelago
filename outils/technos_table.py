@@ -4,7 +4,7 @@
 # Ecrit, depuis la racine du projet :
 #   known_techs.h                    table du mod (un groupe par scenario AP)
 #   outils\technos_table.tsv         table pour l'apworld
-#   docs\chantiers\technos.md        tableau lisible (entre les marqueurs)
+#   .claude\chantiers\technos.md        tableau lisible (entre les marqueurs)
 # Source de verite des numeros d'arbres : outils\technos_arbres.tsv
 # (hash -> arbre). Cree au premier lancement depuis l'ancien known_techs.h,
 # puis edite a la main : un numero d'arbre ne change plus (ReceiveProgressive).
@@ -27,7 +27,7 @@ JOURNAL = sys.argv[1] if len(sys.argv) > 1 else os.path.join(RACINE, "logs", "co
 ARBRES = os.path.join(RACINE, "outils", "technos_arbres.tsv")
 SORTIE_TSV = os.path.join(RACINE, "outils", "technos_table.tsv")
 SORTIE_H = os.path.join(RACINE, "known_techs.h")
-DOC = os.path.join(RACINE, "docs", "chantiers", "technos.md")
+DOC = os.path.join(RACINE, ".claude", "chantiers", "technos.md")
 DEBUT_DOC = "<!-- TABLE TECHNOS (generee par outils/technos_table.py) -->"
 FIN_DOC = "<!-- FIN TABLE TECHNOS -->"
 

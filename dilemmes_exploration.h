@@ -3,7 +3,7 @@
 // Dilemmes d'exploration a plusieurs choix (bulle d'un site explore par les
 // eclaireurs), 2026-11-10, regle de l'auteur : un seul choix, libelle
 // "Archipelago Prevail", qui applique EXACTEMENT les effets d'un choix du
-// jeu (regle du gain maximal, table dans docs/chantiers/dilemmes_exploration.md).
+// jeu (regle du gain maximal, table dans .claude/chantiers/dilemmes_exploration.md).
 // ---------------------------------------------------------------------------
 #pragma once
 #include <cstdint>

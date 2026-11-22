@@ -1,6 +1,6 @@
 # Difficulte imposee aux parties Archipelago
 
-> Historique detaille du chantier. Le resume a jour est dans CLAUDE.md ; les
+> Historique detaille du chantier. Le resume a jour est dans .claude/CLAUDE.md ; les
 > nouveaux resultats de test s'ajoutent ici.
 
 - **Objectif (2026-11-03)** : une partie neuve d'un scénario AP se lance à la

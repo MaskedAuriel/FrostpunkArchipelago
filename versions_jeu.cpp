@@ -1,6 +1,6 @@
 ﻿// versions_jeu.cpp -- Detection de l'exe et traduction des adresses Epic.
 // Voir versions_jeu.h. Table Steam generee le 2026-11-07 (session de
-// portage : appariement Epic / Steam, scripts dans docs/chantiers/steam.md).
+// portage : appariement Epic / Steam, scripts dans .claude/chantiers/steam.md).
 #include <windows.h>
 #include <cstdio>
 #include <cwchar>

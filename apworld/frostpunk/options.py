@@ -1,4 +1,4 @@
-# options.py -- Options du YAML (Q8 du journal de docs/chantiers/apworld.md).
+# options.py -- Options du YAML (Q8 du journal de .claude/chantiers/apworld.md).
 
 from dataclasses import dataclass
 

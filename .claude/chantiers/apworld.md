@@ -873,7 +873,7 @@ d'ouverture de l'arbre**, condition des lois. Lignes finales `# exclues`.
 
 - `generer.py`, `MONTEES` : un check et un item `Temperature Rise` par
   **niveau** retiré (décision de l'auteur). Recalculé depuis le tableau des
-  montées de `docs/chantiers/temperature.md` (fin de partie exclue, +1 de
+  montées de `.claude/chantiers/temperature.md` (fin de partie exclue, +1 de
   Storm preparation pour A New Home) : **identique** au calcul de la
   session mod. Easy / Medium / Hard / Very Hard : A New Home 6/7/7/7
   (avant 5), The Arks 2/5/0/0, The Refugees 1/4/3/3, Fall of Winterhome
@@ -1332,7 +1332,7 @@ et les checks de ressources doivent afficher leur contenu exact
   `Lords Arrival 1..3` (région 1), ids `loc_refugies|REFUGEES|1..13` ;
   items `Our People (Group 1..10)`, `Lords (Group 1..3)` (`useful`,
   `item_site|REFUGEES|refugies_1..13`). Compositions : tableau dans
-  `docs/chantiers/groupes.md` (relevé `[REFGRP]` + `templates.dat`).
+  `.claude/chantiers/groupes.md` (relevé `[REFGRP]` + `templates.dat`).
 - 865 → 878 locations, 409 → 422 items ; aucun id existant changé.
   `custom_worlds\frostpunk.apworld` reconstruit ; génération de contrôle
   (exe 0.6.7, YAML Refugees seul) : 167 locations, OK. Banc 0.6.8 non

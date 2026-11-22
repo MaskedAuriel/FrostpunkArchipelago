@@ -385,3 +385,6 @@ textures/bulles/02350_modifie.png
 textures/bulles/controle.png
 textures/bulles/planche.png
 textures/bulles/emplacements.png
+# Serveur MCP Ghidra de l'auteur (Claude Code ne le lit qu'a la racine) ;
+# tout le reste de ce qui concerne Claude est dans .claude\
+.mcp.json

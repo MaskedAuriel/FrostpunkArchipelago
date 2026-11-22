@@ -5,7 +5,7 @@
 # jeu ne traduit que les lois vues dans le livre pendant la session).
 # Ecrit, depuis la racine du projet :
 #   outils\lois_table.tsv        table pour l'apworld
-#   docs\chantiers\lois.md       tableau lisible (entre les marqueurs)
+#   .claude\chantiers\lois.md       tableau lisible (entre les marqueurs)
 #
 # Regles (decisions de l'auteur, 2026-10-30 / 2026-11-03) :
 #   - arbres = ceux de lois_ap (Purpose = Order + Faith, Politics = Left +
@@ -28,7 +28,7 @@ import sys
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JOURNAUX = sys.argv[1:] or [os.path.join(RACINE, "logs", "console.log")]
 SORTIE_TSV = os.path.join(RACINE, "outils", "lois_table.tsv")
-DOC = os.path.join(RACINE, "docs", "chantiers", "lois.md")
+DOC = os.path.join(RACINE, ".claude", "chantiers", "lois.md")
 DEBUT_DOC = "<!-- TABLE LOIS (generee par outils/lois_table.py) -->"
 FIN_DOC = "<!-- FIN TABLE LOIS -->"
 
@@ -41,7 +41,7 @@ SCENARIOS = [
     ("Reconquest", "On the Edge"),
 ]
 
-# Unlocks par scenario (releves F4 v5 a v8, docs/chantiers/lois.md) :
+# Unlocks par scenario (releves F4 v5 a v8, .claude/chantiers/lois.md) :
 # "depart" = actif des le debut, "plus tard" = donne par l'histoire.
 # Un unlock absent de la table n'existe pas dans le scenario.
 UNLOCKS = {
@@ -68,7 +68,7 @@ POLITIQUES = [
     ("Path chosen=", None, {}),   # choix Order / Faith : condition notee
 ]
 
-# Noms affiches de secours (docs/chantiers/lois.md), cle = (categorie, nom
+# Noms affiches de secours (.claude/chantiers/lois.md), cle = (categorie, nom
 # interne sans prefixe [..]) ; le releve passe avant.
 NOMS = {}
 for cat, interne, aff in [

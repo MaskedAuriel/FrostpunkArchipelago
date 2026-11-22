@@ -1,6 +1,6 @@
 // reseau_ap.h
 // ---------------------------------------------------------------------------
-// Couche reseau Archipelago (docs/chantiers/reseau.md) : la "classe specifique
+// Couche reseau Archipelago (.claude/chantiers/reseau.md) : la "classe specifique
 // pour toutes les interactions avec le serveur". WebSocket ecrit a la main sur
 // Winsock, TLS par Schannel pour wss://, JSON par nlohmann/json, thread dedie.
 //

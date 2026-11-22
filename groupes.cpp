@@ -957,7 +957,7 @@ void hkGroupeArrive(uintptr_t sys, uintptr_t entite, uintptr_t p3, uintptr_t p4)
         if (sm && sm[17] >= '1' && sm[17] <= '3') vagueRefugies = sm[17] - '0';
         uintptr_t comp = 0;
         static uintptr_t comps[64];
-        int n = ComposantsDuSysteme(0x6D /* SurvivorGroup (CLAUDE.md, section 8) */,
+        int n = ComposantsDuSysteme(0x6D /* SurvivorGroup (.claude/CLAUDE.md, section 8) */,
                                     "FrostpunkSurvivorGroupComponent", comps, 64);
         for (int i = 0; i < n && !comp; ++i) {
             uintptr_t e = 0;                                   // composant +0x18 = entite proprietaire

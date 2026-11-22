@@ -29,6 +29,11 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
 
 ## 2. Conventions de travail (impératives)
 
+- **Tout ce qui concerne Claude est dans `.claude\`** (décision de
+  l'auteur, 2026-11-22) : ce fichier, `settings.json`, les journaux des
+  chantiers (`.claude\chantiers\`). Seul `.mcp.json` (Ghidra) reste à la
+  racine, hors dépôt : Claude Code ne le lit que là. L'usage de Claude est
+  déclaré dans `README.md` (section « Use of AI »).
 - **Tout en français** : échanges, commentaires de code, messages de log.
 - **Exception : tout texte affiché EN JEU est en anglais** (popups, noms et
   descriptions de groupes, dilemmes, choix, textes d'items/checks…) —
@@ -370,7 +375,7 @@ l'UTF-16 : sinon seule la première lettre s'affiche, puis crash.
 ## 8. Accès aux objets du jeu : ancrages et captures
 
 Historique complet (balayage mémoire, mesures, piste des ancrages) :
-`docs/chantiers/balayage_memoire.md`.
+`.claude/chantiers/balayage_memoire.md`.
 
 - **Plus aucun balayage mémoire en jeu** (ancien coût : 15,8 s ; validé le
   2026-10-15, `[ANCRES]` en 0 ms). `CollectObjectsByClasses` ne sert plus
@@ -396,7 +401,7 @@ Historique complet (balayage mémoire, mesures, piste des ancrages) :
 - **Chargement d'une sauvegarde** : synchrone sur le thread du jeu ;
   `LoadGame` = `FUN_141265df0`, hooks `[CHARG]` (`InstallTraceChargement`) :
   fin de lecture puis sortie de `LoadGame` = points de recollage des éléments
-  AP (voir `docs/chantiers/sauvegarde.md`).
+  AP (voir `.claude/chantiers/sauvegarde.md`).
 - **Si l'init échoue**, le message d'erreur doit lister précisément ce qui
   manque (`sites=0 send=0 city=1 …`), pas un simple « incomplet ».
 
@@ -406,13 +411,13 @@ Historique complet (balayage mémoire, mesures, piste des ancrages) :
 
 > **Organisation (2026-11-02)** : ce fichier ne garde qu'un **résumé** par
 > chantier. L'historique détaillé (décompilés, essais, journaux de test) est
-> dans **`docs/chantiers/<chantier>.md`**, copié mot pour mot. Le lire
+> dans **`.claude/chantiers/<chantier>.md`**, copié mot pour mot. Le lire
 > **seulement** quand on travaille sur ce chantier.
 > **Règle** : chaque nouveau résultat de test, décompilé ou essai s'ajoute
 > à la fin du fichier du chantier ; le résumé ci-dessous n'est mis à jour
 > que si l'état change (validé, non testé, décision de l'auteur, nouvel
 > offset clé). Un nouveau chantier = un nouveau fichier dans
-> `docs/chantiers/` + un résumé ici.
+> `.claude/chantiers/` + un résumé ici.
 
 ### Fonctionnels
 
@@ -459,7 +464,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
 
 ### Résumés par chantier
 
-- **Ressources et couche `archipelago.cpp`** — `docs/chantiers/ressources_et_ancrages.md`.
+- **Ressources et couche `archipelago.cpp`** — `.claude/chantiers/ressources_et_ancrages.md`.
   **VALIDÉ le 2026-10-28** : `ReceiveProgressive` (F7), `ReceiveResource`
   (F11), écouteurs actifs, popups par la file. Ressources ancrées à l'init
   (`Res_InitDepuisEconomie` : conteneur `éco +0x2240`, entrées de 0x70) ;
@@ -469,7 +474,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   lignes en cas de crash). Items reçus hors partie prête : ignorés (file à
   prévoir avec le réseau).
 
-- **Groupes AP (livraison par groupe de survivants)** — `docs/chantiers/groupes.md`.
+- **Groupes AP (livraison par groupe de survivants)** — `.claude/chantiers/groupes.md`.
   **VALIDÉ le 2026-10-28** dans n'importe quel scénario : template chargé
   par chemin (`GameEntities/WorldMap/SurvivorGroups/…`, pool
   `DAT_142b2e710`, `FUN_141035dd0` puis `FUN_14111d100`), création
@@ -484,14 +489,14 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   état « non testé » dans le fichier. F3 = groupe de test (F8 réglait les
   30 min restantes ; F8 est désormais l'item de température).
 
-- **Dilemmes et pièges AP (bulles)** — `docs/chantiers/groupes.md` (fin) et
+- **Dilemmes et pièges AP (bulles)** — `.claude/chantiers/groupes.md` (fin) et
   `dilemmes_ap.cpp`. **VALIDÉ** : bulle sur le générateur (sujet global),
   choix et pertes, icône `icon_trap` de l'atlas des bulles. Création
   `FUN_1417cde10`, résolution `FUN_1417d40c0`. Pour ajouter un piège : une
   entrée dans `DILEMMES_AP`. F6 = piège de test.
 
 - **Atlas des bulles `UI/Tiles/Icons.texture` = entrée 2350** —
-  `docs/chantiers/groupes.md`. Noms hashés de la forme
+  `.claude/chantiers/groupes.md`. Noms hashés de la forme
   `ui/tiles/icons.texture` (MurmurHash2, `scratchpad\hash_textures.ps1`).
   Construction : `textures\bulles\composer_atlas.ps1` puis
   `construire_ap_icons_bulles.ps1` → `mods\ap_icons_bulles.gz`.
@@ -499,7 +504,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   Cases (`bulleCol/bulleRow`) : vanilla (7,1), filler (8,1), important
   (9,1), progressive (10,1), trap (11,1), done (12,1), vanilla_groupe (8,4).
 
-- **Sauvegarde des éléments AP** — `docs/chantiers/sauvegarde.md`.
+- **Sauvegarde des éléments AP** — `.claude/chantiers/sauvegarde.md`.
   Principe (décision de l'auteur) : **nos propres fichiers** dans `mods\`,
   recollés au chargement, jamais d'écriture dans la sauvegarde du jeu.
   **VALIDÉ le 2026-10-29** : groupes (`ap_groupes.txt`, clé = id 128 bits
@@ -512,14 +517,14 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   le mod, seules les sauvegardes **écrites dans la session AP** (graine +
   slot) sont visibles, les autres sont masquées (`sauvegardes_ap.cpp`).
 
-- **Scouting** — `docs/chantiers/scouting.md`. Infobulle de la case AP de
+- **Scouting** — `.claude/chantiers/scouting.md`. Infobulle de la case AP de
   la liste de droite (une chaîne par expédition) : non testé. Sites
   landmarks : affichage du contenu à faire. Sauvegarde empoisonnée :
   `ScootingApresChargement` (cargaisons mortes vidées avant le 1er tick) :
   non testé. Debug `EXPEDITIONS_RAPIDES` (trajets de 15 min) **retiré le
   2026-11-04** (hook de l'envoi d'expédition supprimé).
 
-- **Lois (sociotechs)** — `docs/chantiers/lois.md`. Déblocage progressif par
+- **Lois (sociotechs)** — `.claude/chantiers/lois.md`. Déblocage progressif par
   arbre (18 arbres ; Order + Faith = `Purpose`, Left + Right = `Politics`).
   Signer = état 2 + check(s) par **rang** dans l'arbre ; seuls
   modificateurs et effets (`FUN_1416fdbc0`) attendent l'item
@@ -544,7 +549,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   (`LoisDemanderReleve`) et item de test : plus de touche depuis le
   2026-11-04.
 
-- **Écran de connexion au menu principal** — `docs/chantiers/menu_connexion.md`.
+- **Écran de connexion au menu principal** — `.claude/chantiers/menu_connexion.md`.
   **VALIDÉ le 2026-10-31** (rendu, saisie, centrage par remise en page de
   la colonne, mot de passe masqué). Non vérifiés : casse conservée, valeur
   du mot de passe après effacements. **2026-11-04** : libellé d'état de la
@@ -553,7 +558,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   rafraîchissement `FUN_141b28f10`, **SCENARIO_BUTTON toujours actif,
   NEWGAME_BUTTON (lance A New Home) grisé**.
 
-- **Température** — `docs/chantiers/temperature.md` (tableaux complets des
+- **Température** — `.claude/chantiers/temperature.md` (tableaux complets des
   chronologies et des montées par scénario et difficulté). Décisions :
   Endless ignoré, montées de fin de partie exclues ; **plus de checks de
   montée** (décision de l'auteur, 2026-11-04 : frise masquée, impossibles
@@ -563,7 +568,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   haute du niveau. Pas encore vu : une vraie montée retirée en jeu, le
   rechargement. `ap_temperature_<GameId>.txt`.
 
-- **Actes et quêtes** — `docs/chantiers/quetes.md`. Fil principal de
+- **Actes et quêtes** — `.claude/chantiers/quetes.md`. Fil principal de
   chaque scénario relevé (F9 `[QUETE]`), export `outils\quetes_excel.py` →
   `quetes_par_scenario.xlsx` et `known_quests.h`. **Checks de fin de quête
   VALIDÉS le 2026-11-01** : succès d'une quête d'histoire du scénario
@@ -573,7 +578,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   `[ENDGAME] 004 Survive the storm` ; 005 LONDONERS ← dilemmes
   `![London]S: Londoners appear ORDER / FAITH`.
 
-- **Sites d'exploration** — `docs/chantiers/sites.md`. **Tirage fixe VALIDÉ
+- **Sites d'exploration** — `.claude/chantiers/sites.md`. **Tirage fixe VALIDÉ
   le 2026-11-01** (graine fixe + emplacements triés par position,
   `hkTirerTable`) : 211 sites sur la carte (`known_sites.h`, champ
   `surCarte`), cache `outils\carte_fixe.tsv`. Icône AP sur les marqueurs de
@@ -590,7 +595,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   « Destroy stationing expedition » n'est plus neutralisé que sur un site
   AP (`hkDetruireExpedition`, scooting.cpp) : non testés.
 
-- **Technos** — `docs/chantiers/technos.md`. Icônes posées seulement
+- **Technos** — `.claude/chantiers/technos.md`. Icônes posées seulement
   pendant la construction des nœuds (aucune écriture permanente),
   `TECH_IMAGE` forcée pour les technos AP (validé) ; cases de l'atlas
   #1179 corrigées : important (0,2), filler (0,3), done (0,4), trap (0,5),
@@ -609,7 +614,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   `AddResearchedTechnology`) ; effets et bleu à la **réception**, même si
   déjà recherchée (`OnItemReceived`) : non testé.
 
-- **Scénarios verrouillés** — `docs/chantiers/scenarios_verrouilles.md`.
+- **Scénarios verrouillés** — `.claude/chantiers/scenarios_verrouilles.md`.
   Verrou **VALIDÉ** (hook de `FUN_141283ea0`, 6 scénarios AP), déblocage par
   `ReceiveScenarioUnlock` ; items de test au démarrage : DEFAULT et
   REFUGEES (TEMPORAIRE, demande de l'auteur du 2026-11-03). Régression des
@@ -619,7 +624,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   tous les autres hooks** (à respecter pour tout nouveau hook). Texte
   `UNLOCK_SCENARIO_TEXT` effacé : **VALIDÉ le 2026-11-03**.
 
-- **Difficulté et victoire** — `docs/chantiers/victoire.md`. Détection de
+- **Difficulté et victoire** — `.claude/chantiers/victoire.md`. Détection de
   la difficulté conforme ; `ScenarioUsesGroup` / `ScenarioVictoryId` lisent
   `g_run.scenario` (non testé). Hook de `EndGame` (`FUN_141301490`).
   **2026-11-04 (apworld)** : plus de checks de victoire ni de modes
@@ -632,7 +637,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   Victoire / défaite de test (`VictoireDemanderTest`) : plus de touche
   depuis le 2026-11-04.
 
-- **Difficulté imposée** — `docs/chantiers/difficulte.md`. Décisions de
+- **Difficulté imposée** — `.claude/chantiers/difficulte.md`. Décisions de
   l'auteur (2026-11-03) : difficulté du YAML **imposée**, curseurs
   **figés**, Customize = toutes les lignes au niveau cible, 6 scénarios AP,
   **ironman libre**. `scenarios_ap.cpp` : hook de `FUN_141b2e8c0` (après
@@ -646,14 +651,14 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   (`goal_difficulty`, `DifficulteReglerCible`). **VALIDÉ le 2026-11-03** (Refugees : partie lancée en Hard,
   victoire → checks General Easy / Medium / Hard).
 
-- **Icône et couleur des messages** — `docs/chantiers/notifications.md`.
+- **Icône et couleur des messages** — `.claude/chantiers/notifications.md`.
   Tous les messages AP restent **ouvrables (type 1)** (exigence de
   l'auteur). L'icône du cercle se pose sur l'enfant **`icon`** (minuscules)
   de `static_left_notification_circle` après l'ajout (validé) ; la couleur
   orange est reposée par le preset juste après l'ajout →
   `CouleursMessagesTick` (bleu-vert) : non testé.
 
-- **apworld (Python, côté Archipelago)** — `docs/chantiers/apworld.md`.
+- **apworld (Python, côté Archipelago)** — `.claude/chantiers/apworld.md`.
   **Démarré le 2026-11-02.** C'est là que vit la logique (items, locations,
   règles, goal, options du YAML) ; le mod doit faire respecter en jeu les
   verrous qu'elle suppose. Fichier = référence AP + format de dictée +
@@ -668,7 +673,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   `apworld/outils/generer.py` → `data.py`, `apworld/ids.tsv` (ids
   **stables à vie**) et **`known_ap_ids.h`** (table des ids pour le mod).
 
-- **Réseau Archipelago** — `docs/chantiers/reseau.md`. **Démarré le
+- **Réseau Archipelago** — `.claude/chantiers/reseau.md`. **Démarré le
   2026-11-04** (demande de l'auteur : dernière couche). Classe `ReseauAP`
   (`reseau_ap.h/.cpp`), thread dédié, n'appelle que `archipelago.h`.
   WebSocket **fait main** sur Winsock, **TLS par Schannel** pour `wss://`
@@ -695,7 +700,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   gardé par réception (`ap_items_recus.txt` = `<id>\t<joueur>`) : popups
   « from <joueur> » (technos, lois, température, convois, pièges).
 
-- **Version Steam** — `docs/chantiers/steam.md`. **2026-11-07** : exe
+- **Version Steam** — `.claude/chantiers/steam.md`. **2026-11-07** : exe
   Steam = autre compilation (2025), pas de SteamStub. 184 adresses
   appariées (fonctions identiques via `.pdata`, références exactes aux
   globaux, cas douteux vérifiés dans Ghidra), `versions_jeu.cpp`, atlas par
@@ -704,7 +709,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   partie.** Bouton `CUSTOM_SCENARIO_BUTTON` (Steam, panneau `+0xF0`)
   toujours inactif (décision de l'auteur, 2026-11-07).
 
-- **Dilemmes d'exploration** — `docs/chantiers/dilemmes_exploration.md`.
+- **Dilemmes d'exploration** — `.claude/chantiers/dilemmes_exploration.md`.
   **2026-11-10** : les 49 dilemmes à plusieurs choix des 6 scénarios ont
   un seul choix « Archipelago Prevail » = effets d'un choix du jeu, sans
   modification. Règle de l'auteur : **gain maximal** (Escort > Send >
@@ -714,7 +719,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   (15 noms, table `0x141ede5f0`). `dilemmes_exploration.cpp` : **non
   testé**. `TOUS_DEBLOQUES_TEMPORAIRE` (scenarios_ap.cpp) encore à `true`.
 
-- **Options du YAML (retours des joueurs)** — `docs/chantiers/options.md`.
+- **Options du YAML (retours des joueurs)** — `.claude/chantiers/options.md`.
   **Goal partiel (2026-11-21, décisions de l'auteur)** : option
   `scenarios_to_win` (1 à 6, **défaut 1**), Y scénarios **quelconques** du
   slot à gagner ; Y > nombre de scénarios du slot = **erreur de
@@ -723,7 +728,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   `SendScenarioVictory` / `ApGoalAtteint` à `gagnes >= Y`. Générations
   testées ; **en jeu : non testé**.
 
-- **Historique de la session en jeu** — `docs/chantiers/historique.md`.
+- **Historique de la session en jeu** — `.claude/chantiers/historique.md`.
   **Démarré le 2026-11-21.** Décisions de l'auteur : bouton dans le HUD,
   **panneau dédié** (clones), items reçus + checks envoyés, toute la
   session, sans limite (défilement). Relevé `[HIST]` fait le 2026-11-21
@@ -742,7 +747,7 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   d'un nœud) à gauche de CLOSE ; livre : même ligne avec la plume
   `circle_inside` + « Signed » (construction du livre, non testé).
 
-- **Big map (nouveau scénario, hors Archipelago)** — `docs/chantiers/big_map.md`.
+- **Big map (nouveau scénario, hors Archipelago)** — `.claude/chantiers/big_map.md`.
   Branche `Big-map` (2026-11-04). Cartes = scènes binaires de `scenes.dat`
   faites à la main (aucune génération pour les villes). **Format de haut
   niveau décodé et validé hors jeu** (`outils\scenes.py`, 38 scènes lues
@@ -795,7 +800,7 @@ Ne pas y revenir.
 
 ## 10. Émission d'une notification (séquence exacte)
 
-Historique de l'icône et de la couleur : `docs/chantiers/notifications.md`.
+Historique de l'icône et de la couleur : `.claude/chantiers/notifications.md`.
 
 ```cpp
 typedef void (*CreerMsg_t)(uintptr_t, uintptr_t*, uintptr_t, uintptr_t);  // +0x167C580

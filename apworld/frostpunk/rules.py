@@ -1,4 +1,4 @@
-# rules.py -- Regles de logique (journal de docs/chantiers/apworld.md).
+# rules.py -- Regles de logique (journal de .claude/chantiers/apworld.md).
 #
 # Ce que l'apworld exige (le reste est porte par la region de la location) :
 #   - techno : Progressive Tree Tier x tiers ; tiers et region sont deja

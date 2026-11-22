@@ -1,6 +1,6 @@
 ﻿# Chantier : historique de la session AP en jeu
 
-Historique. Le résumé est dans CLAUDE.md (section 9).
+Historique. Le résumé est dans .claude/CLAUDE.md (section 9).
 
 ## Origine et décisions de l'auteur (2026-11-21)
 

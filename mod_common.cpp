@@ -2355,7 +2355,7 @@ void DiagAncrages()
     if (!PartiePrete()) { printf("[ANCRE] init pas terminee\n"); return; }
 
     // Les listes {entite, composant} a +0x2078 et la regle des globaux sont
-    // confirmees (2026-10-15, voir CLAUDE.md). Reste : gabarits et entrees.
+    // confirmees (2026-10-15, voir .claude/CLAUDE.md). Reste : gabarits et entrees.
 
     // --- A. composant de batiment -> gabarit ? ---
     printf("\n[ANCRE] ===== A. gabarits atteignables par les batiments =====\n");
@@ -2532,7 +2532,7 @@ void DiagSystemesGroupes()
     }
 
     // Proprietes du template obtenues le 2026-10-28 (FindClassRecord, 81 s) :
-    // consignees dans CLAUDE.md, recherche retiree.
+    // consignees dans .claude/CLAUDE.md, recherche retiree.
 
     // --- vtables des classes liees aux groupes (et aux expeditions, creees
     //     en cours de partie : leur constructeur mene a la creation

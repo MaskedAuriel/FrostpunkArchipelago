@@ -16,7 +16,7 @@
 #                                 le prochain id libre de sa plage
 #   known_ap_ids.h                table des ids pour le mod (NE PAS EDITER)
 #
-# Les decisions de logique sont dans docs\chantiers\apworld.md (journal) ;
+# Les decisions de logique sont dans .claude\chantiers\apworld.md (journal) ;
 # celles qui ne sont dans aucune table sont codees ICI, en tete de fichier.
 #
 # Usage : python apworld\outils\generer.py
@@ -31,7 +31,7 @@ APWORLD = os.path.dirname(ICI)
 MOD = os.path.dirname(APWORLD)
 
 # ---------------------------------------------------------------------------
-# Decisions de l'auteur (journal de docs\chantiers\apworld.md)
+# Decisions de l'auteur (journal de .claude\chantiers\apworld.md)
 # ---------------------------------------------------------------------------
 
 # Ordre fixe : il sert aussi d'index de scenario dans les ids.
@@ -246,7 +246,7 @@ SITES_SANS_CHECK = {("Reconquest", "NewLondon")}
 # Montees de temperature par scenario et difficulte (Q8 d), en NIVEAUX
 # (decision de l'auteur, 2026-11-03) : une montee de N niveaux = N checks
 # "Temperature Rise k" consecutifs et N items (+1 niveau chacun). Calcule
-# depuis docs\chantiers\temperature.md (montees de fin de partie exclues ;
+# depuis .claude\chantiers\temperature.md (montees de fin de partie exclues ;
 # A New Home : +1 de l'acte Storm preparation).
 DIFFICULTES = ["easy", "medium", "hard", "very_hard"]
 MONTEES = {

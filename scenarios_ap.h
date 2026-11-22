@@ -23,7 +23,7 @@ int ScenarioDebloquer(const char* nomInterne);
 // rejoues. Tout thread.
 void ScenariosReverrouiller();
 
-// Difficulte imposee (docs/chantiers/difficulte.md) : niveau general cible
+// Difficulte imposee (.claude/chantiers/difficulte.md) : niveau general cible
 // des parties AP (0 Easy .. 3 Very Hard), -1 si aucun. Reglee par le
 // slot_data (goal_difficulty) ; Hard avant (TEMPORAIRE).
 int DifficulteCible();

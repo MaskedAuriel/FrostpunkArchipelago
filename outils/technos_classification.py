@@ -3,7 +3,7 @@
 #   python outils\technos_classification.py
 # Ecrit, depuis la racine du projet :
 #   outils\technos_classification.tsv   table pour l'apworld
-#   docs\chantiers\technos.md           tableau lisible (entre les marqueurs)
+#   .claude\chantiers\technos.md           tableau lisible (entre les marqueurs)
 #
 # Regle (decision de l'auteur, 2026-11-04, remplace celle du 2026-11-03 qui
 # etait inversee) :
@@ -23,7 +23,7 @@ import os
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TABLE = os.path.join(RACINE, "outils", "technos_table.tsv")
 SORTIE_TSV = os.path.join(RACINE, "outils", "technos_classification.tsv")
-DOC = os.path.join(RACINE, "docs", "chantiers", "technos.md")
+DOC = os.path.join(RACINE, ".claude", "chantiers", "technos.md")
 DEBUT_DOC = "<!-- CLASSIFICATION ARBRES (generee par outils/technos_classification.py) -->"
 FIN_DOC = "<!-- FIN CLASSIFICATION ARBRES -->"
 

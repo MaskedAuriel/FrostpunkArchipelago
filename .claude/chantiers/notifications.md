@@ -1,7 +1,7 @@
 # Icone et couleur des messages (ex-section 10)
 
-> Historique detaille, copie mot pour mot depuis CLAUDE.md le 2026-11-02.
-> Le resume a jour est dans CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
+> Historique detaille, copie mot pour mot depuis .claude/CLAUDE.md le 2026-11-02.
+> Le resume a jour est dans .claude/CLAUDE.md ; les nouveaux resultats de test s'ajoutent ici.
 
 > **Icône et couleur des popups (2026-10-28, non testé)** —
 > `FrostpunkMessageEntry` (réflexion `FUN_1419e76e0`, 0xB8, entrées au pas
@@ -253,5 +253,5 @@
   dans Frostpunk.exe est journalisée (4 au plus) avec registres et adresses
   de retour probables (pile balayée, valeurs dans Frostpunk.exe / version.dll
   précédées d'un CALL). Déployé à 16:58 (Epic dev, Steam release).- **Cause trouvée** (même jour) : recherche d'une techno reçue sans les
-  ressources ; voir `docs/chantiers/technos.md` (2026-11-11). Le 1er crash
+  ressources ; voir `.claude/chantiers/technos.md` (2026-11-11). Le 1er crash
   (rechargement, `FUN_140e04980`) reste attribué aux contrôles périmés.

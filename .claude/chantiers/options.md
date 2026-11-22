@@ -1,6 +1,6 @@
 # Chantier : options du YAML issues des retours des joueurs
 
-Historique. Le résumé est dans CLAUDE.md (section 9).
+Historique. Le résumé est dans .claude/CLAUDE.md (section 9).
 
 ## Goal partiel (`scenarios_to_win`)
 
