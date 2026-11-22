@@ -39,7 +39,8 @@ $jeu      = "C:\Program Files\Epic Games\Frostpunk"
 $sortie   = Join-Path $PSScriptRoot "ap_icons_bulles.gz"
 $dat      = "$jeu\textures-s3.dat"
 $idx      = "$jeu\textures-s3.idx"
-$texconv  = "C:\Users\Simon\Desktop\Visual\Frost\DLL\Texconv\texconv.exe"
+# texconv (https://github.com/microsoft/DirectXTex/releases) : Texconv\ a la racine du projet
+$texconv  = Join-Path $PSScriptRoot "..\..\Texconv\texconv.exe"
 $sevenZip = "C:\Program Files\7-Zip\7z.exe"
 
 if (-not (Test-Path $Source)) { "Source introuvable : $Source"; return }

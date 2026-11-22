@@ -364,3 +364,24 @@ FodyWeavers.xsd
 
 # Graphe de connaissances graphify (regenere localement)
 graphify-out/
+
+# --- Projet : produits de compilation et fichiers de travail (hors depot) ---
+# DLL compilee : distribuee par les releases GitHub
+version.dll
+version.exp
+version.lib
+# Dossier intermediaire de MSBuild (Frostpun.<hash>)
+Frostpun.*/
+# Dossiers de travail de l'auteur
+Nouveau dossier/
+# Outil tiers (texconv, Microsoft) : a telecharger, voir textures\bulles\construire_ap_icons_bulles.ps1
+Texconv/
+# Exports regeneres par outils\quetes_excel.py
+quetes_par_scenario.xlsx
+# Atlas des bulles : image extraite du jeu (asset de 11 bit studios) et images
+# produites par composer_atlas.ps1 ; seules les icones (icones\) sont suivies
+textures/bulles/02350_origine.png
+textures/bulles/02350_modifie.png
+textures/bulles/controle.png
+textures/bulles/planche.png
+textures/bulles/emplacements.png

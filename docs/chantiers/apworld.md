@@ -1002,7 +1002,7 @@ d'ouverture de l'arbre**, condition des lois. Lignes finales `# exclues`.
   et 70 générations **solo** (options de l'auteur + chaque scénario seul en
   Hard) : toutes réussies.
 - `frostpunk.apworld` reconstruit dans
-  `C:\Users\Simon\Desktop\Archipelago\custom_worlds` (commit `54dc5b8`).
+  `Archipelago\custom_worlds` (commit `54dc5b8`).
 
 ### 2026-11-04 — Tests grandeur nature : description de la Sawmill = « RW Sawmill » (mod)
 
