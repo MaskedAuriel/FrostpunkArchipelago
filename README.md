@@ -45,7 +45,7 @@ resources, survivor convoys, traps) come from the multiworld.
 | `game\mods\*.gz` | Replacement icon atlases (Archipelago icons in the tech tree, laws book, map and dilemmas); `ap_buildings_steam.gz` is the Steam variant |
 | `archipelago\frostpunk.apworld` | The Archipelago world |
 | `archipelago\Frostpunk.yaml` | Example player settings |
-| `licenses\` | Licenses of MinHook and nlohmann/json |
+| `licenses\` | License of this project (MIT) and of MinHook and nlohmann/json |
 
 ## Installation
 
@@ -95,8 +95,7 @@ resources, survivor convoys, traps) come from the multiworld.
 
 1. Start Frostpunk from the Epic launcher or from Steam.
 2. On the **main menu**, fill in the Archipelago panel:
-   - **Server**: `archipelago.gg:12345` (or `host:port`). `wss://` is tried
-     first, then `ws://`; you can also type the prefix yourself.
+   - **Server**: `archipelago.gg:12345` (or `host:port`).
    - **Slot name**: the `name` of your YAML.
    - **Password**: if the room has one.
    Then click **Connect**. The connection status is shown under the button.
@@ -115,7 +114,6 @@ resources, survivor convoys, traps) come from the multiworld.
 - **Quests**: completing a story quest of the scenario.
 - **Exploration sites**: sites on the world map hold checks (map markers show
   an Archipelago icon). Scouts carry them back to the city.
-- **A New Home – Refugees Arrival 1–3**.
 
 ### Items
 
@@ -144,18 +142,31 @@ during a run.
 
 - Epic (2021 build) and Steam (2025 build) only. A game update changes the
   executable: the mod then disables itself until it is updated.
-- Steam: the main menu's custom scenario button is disabled (custom
-  scenarios are not part of Archipelago).
 - Endless mode and The Rifts are not supported.
-- The temperature forecast is hidden (temperature drops are items).
 - The game must be **unpaused** for received items, messages and convoys to
   be applied.
-- The centering of law names under exclusive law pairs is slightly off.
 
 ## Bug reports
 
-Send `Frostpunk\mods\logs\console.log` (rewritten at every game start, so
-copy it right after the problem) along with a description of what happened.
+Every game start writes its own log file in `Frostpunk\mods\logs\`, named
+after the date and time the game was started:
+`session_YYYY-MM-DD_HH-MM-SS.log`. The 20 most recent ones are kept.
+
+Send the log of the session where the problem happened (the most recent one
+if you have just restarted the game once) along with a description of what
+happened.
+
+## License
+
+The code of this project (the mod, the apworld, the tools and scripts) is
+released under the [MIT License](LICENSE).
+
+Not covered by this license:
+- the texture atlases (`*.gz` files in `game\mods\` and `textures\`): they are
+  modified versions of Frostpunk's own assets, which belong to 11 bit studios;
+- the third-party libraries, under their own licenses: MinHook (BSD 2-Clause,
+  `minhook\LICENSE.txt`) and JSON for Modern C++ (MIT, header of
+  `nlohmann\json.hpp`).
 
 ## Credits
 

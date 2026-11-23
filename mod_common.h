@@ -89,6 +89,8 @@ bool ToucheAppuyee(int vk);
 // Ligne de journal ecrite tout de suite sur disque (survit a un crash du jeu).
 // Definie dans version.cpp.
 void JournalImmediat(const char* fmt, ...);
+// Dossier des journaux (version.cpp) : logs\ du projet (dev) ou <jeu>\mods\logs (release).
+const wchar_t* DossierJournaux();
 int  ChercherValeurDansTas(uintptr_t valeur, uintptr_t* out, int maxOut, SIZE_T borne = 0x1000000);
 bool DebutObjet(uintptr_t adr, int reculMax, uintptr_t* debut, char* cls, int maxlen);
 

@@ -95,16 +95,26 @@ void CheckLocKeys()
 
 // --- Journal : copie de tout ce qui s'ecrit dans la console -----------------
 // stdout est redirige vers un tube ; un thread relais recopie chaque octet a la
-// fois dans la console et dans le fichier journal (ecrase a chaque lancement).
-// Build de release (/DAP_RELEASE, release\construire_release.ps1, 2026-11-07) :
-// pas de console, journal dans <dossier du jeu>\mods\logs\console.log, debug
-// neutralise. Build de dev : inchangee (journal dans le dossier du projet).
-#ifdef AP_RELEASE
+// fois dans la console et dans le fichier journal.
+// 2026-11-22 (demande de l'auteur, release 1.0) : UN FICHIER PAR LANCEMENT du
+// jeu, logs\session_AAAA-MM-JJ_HH-MM-SS.log ; les JOURNAL_GARDES plus recents
+// sont gardes, les plus anciens supprimes (remplace console.log +
+// console_precedent.log).
+//  - Release (/DAP_RELEASE) : pas de console, dossier <jeu>\mods\logs.
+//  - Dev : dossier logs\ du projet, deduit de __FILE__ (chemin complet grace a
+//    /FC dans compilationVersion.cpp.txt : aucun chemin en dur dans le code) ;
+//    logs\console.log reste un lien physique vers le journal de la session en
+//    cours, pour les outils (outils\*.py) et les sessions de Claude.
+static const int JOURNAL_GARDES = 20;
 static wchar_t JOURNAL_DOSSIER[MAX_PATH] = L"";
 static wchar_t JOURNAL_FICHIER[MAX_PATH] = L"";
-static void CheminsJournalRelease()
+
+const wchar_t* DossierJournaux() { return JOURNAL_DOSSIER; }
+
+static void CheminsJournal()
 {
 	wchar_t base[MAX_PATH] = {};
+#ifdef AP_RELEASE
 	GetModuleFileNameW(NULL, base, MAX_PATH);
 	for (int i = (int)wcslen(base) - 1; i >= 0; --i)
 		if (base[i] == L'\\') { base[i + 1] = 0; break; }
@@ -112,12 +122,49 @@ static void CheminsJournalRelease()
 	swprintf_s(mods, MAX_PATH, L"%smods", base);
 	CreateDirectoryW(mods, NULL);
 	swprintf_s(JOURNAL_DOSSIER, MAX_PATH, L"%smods\\logs", base);
-	swprintf_s(JOURNAL_FICHIER, MAX_PATH, L"%smods\\logs\\console.log", base);
-}
 #else
-static const wchar_t* JOURNAL_DOSSIER = L"C:\\Users\\Simon\\Desktop\\Visual\\Frost\\DLL\\logs";
-static const wchar_t* JOURNAL_FICHIER = L"C:\\Users\\Simon\\Desktop\\Visual\\Frost\\DLL\\logs\\console.log";
+	MultiByteToWideChar(CP_ACP, 0, __FILE__, -1, base, MAX_PATH);
+	for (int i = (int)wcslen(base) - 1; i >= 0; --i)
+		if (base[i] == L'\\' || base[i] == L'/') { base[i + 1] = 0; break; }
+	swprintf_s(JOURNAL_DOSSIER, MAX_PATH, L"%slogs", base);
 #endif
+	SYSTEMTIME t;
+	GetLocalTime(&t);
+	swprintf_s(JOURNAL_FICHIER, MAX_PATH, L"%s\\session_%04u-%02u-%02u_%02u-%02u-%02u.log", JOURNAL_DOSSIER,
+		t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
+}
+
+// Supprime les journaux de session au-dela des JOURNAL_GARDES plus recents
+// (noms horodates : l'ordre alphabetique est l'ordre chronologique), ainsi que
+// les anciens console_precedent.log (et console.log en release).
+static void PurgerAnciensJournaux()
+{
+	wchar_t motif[MAX_PATH], chemin[MAX_PATH];
+	swprintf_s(motif, MAX_PATH, L"%s\\session_*.log", JOURNAL_DOSSIER);
+	static wchar_t noms[256][64];
+	int n = 0;
+	WIN32_FIND_DATAW d;
+	HANDLE h = FindFirstFileW(motif, &d);
+	if (h != INVALID_HANDLE_VALUE) {
+		do {
+			if (n < 256 && wcslen(d.cFileName) < 64) wcscpy_s(noms[n++], 64, d.cFileName);
+		} while (FindNextFileW(h, &d));
+		FindClose(h);
+	}
+	qsort(noms, n, sizeof(noms[0]), [](const void* a, const void* b) {
+		return wcscmp((const wchar_t*)a, (const wchar_t*)b);
+	});
+	for (int i = 0; i < n - JOURNAL_GARDES; ++i) {
+		swprintf_s(chemin, MAX_PATH, L"%s\\%s", JOURNAL_DOSSIER, noms[i]);
+		DeleteFileW(chemin);
+	}
+	swprintf_s(chemin, MAX_PATH, L"%s\\console_precedent.log", JOURNAL_DOSSIER);
+	DeleteFileW(chemin);
+#ifdef AP_RELEASE
+	swprintf_s(chemin, MAX_PATH, L"%s\\console.log", JOURNAL_DOSSIER);
+	DeleteFileW(chemin);
+#endif
+}
 
 static HANDLE g_tubeLecture = NULL;
 static HANDLE g_consoleSortie = INVALID_HANDLE_VALUE;
@@ -143,16 +190,20 @@ static void DupliquerConsoleVersJournal()
 	// ecrivent dans le meme fichier depuis deux threads. Sans ce mode, ils
 	// partagent une position d'ecriture et peuvent s'ecraser (une ligne
 	// immediate a disparu ainsi le 2026-10-27).
-	// 2026-11-11 (demande de l'auteur : le journal d'une session Refugees a ete
-	// ecrase au redemarrage du jeu) : l'ancien journal est garde sous
-	// console_precedent.log (un seul niveau), au lieu d'etre efface.
-	wchar_t precedent[MAX_PATH];
-	swprintf_s(precedent, MAX_PATH, L"%s\\console_precedent.log", JOURNAL_DOSSIER);
-	if (!MoveFileExW(JOURNAL_FICHIER, precedent, MOVEFILE_REPLACE_EXISTING))
-		DeleteFileW(JOURNAL_FICHIER);
-	g_journal = CreateFileW(JOURNAL_FICHIER, FILE_APPEND_DATA | SYNCHRONIZE, FILE_SHARE_READ, NULL,
-		OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	// 2026-11-22 : un fichier par lancement (CheminsJournal), anciens purges.
+	PurgerAnciensJournaux();
+	g_journal = CreateFileW(JOURNAL_FICHIER, FILE_APPEND_DATA | SYNCHRONIZE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+		NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	DWORD erreurJournal = GetLastError();
+#ifndef AP_RELEASE
+	// Dev : logs\console.log = lien physique vers le journal de cette session.
+	if (g_journal != INVALID_HANDLE_VALUE) {
+		wchar_t lien[MAX_PATH];
+		swprintf_s(lien, MAX_PATH, L"%s\\console.log", JOURNAL_DOSSIER);
+		DeleteFileW(lien);
+		CreateHardLinkW(lien, JOURNAL_FICHIER, NULL);
+	}
+#endif
 
 	HANDLE ecriture = NULL;
 	if (!CreatePipe(&g_tubeLecture, &ecriture, NULL, 1 << 20)) {
@@ -365,13 +416,13 @@ DWORD WINAPI PayloadThread(LPVOID)
 	// Release : pas de fenetre console. stdout pointe sur NUL pour avoir un
 	// descripteur valide, que DupliquerConsoleVersJournal remplace par le tube
 	// (le relais n'ecrit alors que dans le journal : CONOUT$ est introuvable).
-	CheminsJournalRelease();
 	freopen_s(&f, "NUL", "w", stdout);
 #else
 	AllocConsole();
 	freopen_s(&f, "CONOUT$", "w", stdout);
 #endif
 	setvbuf(stdout, NULL, _IONBF, 0);
+	CheminsJournal();
 	DupliquerConsoleVersJournal();
 	g_consolePrete = true;
 

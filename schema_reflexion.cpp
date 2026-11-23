@@ -38,14 +38,8 @@
 #include "mod_common.h"
 #include "schema_reflexion.h"
 
-// Release (AP_RELEASE) : le releve n'est pas appele (version.cpp) ; chemin
-// relatif pour ne pas embarquer le dossier du projet dans la DLL publiee.
-#ifdef AP_RELEASE
-static const char* SCHEMA_FICHIER = "mods\\logs\\schema_reflexion.tsv";
-#else
-static const char* SCHEMA_FICHIER =
-    "C:\\Users\\Simon\\Desktop\\Visual\\Frost\\DLL\\logs\\schema_reflexion.tsv";
-#endif
+// Release (AP_RELEASE) : le releve n'est pas appele (version.cpp). Fichier dans
+// le dossier des journaux (DossierJournaux, version.cpp : aucun chemin en dur).
 
 static uintptr_t g_base = 0;
 
@@ -224,8 +218,10 @@ static void EcrireClasse(FILE* f, uintptr_t cl, int i)
 static int EcrireSchema(uintptr_t tableau, int n)
 {
     FILE* f = nullptr;
-    if (fopen_s(&f, SCHEMA_FICHIER, "w") != 0 || !f) {
-        printf("[SCHEMA] ecriture impossible : %s\n", SCHEMA_FICHIER);
+    wchar_t chemin[MAX_PATH];
+    swprintf_s(chemin, MAX_PATH, L"%s\\schema_reflexion.tsv", DossierJournaux());
+    if (_wfopen_s(&f, chemin, L"w") != 0 || !f) {
+        printf("[SCHEMA] ecriture impossible : %ls\n", chemin);
         return -1;
     }
     fprintf(f, "# C classe index taille alignement versionnee drapeaux parent nb_props hierarchie(racine>fin)\n");

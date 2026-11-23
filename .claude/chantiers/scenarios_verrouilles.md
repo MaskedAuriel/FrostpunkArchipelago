@@ -106,3 +106,20 @@
   **avant** les autres hooks au démarrage. Texte « Unlocked on day 20… »
   absent des boutons verrouillés : effacement de `UNLOCK_SCENARIO_TEXT`
   **VALIDÉ** par l'auteur le même jour.
+
+## 2026-11-22 — DLC non possédé : le jeu bloque lui-même (décompilés Epic)
+
+Question de l'auteur : le mod marche-t-il sans Last Autumn / On the Edge ?
+- `FrostpunkScenarioEntry +0x263` = lien vers la définition du DLC requis ;
+  `FUN_1412fa480(DAT_142c3d758, dlc)` = DLC actif (FrostpunkDLCSystem).
+- `FUN_141b2d910` (clic sur un scénario de la liste) : DLC requis mais inactif
+  -> pas de conseil « Maybe play Main Scenario », ouverture directe des détails.
+- `FUN_141b2e5d0` (sélection dans les détails) -> `FUN_141b2eab0(panneau,
+  dlcManquant)` : boutons de lancement (`+0x110`, `+0x120`) **masqués**, bouton
+  de la boutique (`+0x118`) affiché, presets `LOCKED`.
+- `FUN_141b27c30` (chargement d'une sauvegarde) : DLC requis par la sauvegarde
+  inactif -> message « Unavailable DLC » (`FUN_141b28320`).
+- Le hook du mod (`FUN_141283ea0`, liste `+0x20`) ne touche à rien de tout ça :
+  un scénario de DLC débloqué par Archipelago reste **impossible à lancer** sans
+  le DLC. Seul risque : un YAML qui inclut un DLC non possédé (checks
+  inaccessibles pour le multiworld). Non testé en jeu sans DLC.

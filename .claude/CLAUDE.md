@@ -90,7 +90,7 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
   (même commande + `/DAP_RELEASE /DNDEBUG`, sortie dans `release\build\`) →
   `release\Frostpunk_Archipelago_<version>.zip` (DLL, 4 atlas copiés du
   `mods\` du jeu, apworld, YAML d'exemple, README anglais, licences).
-  `AP_RELEASE` : pas de console, journal dans `<jeu>\mods\logs\console.log`,
+  `AP_RELEASE` : pas de console, journal dans `<jeu>\mods\logs\session_<date>.log`,
   F11 / relevé `[REFUG]` / `SchemaReflexionTick` / `RapportSubstitutions`
   neutralisés, icônes de test remplacées par `icon_vanilla`. `release\` est
   dans le `.gitignore`. Une seule DLL pour **Epic et Steam** (+
@@ -111,7 +111,7 @@ parce qu'il est difficile : l'auteur a refusé cette proposition à chaque fois.
 
 | Fichier | Rôle |
 |---|---|
-| `version.cpp` | Point d'entrée : proxy des 17 exports de `version.dll`, `DllMain`, `PayloadThread` (console + journal `logs\console.log`, le précédent gardé en `console_precedent.log` depuis le 2026-11-11, `MH_Initialize`, hooks des constructeurs de templates **en premier**, puis les autres hooks), boucle principale : **plus de touches de debug** (F3–F9 et F11 retirées le 2026-11-04 à la demande de l'auteur ; jamais F10 = menu des options) + tick d'une seconde (`EnsureTechSelf`, `EnsureResSelf`, **`PartieTick`**, `CaptureRunState`, `ScootingTick`, `SurveillerArbreTechno`) |
+| `version.cpp` | Point d'entrée : proxy des 17 exports de `version.dll`, `DllMain`, `PayloadThread` (console + un journal par lancement `logs\session_<date>.log` (20 gardés ; en dev `logs\console.log` = lien physique vers celui en cours, dossier déduit de `__FILE__` + `/FC`, 2026-11-22), `MH_Initialize`, hooks des constructeurs de templates **en premier**, puis les autres hooks), boucle principale : **plus de touches de debug** (F3–F9 et F11 retirées le 2026-11-04 à la demande de l'auteur ; jamais F10 = menu des options) + tick d'une seconde (`EnsureTechSelf`, `EnsureResSelf`, **`PartieTick`**, `CaptureRunState`, `ScootingTick`, `SurveillerArbreTechno`) |
 | `mod_common.h/.cpp` | Socle : `SafeRead`/`SafeWrite`, `GetClassNameFP` (RTTI), ancrages (`SystemeParId`, `ComposantsDuSysteme`, `IdSysteme::*`), captures (`ListeCaptures`), **cycle de vie de la partie** (`PartieTick`, `PartiePrete`, `PartieGeneration`, `PartieSelection`, `PartieRechargee`, garde-fou sur la liste des sites), **diagnostics d'ancrage** (`DiagAncrages`, `DiagGabaritsPrecoces`, `ChercherValeurDansTas`, `ChercherReferencesVtable`…), balayage mémoire historique (`CollectObjectsByClasses`), résolution des self par globaux, dumps (PropertyManager, vtables), hooks d'E/S (`NtReadFile`/`NtWriteFile`), allocateur du moteur, `ToucheAppuyee`, offsets (`GameOffsets`, `SetupOffsets`, `TECH_*`, `RES_*`), macro `CHRONO` |
 | `hooks_loc.h/.cpp` | `hkTranslate` : cœur du détournement de **tous** les textes affichés |
 | `hooks_research.h/.cpp` | Les 4 hooks de recherche : `CanResearch`, `ResearchStart`, `ResearchComplete` (location check), `CancelResearch` |
