@@ -2,7 +2,7 @@
 
 Version 1.0.0 (mod and apworld).
 
-A mod that turns **Frostpunk** into an [Archipelago](https://archipelago.gg)
+A mod that allow **Frostpunk** to be used in an [Archipelago](https://archipelago.gg)
 multiworld randomizer game. Technologies, laws, quests and exploration sites
 become checks; the items they unlock (technology tiers, laws, scenarios,
 resources, survivor convoys, traps) come from the multiworld.
