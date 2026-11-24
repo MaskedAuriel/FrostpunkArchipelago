@@ -170,7 +170,7 @@ Not covered by this license:
 
 ## Credits
 
-- Mod and apworld: Simon, with Claude (Anthropic) as coding assistant (see
+- Mod and apworld: Simon Corté (Masked), with Claude as coding assistant (see
   [Use of AI](#use-of-ai)).
 - [MinHook](https://github.com/TsudaKageyu/minhook) — Tsuda Kageyu (BSD 2-Clause).
 - [JSON for Modern C++](https://github.com/nlohmann/json) — Niels Lohmann (MIT).
