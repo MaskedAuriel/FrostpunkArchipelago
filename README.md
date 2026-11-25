@@ -1,6 +1,6 @@
 # Frostpunk Archipelago
 
-Version 1.0.0 (mod and apworld).
+Version 1.0.1 (mod and apworld). What changed: [CHANGELOG](CHANGELOG.md).
 
 A mod that allow **Frostpunk** to be used in an [Archipelago](https://archipelago.gg)
 multiworld randomizer game. Technologies, laws, quests and exploration sites
