@@ -83,8 +83,9 @@ resources, survivor convoys, traps) come from the multiworld.
 
 | Option | Values | Effect |
 |---|---|---|
-| `scenarios` | list among `A New Home`, `The Arks`, `The Refugees`, `Fall of Winterhome`, `The Last Autumn`, `On the Edge` | Scenarios in the multiworld. Empty (default): only the starting scenario. |
-| `starting_scenario` | `a_new_home` … `on_the_edge`, `random_included` | Scenario unlocked from the start. Added to `scenarios` if missing (with a warning at generation) |
+| `scenarios` | list among `A New Home`, `The Arks`, `The Refugees`, `Fall of Winterhome`, `The Last Autumn`, `On the Edge` | Scenarios in the multiworld. Empty (default): only the starting scenario. With `random_scenarios`, the pool to draw from (empty: all six) |
+| `random_scenarios` | 0–6 (default 0) | 0: the slot holds the scenarios of `scenarios`. N: the slot holds N scenarios **drawn at random** from `scenarios` (all six if empty). A fixed starting scenario is always included and counts in N |
+| `starting_scenario` | `a_new_home` … `on_the_edge`, `random_included` | Scenario unlocked from the start (**one** scenario: weighting several values picks one, it adds no other). Added to `scenarios` if missing (with a warning at generation). `random_included`: one of the slot's scenarios |
 | `scenarios_to_win` | 1–6 (default 1) | **Goal: win this many scenarios of the slot** (any of them, starting scenario included). Generation fails if it is larger than the number of scenarios of the slot |
 | `goal_difficulty` | `easy`, `medium`, `hard`, `very_hard` | Difficulty forced by the mod in every scenario |
 | `trap_percentage` | 0–100 | Share of filler items replaced by traps |

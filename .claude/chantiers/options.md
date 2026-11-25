@@ -54,3 +54,38 @@ Reprise le 2026-11-21 (session « historique, légende, goal partiel »).
   1), 6 scénarios / 3, 6 / 6, deux joueurs 2 / 2 : 12/12 OK (3 graines
   chacune), spoiler `Scenarios To Win` conforme ; 2 scénarios / 3 :
   `OptionError` attendue. **En jeu : non testé.**
+
+## Scénarios tirés au hasard (`random_scenarios`)
+
+### Origine (2026-11-25)
+
+Un joueur voulait « gagner 2 scénarios au hasard ». Son YAML (modèle
+généré par Archipelago) : `scenarios: []`, `starting_scenario` pondéré à 50
+sur les six, `scenarios_to_win: 2` → `OptionError` à chaque génération. Il
+pensait que pondérer `starting_scenario` ajoutait plusieurs scénarios : le
+tirage n'en retient qu'**un**, et la liste vide ne garde que le départ.
+Aucun YAML ne permettait un tirage de N scénarios exactement (essais avec
+l'exe 0.6.7) : `scenarios: random` = sous-ensemble de taille aléatoire (3
+échecs sur 12 graines avec `scenarios_to_win: 2`) ; `["random"]`,
+`random-2` et paires pondérées (`"A New Home, The Arks": 1`, l'OptionSet lit
+le dictionnaire comme une liste de clés) = YAML invalide.
+
+### Décision de l'auteur (2026-11-25)
+
+Ajouter l'option, sans conflit avec la sélection manuelle.
+
+### apworld
+
+- `RandomScenarios` (`random_scenarios`, `Range` 0 à 6, défaut 0 = liste
+  telle quelle). N > 0 : slot = N scénarios tirés dans `scenarios` (les six
+  si vide) ; `scenarios` devient la **réserve** du tirage. Départ fixe :
+  toujours dans le slot, compte dans N (ajouté avec l'avertissement s'il
+  est hors de la liste). `random_included` : départ tiré parmi les
+  scénarios retenus. Réserve trop courte = `OptionError`.
+- Message d'erreur de `scenarios_to_win` complété (lister plus de
+  scénarios, ou `random_scenarios` ; pondérer le départ n'en prend qu'un).
+- Docstrings de `Scenarios` et `StartingScenario` (modèle de YAML généré)
+  précisées. Spoiler : lignes `Slot Scenarios` et `Slot Starting Scenario`
+  (`write_spoiler_header`), les options seules ne montrant pas le tirage.
+- `slot_data` inchangé (liste des scénarios retenus) : **rien côté DLL**.
+- `release\Frostpunk.yaml` et `README.md` : option documentée (anglais).

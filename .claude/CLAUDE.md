@@ -727,6 +727,10 @@ thread du mod, à surveiller : `OnItemReceived` (F7) et le tick de scouting.
   `ApReglerScenariosGoal(…, aGagner)` (absent = tous : anciennes graines),
   `SendScenarioVictory` / `ApGoalAtteint` à `gagnes >= Y`. Générations
   testées ; **en jeu : non testé**.
+  **Scénarios au hasard (2026-11-25, demande de l'auteur)** : option
+  `random_scenarios` (0 à 6, défaut 0) : N scénarios tirés dans
+  `scenarios` (réserve ; les six si vide), départ fixe inclus et compté ;
+  apworld seul, `slot_data` inchangé.
 
 - **Historique de la session en jeu** — `.claude/chantiers/historique.md`.
   **Démarré le 2026-11-21.** Décisions de l'auteur : bouton dans le HUD,

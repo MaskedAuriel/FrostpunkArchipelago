@@ -11,7 +11,9 @@ NOMS_SCENARIOS = [s["nom"] for s in SCENARIOS]
 
 class Scenarios(OptionSet):
     """Scenarios included in the multiworld. The goal is to win Scenarios To Win
-    of them. Empty (default): only the starting scenario."""
+    of them. Empty (default): only the starting scenario.
+    If Random Scenarios is not 0, this list is instead the pool the random
+    scenarios are drawn from (empty: all six)."""
     display_name = "Scenarios"
     valid_keys = NOMS_SCENARIOS
     # Vide par defaut (decision de l'auteur, 2026-11-15) : l'ancien defaut
@@ -21,10 +23,11 @@ class Scenarios(OptionSet):
 
 
 class StartingScenario(Choice):
-    """Scenario unlocked from the start. If it is not in Scenarios, it is added
-    (a warning is printed at generation).
-    random_included: a random scenario among Scenarios (among all scenarios if
-    Scenarios is empty)."""
+    """Scenario unlocked from the start. Only ONE scenario: weighting several
+    values picks one of them, it does not add the others to the slot (use
+    Scenarios or Random Scenarios for that). If it is not in Scenarios, it is
+    added (a warning is printed at generation).
+    random_included: a random scenario among the scenarios of the slot."""
     display_name = "Starting Scenario"
     option_a_new_home = 0
     option_the_arks = 1
@@ -45,6 +48,20 @@ class ScenariosToWin(Range):
     range_start = 1
     range_end = 6
     default = 1
+
+
+class RandomScenarios(Range):
+    """0 (default): the slot contains the scenarios listed in Scenarios.
+    1-6: the slot contains this many scenarios drawn at random from Scenarios
+    (from all six if Scenarios is empty). A starting scenario that is not
+    random_included is always in the slot and counts in this number.
+    Generation fails if there are not enough scenarios to draw from."""
+    display_name = "Random Scenarios"
+    # Demande de l'auteur (2026-11-25) apres le retour d'un joueur qui voulait
+    # « 2 scenarios au hasard » : aucun YAML ne le permettait.
+    range_start = 0
+    range_end = 6
+    default = 0
 
 
 class GoalDifficulty(Choice):
@@ -84,6 +101,7 @@ class DeliveryHours(Range):
 @dataclass
 class FrostpunkOptions(PerGameCommonOptions):
     scenarios: Scenarios
+    random_scenarios: RandomScenarios
     starting_scenario: StartingScenario
     scenarios_to_win: ScenariosToWin
     goal_difficulty: GoalDifficulty

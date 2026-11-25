@@ -31,16 +31,38 @@ class FrostpunkWorld(World):
 
     def generate_early(self):
         noms = set(self.options.scenarios.value)
-        if self.options.starting_scenario == self.options.starting_scenario.option_random_included:
-            depart = self.random.choice(sorted(noms) if noms else NOMS_SCENARIOS)
-        else:
-            depart = NOMS_SCENARIOS[self.options.starting_scenario.value]
+        depart_au_hasard = (self.options.starting_scenario ==
+                            self.options.starting_scenario.option_random_included)
+        depart = None if depart_au_hasard else NOMS_SCENARIOS[self.options.starting_scenario.value]
         # Depart hors d'une liste non vide : ajoute, avec un avertissement
         # (2026-11-15 : le slot contient alors un scenario de plus a gagner).
-        if noms and depart not in noms:
+        if depart and noms and depart not in noms:
             logging.warning(
                 f"Frostpunk ({self.player_name}): starting scenario '{depart}' is not in "
                 f"scenarios {sorted(noms)}; it is added to the slot.")
+
+        # Scenarios tires au hasard (2026-11-25) : random_scenarios = N > 0 ->
+        # N scenarios tires dans « scenarios » (les six si vide) ; un depart
+        # fixe est toujours dans le slot et compte dans N.
+        n_hasard = self.options.random_scenarios.value
+        if n_hasard:
+            reserve = [n for n in NOMS_SCENARIOS if not noms or n in noms]
+            tires = {depart} if depart else set()
+            candidats = [n for n in reserve if n not in tires]
+            manque = n_hasard - len(tires)
+            if manque > len(candidats):
+                raise OptionError(
+                    f"Frostpunk ({self.player_name}): random_scenarios is {n_hasard} but there "
+                    f"are only {len(candidats) + len(tires)} scenario(s) to draw from "
+                    f"({', '.join(sorted(set(candidats) | tires))}). Add scenarios to "
+                    f"'scenarios' (or leave it empty to draw from all six), or lower "
+                    f"random_scenarios.")
+            tires.update(self.random.sample(candidats, manque))
+            noms = tires
+            logging.info(f"Frostpunk ({self.player_name}): random scenarios: {sorted(noms)}")
+
+        if depart_au_hasard:
+            depart = self.random.choice(sorted(noms) if noms else NOMS_SCENARIOS)
         noms.add(depart)
         self.depart = depart
         self.scenarios = [s for s in SCENARIOS if s["nom"] in noms]
@@ -52,7 +74,15 @@ class FrostpunkWorld(World):
             raise OptionError(
                 f"Frostpunk ({self.player_name}): scenarios_to_win is {self.a_gagner} but the "
                 f"slot only has {len(self.scenarios)} scenario(s) "
-                f"({', '.join(s['nom'] for s in self.scenarios)}).")
+                f"({', '.join(s['nom'] for s in self.scenarios)}). List more scenarios in "
+                f"'scenarios', or set random_scenarios to draw them at random. Weighting "
+                f"starting_scenario only picks ONE scenario.")
+
+    def write_spoiler_header(self, spoiler_handle):
+        # Scenarios reellement retenus (tirage de random_scenarios / random_included)
+        spoiler_handle.write(f"Slot Scenarios:                  "
+                             f"{', '.join(s['nom'] for s in self.scenarios)}\n")
+        spoiler_handle.write(f"Slot Starting Scenario:          {self.depart}\n")
 
     def create_regions(self):
         self.victoires = creer_regions(self, self.scenarios, self.difficulte,
